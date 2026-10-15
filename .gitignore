@@ -63,3 +63,6 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# Local credentials and private notes
+/auvrion-biosphere.txt
