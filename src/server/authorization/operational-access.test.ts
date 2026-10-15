@@ -2,6 +2,8 @@ import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { adminCapabilityGrants, roleGrants } from "@/server/db/grants-schema";
+
 const mocks = vi.hoisted(() => {
   const limit = vi.fn();
   const where = vi.fn((_expression: unknown) => ({ limit }));
@@ -120,5 +122,43 @@ describe("checkOperationalAccess", () => {
       status: 403,
       reason: "MFA_ASSURANCE_REQUIRED",
     });
+  });
+
+  it("does not treat admin capabilities as operational roles", async () => {
+    mocks.limit.mockResolvedValue([]);
+
+    const result = await checkOperationalAccess("org-1", "supervisor");
+
+    // Operational authorization must read the role grants table.
+    expect(mocks.from).toHaveBeenCalledWith(roleGrants);
+
+    // Administrative capabilities must not substitute operational roles.
+    expect(mocks.from).not.toHaveBeenCalledWith(adminCapabilityGrants);
+
+    expect(result).toEqual({
+      allowed: false,
+      status: 403,
+      reason: "ROLE_OR_SCOPE_DENIED",
+    });
+  });
+
+  it("rejects unverified email before querying role grants", async () => {
+    mocks.checkAccountAccess.mockResolvedValue({
+      allowed: false,
+      status: 403,
+      reason: "EMAIL_NOT_VERIFIED",
+    });
+
+    const result = await checkOperationalAccess("org-1", "ranger");
+
+    expect(result).toEqual({
+      allowed: false,
+      status: 403,
+      reason: "EMAIL_NOT_VERIFIED",
+    });
+
+    // Role grant queries must not run when account validation fails.
+    expect(mocks.getDb).not.toHaveBeenCalled();
+    expect(mocks.select).not.toHaveBeenCalled();
   });
 });
