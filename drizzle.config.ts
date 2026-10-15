@@ -25,7 +25,10 @@ if (
 
 export default defineConfig({
   dialect: "postgresql",
-  schema: "./src/server/db/auth-schema.ts",
+  schema: [
+    "./src/server/db/auth-schema.ts",
+    "./src/server/db/access-schema.ts",
+  ],
   out: "./drizzle",
   dbCredentials: {
     url: databaseUrl,
