@@ -8,6 +8,20 @@
       "when": 1792060443602,
       "tag": "0000_auth_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792065357489,
+      "tag": "0001_access_lifecycle_initial",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792065865825,
+      "tag": "0002_explicit_access_grants",
+      "breakpoints": true
     }
   ]
 }
