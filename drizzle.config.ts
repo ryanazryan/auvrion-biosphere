@@ -28,6 +28,7 @@ export default defineConfig({
   schema: [
     "./src/server/db/auth-schema.ts",
     "./src/server/db/access-schema.ts",
+    "./src/server/db/grants-schema.ts",
   ],
   out: "./drizzle",
   dbCredentials: {
