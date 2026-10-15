@@ -1,4 +1,3 @@
-
 export const runtime = "nodejs";
 
 export function GET() {
