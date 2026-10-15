@@ -1,0 +1,12 @@
+
+# Automatically detect text and binary files
+* text=auto
+
+# Consistent LF line endings for source code
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mts text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.css text eol=lf
