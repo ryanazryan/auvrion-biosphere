@@ -40,7 +40,7 @@ jobs:
       - name: Run unit tests
         run: npm test
 
-       - name: Generate temporary CI auth secret
+      - name: Generate temporary CI auth secret
         run: echo "BETTER_AUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
       - name: Build production application
