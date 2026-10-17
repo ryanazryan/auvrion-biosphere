@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AccessApplicationProgress } from "@/components/auth/access-application-progress";
 import { AccessStatusRecoveryForm } from "@/components/auth/access-status-recovery-form";
 import { AuthLayout } from "@/components/auth/auth-layout";
 import {
@@ -32,7 +33,7 @@ const MESSAGES = {
   email_verified:
     "Email Anda telah diverifikasi. Administrator belum menyelesaikan peninjauan. Anda dapat kembali ke halaman ini nanti.",
   approved:
-    "Permohonan telah disetujui. Akun belum otomatis aktif; Anda masih menunggu provisioning dan instruksi aktivasi.",
+    "Permohonan Anda telah disetujui. Saat ini akun dan hak akses sedang disiapkan. Anda akan menerima instruksi aktivasi melalui email ketika akun siap.",
   rejected:
     "Permohonan tidak disetujui. Silakan menghubungi administrator organisasi untuk bantuan.",
 } as const;
@@ -95,6 +96,7 @@ export default async function ApplicantStatusPage() {
       <p className="mt-3 text-sm leading-6 text-muted">
         Halo, {record.applicantName}. {MESSAGES[record.status]}
       </p>
+      <AccessApplicationProgress status={record.status} />
       <dl className="mt-6 space-y-3 rounded-lg border border-line bg-surface p-4 text-sm">
         <div>
           <dt className="text-xs text-muted">Email pengajuan</dt>
