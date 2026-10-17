@@ -1,7 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, useRef, useState } from "react";
-
 import { authClient } from "@/lib/auth-client";
 import { AuthHeader } from "./auth-layout";
 
@@ -146,8 +146,15 @@ export function LoginForm() {
       </form>
 
       <p className="mt-8 border-t border-line pt-5 text-[13px] leading-6 text-muted">
-        Belum memiliki akses? Hubungi administrator organisasi Anda. Peran
-        operasional diberikan secara eksplisit, bukan dipilih sendiri.
+        Belum memiliki akses?{" "}
+        <Link
+          href="/request-access"
+          className="font-medium text-brand transition-colors hover:text-brand-hover hover:underline"
+        >
+          Ajukan akses
+        </Link>
+        . Peran operasional diberikan secara eksplisit oleh administrator, bukan
+        dipilih sendiri.
       </p>
     </>
   );

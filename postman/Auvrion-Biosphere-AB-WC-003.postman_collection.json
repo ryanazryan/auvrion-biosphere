@@ -1,0 +1,811 @@
+{
+  "info": {
+    "_postman_id": "8e56f98d-d529-4f57-a00c-003bc30f9a1d",
+    "name": "Auvrion Biosphere — AB-WC-003 Review Pack",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "25259515",
+    "_collection_link": "https://go.postman.co/collection/25259515-ead331b9-638d-4926-baaf-b92f8b110f93?source=collection_link",
+    "description": "AB-WC-003 local development: Better Auth MFA, Request Access, Admin Decision. Existing MFA requests preserved. Some email verification requests intentionally marked DRAFT until handler body/method confirmed from local source. Never export cookies, passwords, TOTP seeds or live tokens."
+  },
+  "item": [
+    {
+      "name": "01 — Authentication & MFA (existing)",
+      "item": [
+        {
+          "name": "Admin Sign In",
+          "protocolProfileBehavior": {
+            "disableCookies": false
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"{{adminEmail}}\",\r\n  \"password\": \"{{adminPassword}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-in/email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "sign-in", "email"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Admin Session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-session"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unauthenticated MFA Enrollment",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"password\": \"invalid-test\",\r\n  \"method\": \"totp\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/two-factor/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "two-factor", "enable"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Operator Sign In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"{{operatorEmail}}\",\r\n  \"password\": \"{{operatorPassword}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-in/email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "sign-in", "email"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Operator Session",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-session"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unapproved Operator Enrollment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"password\": \"invalid-test\",\r\n  \"method\": \"totp\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/two-factor/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "two-factor", "enable"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Enable Admin TOTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"password\": \"{{adminPassword}}\",\r\n  \"method\": \"totp\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/two-factor/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "two-factor", "enable"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Admin TOTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"code\": \"{{totpCode}}\",\r\n  \"trustDevice\": false\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/two-factor/verify-totp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "two-factor", "verify-totp"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Session Before MFA",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-session"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Login TOTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"code\": \"{{totpCode}}\",\r\n  \"trustDevice\": false\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/two-factor/verify-totp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "two-factor", "verify-totp"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Session After MFA",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-session"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Sign Out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "sign-out"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Session After Sign Out",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-session"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 — Applicant Request Access",
+      "description": "Run submit (public) then verify email through Mailpit at http://localhost:8025. The draft requests are NOT authoritative without checking the local route contract.",
+      "item": [
+        {
+          "name": "Request Access — Submit Application",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicantName\": \"Demo Reviewer WC003\",\n  \"email\": \"{{applicantEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/access-applications",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "access-applications"]
+            },
+            "description": "Confirmed route path from local `src/app/api/access-applications/route.ts`; expected POST from prior working demo, but validate request/response schema against local handler before relying on exact assertion. Public API; no role/status fields accepted."
+          },
+          "response": []
+        },
+        {
+          "name": "DRAFT — Request Email Verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/access-applications/email-verification/request",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "access-applications",
+                "email-verification",
+                "request"
+              ]
+            },
+            "description": "DRAFT CONTRACT — path confirmed from local files. Method, body, CSRF, response shape MUST be checked in src/app/api/access-applications/email-verification/request/route.ts before executing. Do not mark as verified.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{applicantEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DRAFT — Confirm Email Verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/access-applications/email-verification/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "access-applications",
+                "email-verification",
+                "confirm"
+              ]
+            },
+            "description": "DRAFT CONTRACT — path confirmed; method/body token field not verified from local handler. Token is single-use and sensitive; store temporary token in local-only Postman variables, never commit/export it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{emailVerificationToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 — Admin Decision (requires approved active admin + TOTP)",
+      "description": "Uses session cookies from Better Auth sign-in + completed TOTP challenge. Do not send manually forged cookies. Local-only route is gated by NODE_ENV=development and ENABLE_LOCAL_ACCESS_REQUESTS=YES. Approve does not activate user.",
+      "item": [
+        {
+          "name": "Approve — Valid Email Verified Application",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/access-applications/{{applicationId}}/decision",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "admin",
+                "access-applications",
+                "{{applicationId}}",
+                "decision"
+              ]
+            },
+            "description": "Success depends on admin session MFA assurance and reviewable application. Expected JSON status approved; rerunning same application should return 409; use fresh applicationId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approved\",\n  \"reason\": \"Reviewed email ownership and application.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"No server failure\", function () { pm.expect(pm.response.code).to.be.below(500); });",
+                  "if (pm.response.code === 200) { pm.test(\"Approved\", function () { pm.expect(pm.response.json().status).to.eql(\"approved\"); }); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject — Separate Valid Application",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/access-applications/{{applicationId}}/decision",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "admin",
+                "access-applications",
+                "{{applicationId}}",
+                "decision"
+              ]
+            },
+            "description": "Use a DIFFERENT email_verified applicationId from approval; never reject an already approved application.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"rejected\",\n  \"reason\": \"Incomplete applicant information for development review.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative — Rejection Without Reason (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/access-applications/{{applicationId}}/decision",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "admin",
+                "access-applications",
+                "{{applicationId}}",
+                "decision"
+              ]
+            },
+            "description": "Expected 400 REJECTION_REASON_REQUIRED, regardless of valid admin session. Does not mutate database.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"rejected\",\n  \"reason\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative — Unauthenticated Decision",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/access-applications/{{applicationId}}/decision",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "admin",
+                "access-applications",
+                "{{applicationId}}",
+                "decision"
+              ]
+            },
+            "description": "Disable cookies for this request; expected 401/403 after app/environment validation and when origin correct. Use dedicated Postman session to avoid cookie leakage.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approved\",\n  \"reason\": \"Unauthenticated negative test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Unauthorized request rejected\", function () { pm.expect([401,403]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative — Wrong Origin (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://invalid-origin.test"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/access-applications/{{applicationId}}/decision",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "admin",
+                "access-applications",
+                "{{applicationId}}",
+                "decision"
+              ]
+            },
+            "description": "Explicit invalid Origin should be rejected before checking session. Do not include real secrets.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approved\",\n  \"reason\": \"Wrong-origin negative test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 — Health & Identity",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Health route exists; precise JSON response not asserted."
+          },
+          "response": []
+        },
+        {
+          "name": "Database Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health/database",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health", "database"]
+            },
+            "description": "Dev-only health route may have access restrictions; do not expose in production."
+          },
+          "response": []
+        },
+        {
+          "name": "Current User (/api/me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me"]
+            },
+            "description": "Requires authenticated session. Does not imply admin access."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "applicantEmail",
+      "value": "reviewer-wc003@auvriondev.test",
+      "type": "string"
+    },
+    {
+      "key": "applicationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "emailVerificationToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminEmail",
+      "value": "dev-admin@example.test",
+      "type": "string"
+    },
+    {
+      "key": "adminPassword",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "operatorEmail",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "operatorPassword",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "totpCode",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

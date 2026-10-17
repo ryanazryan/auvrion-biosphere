@@ -1,7 +1,8 @@
 import "server-only";
 
 import { and, eq, isNull } from "drizzle-orm";
-
+import { hasMfaSessionAssurance } from "@/server/auth/mfa-assurance-store";
+import { getCurrentSession } from "@/server/auth/session";
 import { checkAccountAccess } from "@/server/authorization/account-access";
 import { getDb } from "@/server/db";
 import { adminCapabilityGrants } from "@/server/db/grants-schema";
@@ -34,7 +35,9 @@ export async function checkAdminAccess(
   const db = getDb();
 
   const [grant] = await db
-    .select({ id: adminCapabilityGrants.id })
+    .select({
+      id: adminCapabilityGrants.id,
+    })
     .from(adminCapabilityGrants)
     .where(
       and(
@@ -54,11 +57,35 @@ export async function checkAdminAccess(
     };
   }
 
-  // Administrative capability alone does not
-  // satisfy the MFA assurance requirement.
+  // Read the current Better Auth server session.
+  // Client-side redirects or TOTP flags are not proof.
+  const currentSession = await getCurrentSession();
+
+  if (!currentSession || currentSession.user.id !== account.userId) {
+    return {
+      allowed: false,
+      status: 403,
+      reason: "MFA_ASSURANCE_REQUIRED",
+    };
+  }
+
+  const assured = await hasMfaSessionAssurance({
+    sessionId: currentSession.session.id,
+    userId: account.userId,
+  });
+
+  if (!assured) {
+    return {
+      allowed: false,
+      status: 403,
+      reason: "MFA_ASSURANCE_REQUIRED",
+    };
+  }
+
   return {
-    allowed: false,
-    status: 403,
-    reason: "MFA_ASSURANCE_REQUIRED",
+    allowed: true,
+    userId: account.userId,
+    organizationId,
+    capability: requiredCapability,
   };
 }

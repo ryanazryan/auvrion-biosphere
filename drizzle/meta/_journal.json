@@ -29,6 +29,27 @@
       "when": 1792171824046,
       "tag": "0003_auth_two_factor",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792226722129,
+      "tag": "0004_sturdy_boom_boom",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792235376923,
+      "tag": "0005_green_manta",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792251739449,
+      "tag": "0006_watery_gressill",
+      "breakpoints": true
     }
   ]
 }
