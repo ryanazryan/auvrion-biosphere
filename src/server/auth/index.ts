@@ -4,8 +4,9 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { twoFactor } from "better-auth/plugins";
-import { isTotpEnrollmentEligible } from "@/server/auth/enrollment-eligibility";
 
+import { isTotpEnrollmentEligible } from "@/server/auth/enrollment-eligibility";
+import { recordMfaSessionAssurance } from "@/server/auth/mfa-assurance-store";
 import { getDb } from "@/server/db";
 import * as authSchema from "@/server/db/auth-schema";
 
@@ -19,6 +20,15 @@ if (!secret || secret.length < 32) {
 if (!baseURL) {
   throw new Error("BETTER_AUTH_URL is not configured");
 }
+
+/**
+ * Request-local eligibility for recording login MFA.
+ *
+ * A TOTP verification for an existing authenticated session
+ * (e.g. authenticator enrollment) must never be mistaken for
+ * an MFA-gated login.
+ */
+const mfaLoginCandidates = new WeakSet<object>();
 
 export const auth = betterAuth({
   appName: "Auvrion Biosphere",
@@ -53,8 +63,8 @@ export const auth = betterAuth({
 
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
-      // Belum mengizinkan penghapusan faktor atau pembuatan
-      // ulang recovery codes sebelum workflow keamanan selesai.
+      // V1 does not allow disabling factors or independently
+      // regenerating recovery credentials.
       const blockedPaths = new Set([
         "/two-factor/disable",
         "/two-factor/generate-backup-codes",
@@ -68,7 +78,6 @@ export const auth = betterAuth({
         });
       }
 
-      // V1 tidak mendukung bypass MFA lewat trusted devices.
       if (
         ctx.path === "/two-factor/verify-totp" ||
         ctx.path === "/two-factor/verify-backup-code" ||
@@ -83,7 +92,27 @@ export const auth = betterAuth({
         }
       }
 
-      // Pemeriksaan eligibility khusus untuk memulai enrollment.
+      // Only a TOTP sign-in, not TOTP enrollment,
+      // may receive login MFA assurance.
+      if (ctx.path === "/two-factor/verify-totp") {
+        if (!ctx.headers) {
+          throw new APIError("UNAUTHORIZED", {
+            message: "UNAUTHENTICATED",
+          });
+        }
+
+        const existingSession = await auth.api.getSession({
+          headers: ctx.headers,
+        });
+
+        if (!existingSession) {
+          mfaLoginCandidates.add(ctx.context);
+        }
+
+        return;
+      }
+
+      // Eligibility only controls the BEGINNING of enrollment.
       if (ctx.path !== "/two-factor/enable") {
         return;
       }
@@ -118,6 +147,45 @@ export const auth = betterAuth({
           message: "MFA_ENROLLMENT_NOT_ALLOWED",
         });
       }
+    }),
+
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/two-factor/verify-totp") {
+        return;
+      }
+
+      // Reject enrollment / verification within an
+      // already-authenticated session.
+      if (!mfaLoginCandidates.has(ctx.context)) {
+        return;
+      }
+
+      mfaLoginCandidates.delete(ctx.context);
+
+      // Better Auth issues a new session after successful
+      // MFA-gated sign-in.
+      const newSession = ctx.context.newSession;
+
+      if (!newSession) {
+        return;
+      }
+
+      const issuedSession = newSession.session;
+      const issuedUser = newSession.user;
+
+      if (
+        !issuedSession?.id ||
+        !issuedUser?.id ||
+        issuedSession.userId !== issuedUser.id
+      ) {
+        return;
+      }
+
+      await recordMfaSessionAssurance({
+        sessionId: issuedSession.id,
+        userId: issuedUser.id,
+        sessionExpiresAt: issuedSession.expiresAt,
+      });
     }),
   },
 });
