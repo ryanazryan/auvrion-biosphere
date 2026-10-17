@@ -1,0 +1,347 @@
+{
+  "info": {
+    "_postman_id": "ead331b9-638d-4926-baaf-b92f8b110f93",
+    "name": "Auvrion Biosphere",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "25259515",
+    "_collection_link": "https://go.postman.co/collection/25259515-ead331b9-638d-4926-baaf-b92f8b110f93?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Authentication & Security Tests",
+      "item": [
+        {
+          "name": "Admin Sign In",
+          "protocolProfileBehavior": {
+            "disableCookies": false
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"{{adminEmail}}\",\r\n  \"password\": \"{{adminPassword}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-in/email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "sign-in", "email"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Admin Session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-session"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unauthenticated MFA Enrollment",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"password\": \"invalid-test\",\r\n  \"method\": \"totp\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/two-factor/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "two-factor", "enable"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Operator Sign In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"{{operatorEmail}}\",\r\n  \"password\": \"{{operatorPassword}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-in/email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "sign-in", "email"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Operator Session",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-session"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unapproved Operator Enrollment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"password\": \"invalid-test\",\r\n  \"method\": \"totp\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/two-factor/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "two-factor", "enable"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Enable Admin TOTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"password\": \"{{adminPassword}}\",\r\n  \"method\": \"totp\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/two-factor/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "two-factor", "enable"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Admin TOTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"code\": \"{{totpCode}}\",\r\n  \"trustDevice\": false\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/two-factor/verify-totp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "two-factor", "verify-totp"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Session Before MFA",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-session"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Login TOTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"code\": \"{{totpCode}}\",\r\n  \"trustDevice\": false\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/two-factor/verify-totp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "two-factor", "verify-totp"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Session After MFA",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-session"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Sign Out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "sign-out"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Session After Sign Out",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-session"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
