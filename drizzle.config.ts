@@ -33,6 +33,7 @@ export default defineConfig({
     "./src/server/db/access-decision-audit-schema.ts",
     "./src/server/db/grants-schema.ts",
     "./src/server/db/mfa-assurance-schema.ts",
+    "./src/server/db/access-status-schema.ts",
   ],
 
   out: "./drizzle",
