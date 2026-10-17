@@ -57,6 +57,13 @@
       "when": 1792265051976,
       "tag": "0007_slim_sheva_callister",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792267011997,
+      "tag": "0008_wise_onslaught",
+      "breakpoints": true
     }
   ]
 }

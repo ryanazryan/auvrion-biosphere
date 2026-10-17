@@ -91,10 +91,10 @@ export function AccessEmailVerificationForm({ token }: Props) {
         </div>
 
         <Link
-          href="/login"
-          className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-md border border-line-strong bg-surface px-4 text-sm font-medium text-fg hover:bg-bg"
+          href="/request-access/status"
+          className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-md bg-brand px-4 text-sm font-medium text-white hover:bg-brand-hover"
         >
-          Kembali ke halaman masuk
+          Lihat perkembangan permohonan
         </Link>
       </>
     );
