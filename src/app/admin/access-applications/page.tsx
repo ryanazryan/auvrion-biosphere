@@ -5,7 +5,8 @@ import { AccessApplicationsWorkspace } from "@/components/admin/access-applicati
 import { getCurrentSession } from "@/server/auth/session";
 import { checkAdminAccess } from "@/server/authorization/admin-access";
 import { getDb } from "@/server/db";
-import { accessApplications } from "@/server/db/access-schema";
+import { accessApplications, userAccess } from "@/server/db/access-schema";
+import { accountActivationInvites } from "@/server/db/account-activation-schema";
 import { organizations } from "@/server/db/grants-schema";
 
 export const dynamic = "force-dynamic";
@@ -75,8 +76,15 @@ export default async function AdminAccessApplicationsPage() {
       createdAt: accessApplications.createdAt,
       reviewedAt: accessApplications.reviewedAt,
       decisionReason: accessApplications.decisionReason,
+      accessStatus: userAccess.status,
+      invitationUsedAt: accountActivationInvites.usedAt,
     })
     .from(accessApplications)
+    .leftJoin(userAccess, eq(userAccess.applicationId, accessApplications.id))
+    .leftJoin(
+      accountActivationInvites,
+      eq(accountActivationInvites.applicationId, accessApplications.id),
+    )
     .orderBy(desc(accessApplications.createdAt))
     .limit(200);
 
@@ -96,6 +104,8 @@ export default async function AdminAccessApplicationsPage() {
         createdAt: record.createdAt.toISOString(),
         reviewedAt: record.reviewedAt?.toISOString() ?? null,
         decisionReason: record.decisionReason,
+        accessStatus: record.accessStatus,
+        invitationUsedAt: record.invitationUsedAt?.toISOString() ?? null,
       }))}
     />
   );

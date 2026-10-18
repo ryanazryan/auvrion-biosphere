@@ -64,6 +64,13 @@
       "when": 1792267011997,
       "tag": "0008_wise_onslaught",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792297420345,
+      "tag": "0009_stormy_spencer_smythe",
+      "breakpoints": true
     }
   ]
 }

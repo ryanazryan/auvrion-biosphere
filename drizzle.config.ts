@@ -35,6 +35,7 @@ export default defineConfig({
     "./src/server/db/mfa-assurance-schema.ts",
     "./src/server/db/access-status-schema.ts",
     "./src/server/db/access-decision-notification-schema.ts",
+    "./src/server/db/account-activation-schema.ts",
   ],
 
   out: "./drizzle",

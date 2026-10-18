@@ -13,6 +13,7 @@ type StepState =
 
 type Props = {
   status: ApplicationProgressStatus;
+  activated?: boolean;
 };
 
 const STEPS = [
@@ -38,6 +39,9 @@ function stepLabel(
     if (index === 2 && status === "approved") {
       return "Disetujui";
     }
+    if (index === 3 && status === "approved") {
+      return "Akun aktif";
+    }
 
     return "Selesai";
   }
@@ -61,8 +65,14 @@ function stepLabel(
   return "Belum dimulai";
 }
 
-export function AccessApplicationProgress({ status }: Props) {
-  const states = PROGRESS[status];
+export function AccessApplicationProgress({
+  status,
+  activated = false,
+}: Props) {
+  const states: StepState[] =
+    status === "approved" && activated
+      ? ["complete", "complete", "complete", "complete"]
+      : PROGRESS[status];
 
   return (
     <section className="mt-6" aria-labelledby="application-progress-heading">
@@ -127,13 +137,18 @@ export function AccessApplicationProgress({ status }: Props) {
         })}
       </ol>
 
-      {status === "approved" && (
+      {status === "approved" && !activated && (
         <p className="mt-3 text-xs leading-5 text-muted">
           Permohonan Anda telah disetujui. Akun sedang disiapkan. Instruksi
           aktivasi akan dikirim secara terpisah saat tersedia.
         </p>
       )}
 
+      {status === "approved" && activated && (
+        <p className="mt-3 text-xs leading-5 text-brand">
+          Akun sudah aktif dan dapat masuk menggunakan TOTP.
+        </p>
+      )}
       {status === "rejected" && (
         <p className="mt-3 text-xs leading-5 text-muted">
           Permohonan tidak disetujui sehingga proses aktivasi akun tidak

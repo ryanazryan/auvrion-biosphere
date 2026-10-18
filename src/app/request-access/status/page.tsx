@@ -12,7 +12,7 @@ import {
   verifyStatusSessionValue,
 } from "@/server/access-status/tokens";
 import { getDb } from "@/server/db";
-import { accessApplications } from "@/server/db/access-schema";
+import { accessApplications, userAccess } from "@/server/db/access-schema";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -75,6 +75,15 @@ export default async function ApplicantStatusPage() {
         .limit(1)
     : [];
 
+  const [accountState] =
+    record && applicationId
+      ? await getDb()
+          .select({ status: userAccess.status })
+          .from(userAccess)
+          .where(eq(userAccess.applicationId, applicationId))
+          .limit(1)
+      : [];
+
   if (!record)
     return (
       <AuthLayout>
@@ -94,9 +103,15 @@ export default async function ApplicantStatusPage() {
         {LABELS[record.status]}
       </h1>
       <p className="mt-3 text-sm leading-6 text-muted">
-        Halo, {record.applicantName}. {MESSAGES[record.status]}
+        Halo, {record.applicantName}.{" "}
+        {record.status === "approved" && accountState?.status === "active"
+          ? "Akun sudah aktif. Masuk menggunakan kata sandi dan TOTP."
+          : MESSAGES[record.status]}
       </p>
-      <AccessApplicationProgress status={record.status} />
+      <AccessApplicationProgress
+        status={record.status}
+        activated={accountState?.status === "active"}
+      />
       <dl className="mt-6 space-y-3 rounded-lg border border-line bg-surface p-4 text-sm">
         <div>
           <dt className="text-xs text-muted">Email pengajuan</dt>

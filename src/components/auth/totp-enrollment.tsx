@@ -103,9 +103,9 @@ export function TotpEnrollment() {
         </AuthHeader>
         <a
           className="text-sm font-medium text-brand hover:underline"
-          href="/login"
+          href="/account/activation/finalize"
         >
-          Kembali ke halaman masuk
+          Lanjutkan aktivasi / buka aplikasi
         </a>
       </>
     );

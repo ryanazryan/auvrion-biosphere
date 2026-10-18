@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SearchIcon } from "@/components/admin/admin-icons";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { ApplicationDecisionActions } from "@/components/admin/application-decision-actions";
+import { ApplicationProvisioningActions } from "@/components/admin/application-provisioning-actions";
 
 type Status = "submitted" | "email_verified" | "approved" | "rejected";
 
@@ -17,6 +18,8 @@ type Application = {
   emailVerifiedAt: string | null;
   reviewedAt: string | null;
   decisionReason: string | null;
+  accessStatus: "pending_activation" | "active" | "disabled" | null;
+  invitationUsedAt: string | null;
 };
 
 const STATUS: Record<Status, { label: string; cls: string }> = {
@@ -446,13 +449,24 @@ export function AccessApplicationsWorkspace({
             </dl>
 
             {/* Real PostgreSQL approval/rejection actions */}
-            <ApplicationDecisionActions
-              key={selected.id}
-              applicationId={selected.id}
-              applicantName={selected.applicantName}
-              status={selected.status}
-              onClose={() => setSelected(null)}
-            />
+            {selected.status === "approved" ? (
+              <ApplicationProvisioningActions
+                key={`provision-${selected.id}`}
+                applicationId={selected.id}
+                applicantName={selected.applicantName}
+                accessStatus={selected.accessStatus}
+                invitationUsedAt={selected.invitationUsedAt}
+                onClose={() => setSelected(null)}
+              />
+            ) : (
+              <ApplicationDecisionActions
+                key={selected.id}
+                applicationId={selected.id}
+                applicantName={selected.applicantName}
+                status={selected.status}
+                onClose={() => setSelected(null)}
+              />
+            )}
           </section>
         </div>
       )}
