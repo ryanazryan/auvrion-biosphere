@@ -95,7 +95,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div className="grid min-h-dvh min-w-0 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
       {/* Desktop branding panel */}
-      <aside className="relative hidden overflow-hidden bg-ink text-white lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-12">
+      <aside className="relative hidden overflow-hidden bg-ink text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:self-start lg:flex-col lg:justify-between lg:p-10 xl:p-12">
         <Contours />
 
         <div className="relative">
@@ -107,7 +107,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             Platform AIoT &amp; WebGIS
           </p>
 
-          <p className="mt-3 text-xl leading-8 font-medium tracking-[-0.01em] text-white/95">
+          <p className="mt-3 text-2xl leading-snug font-semibold tracking-[-0.015em] text-white/95 xl:text-[28px] xl:leading-[1.35]">
             Pemantauan keanekaragaman hayati dan risiko kebakaran hutan, dengan
             keputusan akhir tetap di tangan manusia.
           </p>
@@ -143,6 +143,9 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           sm:px-8
           lg:px-12
           lg:py-6
+          lg:h-dvh
+          lg:overflow-y-auto
+          lg:overscroll-contain
         "
       >
         {/* Mobile branding header */}

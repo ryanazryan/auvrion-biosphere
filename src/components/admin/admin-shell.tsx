@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 
 import {
@@ -24,7 +25,11 @@ const NAV_ITEMS = [
     icon: InboxIcon,
     href: "/admin/access-applications",
   },
-  { label: "Pengguna & Hak Akses", icon: UsersIcon, soon: true },
+  {
+    label: "Pengguna & Hak Akses",
+    icon: UsersIcon,
+    href: "/admin/access-users",
+  },
   { label: "Keamanan", icon: ShieldIcon, soon: true },
   { label: "Pengaturan", icon: GearIcon, soon: true },
 ] as const;
@@ -132,6 +137,8 @@ function Navigation({
   collapsed: boolean;
   onNavigate?: () => void;
 }) {
+  const pathname = usePathname();
+
   return (
     <nav
       aria-label="Navigasi administrasi"
@@ -140,8 +147,7 @@ function Navigation({
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
 
-        const active =
-          "href" in item && item.href === "/admin/access-applications";
+        const active = "href" in item && item.href === pathname;
 
         const itemClass = `flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-[13px] [&_svg]:size-4.5 [&_svg]:shrink-0 ${
           collapsed ? "lg:justify-center lg:px-0" : ""
@@ -253,6 +259,12 @@ export function AdminShell({
   organizationName: string;
   adminEmail: string;
 }) {
+  const pathname = usePathname();
+  const currentPageLabel =
+    pathname === "/admin/access-users"
+      ? "Pengguna & Hak Akses"
+      : "Permohonan Akses";
+
   const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -379,7 +391,7 @@ export function AdminShell({
             >
               Administration <span aria-hidden="true">/</span>{" "}
               <span aria-current="page" className="font-medium text-fg">
-                Permohonan Akses
+                {currentPageLabel}
               </span>
             </nav>
 
@@ -457,8 +469,8 @@ export function AdminShell({
         {/* Development environment notice */}
         <div className="border-b border-warn/30 bg-warn-50">
           <p className="px-4 py-2 text-xs leading-5 text-warn min-[360px]:px-5 sm:px-6">
-            Workspace development dengan data PostgreSQL lokal. Aksi keputusan
-            belum diaktifkan sampai API dan audit siap.
+            Workspace development dengan data PostgreSQL lokal. Tindakan
+            administratif memerlukan izin server dan sesi MFA yang sah.
           </p>
         </div>
 
