@@ -32,7 +32,8 @@ export async function sendApplicantStatusLink(params: {
   }
 
   const link = new URL("/request-access/status/verify", base);
-  link.searchParams.set("token", params.token);
+  // Avoid exposing recovery bearer token in HTTP request target.
+  link.hash = `token=${encodeURIComponent(params.token)}`;
 
   const transporter = nodemailer.createTransport({
     host: smtpHost,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AuthHeader } from "./auth-layout";
 
@@ -12,14 +12,37 @@ type Props = {
 };
 
 export function AccessEmailVerificationForm({ token }: Props) {
-  const [state, setState] = useState<VerificationState>(
-    token ? "idle" : "invalid",
+  const [state, setState] = useState<VerificationState>("idle");
+  const [verificationToken, setVerificationToken] = useState<string | null>(
+    null,
   );
-
   const submitting = useRef(false);
+  // React Strict Mode replays effects in development. Preserve the first
+  // captured token after clearing the URL instead of reading it twice.
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    // Supports new fragment links and previously-issued query links.
+    const fragment = new URLSearchParams(window.location.hash.slice(1)).get(
+      "token",
+    );
+    const candidate = fragment ?? token;
+    const valid = candidate && /^[A-Za-z0-9_-]{43}$/.test(candidate);
+    setVerificationToken(valid ? candidate : null);
+    setState(valid ? "idle" : "invalid");
+    if (fragment !== null || token !== null) {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        "/request-access/verify",
+      );
+    }
+  }, [token]);
 
   async function handleVerify() {
-    if (!token || submitting.current) {
+    if (!verificationToken || submitting.current) {
       return;
     }
 
@@ -36,7 +59,7 @@ export function AccessEmailVerificationForm({ token }: Props) {
           },
           credentials: "same-origin",
           cache: "no-store",
-          body: JSON.stringify({ token }),
+          body: JSON.stringify({ token: verificationToken }),
         },
       );
 
@@ -116,12 +139,23 @@ export function AccessEmailVerificationForm({ token }: Props) {
           jika permohonan Anda masih menunggu verifikasi email.
         </div>
 
+        <p className="mt-4 text-sm leading-6 text-muted">
+          Jika email Anda sebelumnya sudah diverifikasi atau permohonan sudah
+          disetujui, tautan verifikasi lama memang tidak bisa dipakai ulang.
+          Gunakan pemulihan status untuk memeriksa tahap berikutnya.
+        </p>
+        <Link
+          href="/request-access/status"
+          className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-md bg-brand px-4 text-sm font-medium text-white hover:bg-brand-hover"
+        >
+          Cek status permohonan
+        </Link>
         <Link
           href="/request-access/resend"
           referrerPolicy="no-referrer"
-          className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-md bg-brand px-4 text-sm font-medium text-white hover:bg-brand-hover"
+          className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-md border border-line-strong px-4 text-sm font-medium text-brand hover:bg-bg"
         >
-          Minta tautan baru
+          Kirim ulang verifikasi (hanya jika belum terverifikasi)
         </Link>
       </>
     );

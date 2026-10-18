@@ -37,6 +37,7 @@ type Fixture = {
   status: AccessStatus;
   activeRoles: OperationalRole[];
   failAuditInsert: boolean;
+  latestAuditId: string | null;
 };
 type Operation = {
   kind: "update" | "insert" | "delete";
@@ -60,6 +61,7 @@ const defaultFixture: Fixture = {
   status: "active",
   activeRoles: ["ranger"],
   failAuditInsert: false,
+  latestAuditId: null,
 };
 
 function setupDatabase(override: Partial<Fixture> = {}) {
@@ -83,6 +85,9 @@ function setupDatabase(override: Partial<Fixture> = {}) {
             },
           ]
         : [];
+    }
+    if (table === accessLifecycleAudit) {
+      return fixture.latestAuditId ? [{ id: fixture.latestAuditId }] : [];
     }
     if (table === roleGrants) {
       if (limit === 1) {
@@ -136,6 +141,12 @@ function setupDatabase(override: Partial<Fixture> = {}) {
             };
             return result;
           },
+          orderBy: (..._order: unknown[]) => ({
+            limit: (count: number) => {
+              selections.push({ table, predicate, limit: count });
+              return Promise.resolve(rowsFor(table, count));
+            },
+          }),
         }),
       }),
     };
@@ -190,7 +201,11 @@ function makeRequest(
         "Content-Type": "application/json",
         Origin: origin,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(
+        body && typeof body === "object" && !Array.isArray(body)
+          ? { expectedLifecycleAuditId: null, ...body }
+          : body,
+      ),
     },
   );
 }
@@ -371,6 +386,16 @@ describe("POST /api/admin/access-users/:id/lifecycle (mocked DB contract)", () =
     expect(await getCode(response)).toBe(
       "MULTIPLE_ACTIVE_ROLES_REVIEW_REQUIRED",
     );
+    assertNoMutation(fixture);
+  });
+
+  it("rejects stale admin snapshot without mutating sessions, grants or audit", async () => {
+    const fixture = setupDatabase({
+      latestAuditId: "33333333-3333-4333-8333-333333333333",
+    });
+    const response = await invoke();
+    expect(response.status).toBe(409);
+    expect(await getCode(response)).toBe("STALE_LIFECYCLE_STATE");
     assertNoMutation(fixture);
   });
 

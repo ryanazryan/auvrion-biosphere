@@ -218,6 +218,9 @@ export async function POST(request: Request) {
       });
     }
   } catch {
+    console.error(
+      "Local applicant email dispatch failed; delivery not confirmed",
+    );
     // Do not disclose whether a particular address
     // exists or whether a token was issued.
     // Operational telemetry is required before production.
