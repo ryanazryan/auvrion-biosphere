@@ -1,4 +1,4 @@
-import { desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { AccessUsersWorkspace } from "@/components/admin/access-users-workspace";
 import { getCurrentSession } from "@/server/auth/session";
@@ -100,6 +100,34 @@ export default async function AdminAccessUsersPage() {
     }
   }
 
+  // Snapshot the latest lifecycle audit ID per user for stale-form protection.
+  // Scoped to the current organization and users visible on this page.
+  const visibleIds = Array.from(userMap.keys());
+  const auditRevisions = visibleIds.length
+    ? await db
+        .select({
+          id: accessLifecycleAudit.id,
+          targetUserId: accessLifecycleAudit.targetUserId,
+        })
+        .from(accessLifecycleAudit)
+        .where(
+          and(
+            eq(accessLifecycleAudit.organizationId, organization.id),
+            inArray(accessLifecycleAudit.targetUserId, visibleIds),
+          ),
+        )
+        .orderBy(
+          desc(accessLifecycleAudit.createdAt),
+          desc(accessLifecycleAudit.id),
+        )
+    : [];
+  const latestAuditByUser = new Map<string, string>();
+  for (const entry of auditRevisions) {
+    if (!latestAuditByUser.has(entry.targetUserId)) {
+      latestAuditByUser.set(entry.targetUserId, entry.id);
+    }
+  }
+
   const privileged = await db
     .select({ userId: adminCapabilityGrants.userId })
     .from(adminCapabilityGrants)
@@ -125,6 +153,7 @@ export default async function AdminAccessUsersPage() {
       organizationName={organization.name}
       users={Array.from(userMap.values()).map((entry) => ({
         ...entry,
+        lastLifecycleAuditId: latestAuditByUser.get(entry.userId) ?? null,
         protectedAdmin: protectedIds.has(entry.userId),
       }))}
       audit={events.map((event) => ({

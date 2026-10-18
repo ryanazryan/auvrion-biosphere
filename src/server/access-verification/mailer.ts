@@ -45,7 +45,8 @@ export async function sendAccessVerificationEmail({
 
   const verificationUrl = new URL("/request-access/verify", parsedBaseUrl);
 
-  verificationUrl.searchParams.set("token", token);
+  // Fragment is not part of the HTTP request target or server access logs.
+  verificationUrl.hash = `token=${encodeURIComponent(token)}`;
 
   const transporter = nodemailer.createTransport({
     host: smtpHost,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AuthHeader } from "./auth-layout";
 
@@ -9,9 +9,33 @@ export function AccessStatusLinkConfirm({ token }: { token: string | null }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const submitting = useRef(false);
+  const [recoveryToken, setRecoveryToken] = useState<string | null>(null);
+  const [tokenLoaded, setTokenLoaded] = useState(false);
+  // React Strict Mode can replay effects after the fragment was sanitized.
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    const fragment = new URLSearchParams(window.location.hash.slice(1)).get(
+      "token",
+    );
+    const candidate = fragment ?? token;
+    setRecoveryToken(
+      candidate && /^[A-Za-z0-9_-]{43}$/.test(candidate) ? candidate : null,
+    );
+    setTokenLoaded(true);
+    if (fragment !== null || token !== null) {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        "/request-access/status/verify",
+      );
+    }
+  }, [token]);
 
   async function confirm() {
-    if (!token || submitting.current) return;
+    if (!recoveryToken || submitting.current) return;
     submitting.current = true;
     setBusy(true);
     setError("");
@@ -21,7 +45,7 @@ export function AccessStatusLinkConfirm({ token }: { token: string | null }) {
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         cache: "no-store",
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token: recoveryToken }),
       });
       if (!response.ok) {
         setError(
@@ -51,9 +75,12 @@ export function AccessStatusLinkConfirm({ token }: { token: string | null }) {
         Konfirmasi tautan yang dikirim ke email Anda untuk membuka perkembangan
         permohonan.
       </AuthHeader>
-      {!token ? (
+      {!tokenLoaded ? (
+        <p className="text-sm text-muted">Memeriksa tautan…</p>
+      ) : !recoveryToken ? (
         <p role="alert" className="rounded-lg bg-warn-50 p-4 text-sm text-warn">
-          Tautan tidak lengkap.
+          Tautan tidak lengkap, sudah digunakan, atau tidak valid. Minta tautan
+          baru.
         </p>
       ) : (
         <button

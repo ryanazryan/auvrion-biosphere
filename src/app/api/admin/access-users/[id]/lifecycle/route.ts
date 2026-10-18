@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import {
   isLifecycleAction,
   isLifecycleReason,
@@ -28,6 +28,9 @@ type Context = { params: Promise<{ id: string }> };
 type Outcome =
   | { ok: true; outcome: string }
   | { ok: false; code: string; status: number };
+
+const AUDIT_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const invalid = (code: string, status = 409): Outcome => ({
   ok: false,
@@ -57,7 +60,11 @@ export async function POST(request: Request, context: Context) {
   if (
     !isLifecycleAction(input.action) ||
     !isLifecycleReason(input.reason) ||
-    (input.action !== "set_role" && input.role !== undefined)
+    (input.action !== "set_role" && input.role !== undefined) ||
+    !("expectedLifecycleAuditId" in input) ||
+    (input.expectedLifecycleAuditId !== null &&
+      (typeof input.expectedLifecycleAuditId !== "string" ||
+        !AUDIT_UUID.test(input.expectedLifecycleAuditId)))
   )
     return jsonError("INVALID_LIFECYCLE_REQUEST", 400);
 
@@ -148,6 +155,26 @@ export async function POST(request: Request, context: Context) {
           identity.email.trim().toLowerCase()
       )
         return invalid("TARGET_NOT_APPROVED");
+
+      // Optimistic concurrency check inside the SAME target row lock.
+      // Reject a stale admin form instead of silently overwriting a newer action.
+      const [latestAudit] = await tx
+        .select({ id: accessLifecycleAudit.id })
+        .from(accessLifecycleAudit)
+        .where(
+          and(
+            eq(accessLifecycleAudit.targetUserId, targetUserId),
+            eq(accessLifecycleAudit.organizationId, organization.id),
+          ),
+        )
+        .orderBy(
+          desc(accessLifecycleAudit.createdAt),
+          desc(accessLifecycleAudit.id),
+        )
+        .limit(1);
+      if ((latestAudit?.id ?? null) !== input.expectedLifecycleAuditId) {
+        return invalid("STALE_LIFECYCLE_STATE", 409);
+      }
 
       const active = await tx
         .select({ id: roleGrants.id, role: roleGrants.role })

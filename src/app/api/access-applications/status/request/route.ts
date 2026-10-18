@@ -140,6 +140,9 @@ export async function POST(request: Request) {
     if (recipient)
       await sendApplicantStatusLink({ to: recipient, token: recovery.token });
   } catch {
+    console.error(
+      "Local applicant status email dispatch failed; delivery not confirmed",
+    );
     // Never expose existence of a submitted application or SMTP errors to anonymous callers.
     // Production requires a durable email outbox and IP/account abuse controls.
   }

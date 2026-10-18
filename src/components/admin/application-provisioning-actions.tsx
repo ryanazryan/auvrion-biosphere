@@ -50,12 +50,20 @@ export function ApplicationProvisioningActions({
       );
       const result: unknown = await response.json();
       if (!response.ok) {
+        const code =
+          result && typeof result === "object" && "error" in result
+            ? result.error
+            : null;
         setError(
-          response.status === 429
-            ? "Tunggu 60 detik sebelum mengirim ulang undangan."
-            : response.status === 401 || response.status === 403
-              ? "Sesi admin dengan MFA dan izin manage_access diperlukan."
-              : "Permintaan ditolak. Periksa apakah akun sudah diproses dan kondisinya masih valid.",
+          code === "NOT_REISSUABLE" || code === "CREDENTIAL_ALREADY_SET"
+            ? "Undangan tidak dapat dikirim ulang: akun mungkin berasal dari seed development atau password sudah dibuat. Jangan memodifikasi grant secara manual; gunakan akun onboarding baru."
+            : code === "ROLE_GRANT_REQUIRED"
+              ? "Akun belum memiliki role grant valid. Periksa data provisioning."
+              : response.status === 429
+                ? "Tunggu 60 detik sebelum mengirim ulang undangan."
+                : response.status === 401 || response.status === 403
+                  ? "Sesi admin dengan MFA dan izin manage_access diperlukan."
+                  : "Permintaan ditolak. Periksa apakah akun sudah diproses dan kondisinya masih valid.",
         );
         return;
       }
@@ -68,6 +76,7 @@ export function ApplicationProvisioningActions({
           ? "Akun tercatat, tetapi SMTP gagal. Setelah Mailpit pulih dan cooldown lewat, kirim ulang undangan."
           : "Undangan aktivasi sudah dikirim ke Mailpit.",
       );
+      onClose();
       router.refresh();
     } catch {
       setError("Layanan tidak tersedia. Coba lagi.");

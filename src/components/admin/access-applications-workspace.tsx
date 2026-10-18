@@ -203,11 +203,23 @@ export function AccessApplicationsWorkspace({
       </div>
 
       {/* Desktop applications table */}
-      <div className="hidden overflow-hidden rounded-lg border border-line bg-white md:block">
-        <table className="w-full text-left text-sm">
+      <section
+        className="hidden overflow-x-auto rounded-lg border border-line bg-white md:block"
+        aria-label="Tabel permohonan akses"
+      >
+        <table className="w-full min-w-305 table-fixed text-left text-sm">
           <caption className="sr-only">
             Permohonan akses dari database development
           </caption>
+
+          <colgroup>
+            <col className="w-[20%]" />
+            <col className="w-[29%]" />
+            <col className="w-[14%]" />
+            <col className="w-[14%]" />
+            <col className="w-[15%]" />
+            <col className="w-[8%]" />
+          </colgroup>
 
           <thead className="border-b border-line bg-bg text-xs text-muted">
             <tr>
@@ -222,7 +234,7 @@ export function AccessApplicationsWorkspace({
                 <th
                   key={heading}
                   scope="col"
-                  className="px-4 py-2.5 font-medium"
+                  className="whitespace-nowrap px-4 py-3 font-medium"
                 >
                   {heading}
                 </th>
@@ -234,18 +246,22 @@ export function AccessApplicationsWorkspace({
             {current.map((record) => (
               <tr key={record.id} className="hover:bg-bg">
                 <th scope="row" className="px-4 py-3 font-medium">
-                  {record.applicantName}
+                  <span className="block truncate" title={record.applicantName}>
+                    {record.applicantName}
+                  </span>
                 </th>
 
-                <td className="max-w-48 break-all px-4 py-3 text-muted">
-                  {record.email}
+                <td className="px-4 py-3 text-muted">
+                  <span className="block truncate" title={record.email}>
+                    {record.email}
+                  </span>
                 </td>
 
-                <td className="whitespace-nowrap px-4 py-3 text-muted">
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted">
                   {formatted(record.createdAt)}
                 </td>
 
-                <td className="px-4 py-3 text-muted">
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted">
                   {record.emailVerifiedAt
                     ? formatted(record.emailVerifiedAt)
                     : "Belum"}
@@ -253,7 +269,7 @@ export function AccessApplicationsWorkspace({
 
                 <td className="px-4 py-3">
                   <span
-                    className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium ${
+                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${
                       STATUS[record.status].cls
                     }`}
                   >
@@ -266,7 +282,7 @@ export function AccessApplicationsWorkspace({
                   </span>
                 </td>
 
-                <td className="px-4 py-3">
+                <td className="whitespace-nowrap px-4 py-3">
                   <button
                     type="button"
                     onClick={() => setSelected(record)}
@@ -279,7 +295,7 @@ export function AccessApplicationsWorkspace({
             ))}
           </tbody>
         </table>
-      </div>
+      </section>
 
       {/* Mobile applications cards */}
       <ul className="space-y-3 md:hidden">

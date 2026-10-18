@@ -182,6 +182,7 @@ describe.skipIf(!ENABLED)(
         body: JSON.stringify({
           action,
           reason: REASON,
+          expectedLifecycleAuditId: null,
           ...(role ? { role } : {}),
         }),
       });
@@ -294,22 +295,25 @@ describe.skipIf(!ENABLED)(
       expect(await audit(target.userId)).toHaveLength(0);
     }, 20000);
 
-    it("serializes concurrent role changes without multiple active role grants", async () => {
+    it("rejects stale concurrent role changes; only one may commit", async () => {
       const target = await makeTarget();
       const results = await Promise.all([
         invoke(target.userId, "set_role", "operator"),
         invoke(target.userId, "set_role", "supervisor"),
       ]);
-      expect(results.map((response) => response.status)).toEqual([200, 200]);
+      expect(results.map((response) => response.status).sort()).toEqual([
+        200, 409,
+      ]);
+      const denied = results.find((response) => response.status === 409);
+      expect((await denied?.json()) as { error: string }).toEqual({
+        error: "STALE_LIFECYCLE_STATE",
+      });
       const roles = await activeRoles(target.userId);
       expect(roles).toHaveLength(1);
       expect(["operator", "supervisor"]).toContain(roles[0].role);
       const events = await audit(target.userId);
-      expect(events).toHaveLength(2);
-      expect(events.map((event) => event.action)).toEqual([
-        "role_changed",
-        "role_changed",
-      ]);
+      expect(events).toHaveLength(1);
+      expect(events[0].action).toBe("role_changed");
       expect(await sessions(target.userId)).toHaveLength(0);
       expect(await assurance(target.userId)).toHaveLength(0);
     }, 20000);

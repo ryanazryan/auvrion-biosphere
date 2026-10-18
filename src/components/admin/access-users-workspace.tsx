@@ -11,6 +11,7 @@ type ManagedUser = {
   email: string;
   accessStatus: "pending_activation" | "active" | "disabled";
   activeRoles: OperationalRole[];
+  lastLifecycleAuditId: string | null;
   protectedAdmin: boolean;
 };
 type AuditEvent = {
@@ -72,6 +73,7 @@ function UserActions({ user }: { user: ManagedUser }) {
           body: JSON.stringify({
             action,
             reason: reason.trim(),
+            expectedLifecycleAuditId: user.lastLifecycleAuditId,
             ...(action === "set_role" ? { role } : {}),
           }),
         },
@@ -80,7 +82,9 @@ function UserActions({ user }: { user: ManagedUser }) {
         setError(
           response.status === 401 || response.status === 403
             ? "Tidak diizinkan. Periksa MFA, capability admin, dan status target."
-            : "Tindakan ditolak atau kondisi akun telah berubah. Muat ulang halaman.",
+            : response.status === 409
+              ? "Data akun telah berubah atau tindakan tidak valid. Muat ulang halaman sebelum mengulangi."
+              : "Tindakan ditolak. Periksa kondisi akun dan muat ulang halaman.",
         );
         return;
       }
@@ -264,7 +268,7 @@ export function AccessUsersWorkspace({
             </div>
             {selected?.userId === record.userId && (
               <UserActions
-                key={`${record.userId}-${record.accessStatus}-${record.activeRoles.join("-")}`}
+                key={`${record.userId}-${record.accessStatus}-${record.activeRoles.join("-")}-${record.lastLifecycleAuditId ?? "initial"}`}
                 user={record}
               />
             )}
