@@ -38,7 +38,7 @@ export function TwoFactorForm() {
 
       // Temporary, non-operational landing page. Never use this navigation
       // as authorization or proof of MFA for protected server routes.
-      window.location.assign("/");
+      window.location.assign("/account/activation/finalize");
     } catch {
       setCode("");
       setError("Verifikasi tidak tersedia. Silakan coba lagi.");
