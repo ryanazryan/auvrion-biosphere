@@ -2,6 +2,8 @@ import "server-only";
 
 import { and, eq, isNull } from "drizzle-orm";
 
+import { hasMfaSessionAssurance } from "@/server/auth/mfa-assurance-store";
+import { getCurrentSession } from "@/server/auth/session";
 import { checkAccountAccess } from "@/server/authorization/account-access";
 import { getDb } from "@/server/db";
 import { roleGrants } from "@/server/db/grants-schema";
@@ -54,11 +56,35 @@ export async function checkOperationalAccess(
     };
   }
 
-  // Fail closed until server-side MFA assurance
-  // is integrated and verified.
+  // A client-side MFA flag, factor enrollment, or a previous login is not
+  // evidence that the CURRENT session passed an MFA login challenge.
+  const currentSession = await getCurrentSession();
+
+  if (!currentSession || currentSession.user.id !== account.userId) {
+    return {
+      allowed: false,
+      status: 403,
+      reason: "MFA_ASSURANCE_REQUIRED",
+    };
+  }
+
+  const assured = await hasMfaSessionAssurance({
+    sessionId: currentSession.session.id,
+    userId: account.userId,
+  });
+
+  if (!assured) {
+    return {
+      allowed: false,
+      status: 403,
+      reason: "MFA_ASSURANCE_REQUIRED",
+    };
+  }
+
   return {
-    allowed: false,
-    status: 403,
-    reason: "MFA_ASSURANCE_REQUIRED",
+    allowed: true,
+    userId: account.userId,
+    organizationId,
+    role: requiredRole,
   };
 }
