@@ -1,0 +1,24 @@
+name: auvrion-wc004-test
+
+services:
+  db:
+    image: postgis/postgis:17-3.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: auvrion_wc004_test
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - wc004_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  wc004_postgres_data:
