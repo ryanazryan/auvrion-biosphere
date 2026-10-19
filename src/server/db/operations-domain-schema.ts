@@ -322,3 +322,125 @@ export const evidenceLinks = pgTable(
     index("evidence_links_media_idx").on(t.mediaId),
   ],
 );
+
+/**
+ * AB-WC-010 — Durable upload idempotency reservation.
+ *
+ * A unique (organization, user, key) identifies a logical upload.
+ * A processing lease permits safe future recovery with fencing.
+ * Completion must reference a media row in the same organization.
+ */
+export const evidenceUploadStatus = pgEnum("evidence_upload_status", [
+  "processing",
+  "completed",
+  "failed",
+]);
+
+export const evidenceUploadRequests = pgTable(
+  "evidence_upload_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "restrict" }),
+
+    observationId: uuid("observation_id").notNull(),
+
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    idempotencyKey: text("idempotency_key").notNull(),
+
+    requestSha256: text("request_sha256").notNull(),
+
+    status: evidenceUploadStatus("status").notNull().default("processing"),
+
+    // A request processor must own a current lease.
+    leaseToken: uuid("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", {
+      withTimezone: true,
+    }),
+
+    attempt: integer("attempt").notNull().default(1),
+
+    // Set only after media + link are persisted.
+    mediaId: uuid("media_id"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // One idempotency key per user, per organization.
+    unique("evidence_upload_requests_scope_key_uq").on(
+      t.organizationId,
+      t.userId,
+      t.idempotencyKey,
+    ),
+
+    // The referenced observation must belong to the same org.
+    foreignKey({
+      name: "evidence_upload_requests_observation_org_fk",
+      columns: [t.observationId, t.organizationId],
+      foreignColumns: [observations.id, observations.organizationId],
+    }),
+
+    // Completed uploads must reference media in the same org.
+    foreignKey({
+      name: "evidence_upload_requests_media_org_fk",
+      columns: [t.mediaId, t.organizationId],
+      foreignColumns: [evidenceMedia.id, evidenceMedia.organizationId],
+    }),
+
+    index("evidence_upload_requests_lease_idx").on(t.status, t.leaseExpiresAt),
+
+    check(
+      "evidence_upload_requests_key_ck",
+      sql`${t.idempotencyKey} ~ '^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$'`,
+    ),
+
+    check(
+      "evidence_upload_requests_fingerprint_ck",
+      sql`${t.requestSha256} ~ '^[0-9a-f]{64}$'`,
+    ),
+
+    check("evidence_upload_requests_attempt_ck", sql`${t.attempt} > 0`),
+
+    // The row must be in a structurally valid state.
+    check(
+      "evidence_upload_requests_state_ck",
+      sql`(
+        (
+          ${t.status} = 'processing'
+          AND ${t.mediaId} IS NULL
+          AND ${t.leaseToken} IS NOT NULL
+          AND ${t.leaseExpiresAt} IS NOT NULL
+        )
+        OR
+        (
+          ${t.status} = 'completed'
+          AND ${t.mediaId} IS NOT NULL
+          AND ${t.leaseToken} IS NULL
+          AND ${t.leaseExpiresAt} IS NULL
+        )
+        OR
+        (
+          ${t.status} = 'failed'
+          AND ${t.mediaId} IS NULL
+          AND ${t.leaseToken} IS NULL
+          AND ${t.leaseExpiresAt} IS NULL
+        )
+      )`,
+    ),
+  ],
+);
