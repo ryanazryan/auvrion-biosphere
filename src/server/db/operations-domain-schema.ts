@@ -1,0 +1,324 @@
+/**
+ * AB-WC-007 / Slice 03 — additive V1 domain relations.
+ * DB constraints protect tenant boundaries; services must additionally check
+ * current role grants, object scope, workflow guards, and media availability.
+ * This file defines no API endpoints and does not authorize data access.
+ */
+import { sql } from "drizzle-orm";
+import {
+  bigint,
+  check,
+  customType,
+  foreignKey,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
+import { user } from "./auth-schema";
+import { organizations } from "./grants-schema";
+import { domainCases, observations } from "./observation-domain-schema";
+
+// Driver-level geometry is intentionally opaque. For application reads use
+// ST_AsGeoJSON(boundary) with explicit role-dependent location precision.
+// Inserts should use ST_Multi(ST_GeomFromText(...,4326)) via a guarded service.
+// The PostgreSQL PostGIS extension MUST exist before running migration 0012.
+const multipolygon4326 = customType<{ data: string; driverData: string }>({
+  dataType() {
+    return "geometry(MultiPolygon,4326)";
+  },
+});
+
+export const evidenceAvailability = pgEnum("evidence_availability", [
+  "uploading",
+  "available",
+  "failed",
+  "invalid",
+]);
+
+export const operationalZones = pgTable(
+  "operational_zones",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "restrict" }),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    // Placeholder for future access review; not a data declassification grant.
+    precisionPolicy: text("precision_policy")
+      .notNull()
+      .default("restricted_pending_policy"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("operational_zones_id_org_uq").on(t.id, t.organizationId),
+    unique("operational_zones_code_org_uq").on(t.organizationId, t.code),
+    check(
+      "operational_zones_code_nonempty_ck",
+      sql`length(btrim(${t.code})) > 0`,
+    ),
+  ],
+);
+
+/** New geometry revisions are added; old revisions are retained for audit. */
+export const zoneGeometryVersions = pgTable(
+  "zone_geometry_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    zoneId: uuid("zone_id").notNull(),
+    geometryVersion: integer("geometry_version").notNull(),
+    boundary: multipolygon4326("boundary").notNull(),
+    referenceSource: text("reference_source"),
+    recordedAt: timestamp("recorded_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "zone_geometry_versions_zone_org_fk",
+      columns: [t.zoneId, t.organizationId],
+      foreignColumns: [operationalZones.id, operationalZones.organizationId],
+    }),
+    unique("zone_geometry_versions_id_org_uq").on(t.id, t.organizationId),
+    unique("zone_geometry_versions_number_uq").on(t.zoneId, t.geometryVersion),
+    index("zone_geometry_versions_boundary_gix").using("gist", t.boundary),
+    check("zone_geometry_versions_positive_ck", sql`${t.geometryVersion} > 0`),
+    check(
+      "zone_geometry_versions_valid_ck",
+      sql`ST_IsValid(${t.boundary}) AND NOT ST_IsEmpty(${t.boundary})`,
+    ),
+  ],
+);
+
+/** Spatial matches are evidence/context, not authorization grants. */
+export const observationZoneMatches = pgTable(
+  "observation_zone_matches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    observationId: uuid("observation_id").notNull(),
+    zoneGeometryVersionId: uuid("zone_geometry_version_id").notNull(),
+    matchMethod: text("match_method").notNull(),
+    matchedByUserId: text("matched_by_user_id").references(() => user.id, {
+      onDelete: "restrict",
+    }),
+    matchedAt: timestamp("matched_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "observation_zone_matches_observation_org_fk",
+      columns: [t.observationId, t.organizationId],
+      foreignColumns: [observations.id, observations.organizationId],
+    }),
+    foreignKey({
+      name: "observation_zone_matches_geometry_org_fk",
+      columns: [t.zoneGeometryVersionId, t.organizationId],
+      foreignColumns: [
+        zoneGeometryVersions.id,
+        zoneGeometryVersions.organizationId,
+      ],
+    }),
+    unique("observation_zone_matches_pair_uq").on(
+      t.observationId,
+      t.zoneGeometryVersionId,
+    ),
+    check(
+      "observation_zone_matches_method_ck",
+      sql`${t.matchMethod} IN ('covers', 'intersects', 'manual')`,
+    ),
+    check(
+      "observation_zone_matches_manual_actor_ck",
+      sql`${t.matchMethod} <> 'manual' OR ${t.matchedByUserId} IS NOT NULL`,
+    ),
+  ],
+);
+
+/** No workflow status here while GAP-06/07 transition rules remain open. */
+export const domainTasks = pgTable(
+  "domain_tasks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    caseId: uuid("case_id").notNull(),
+    title: text("title").notNull(),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "domain_tasks_case_org_fk",
+      columns: [t.caseId, t.organizationId],
+      foreignColumns: [domainCases.id, domainCases.organizationId],
+    }),
+    unique("domain_tasks_id_org_uq").on(t.id, t.organizationId),
+    index("domain_tasks_case_idx").on(t.caseId),
+    check("domain_tasks_positive_version_ck", sql`${t.version} > 0`),
+    check("domain_tasks_nonempty_title_ck", sql`length(btrim(${t.title})) > 0`),
+  ],
+);
+
+/** Historical assignments remain; at most one active assignee per task. */
+export const taskAssignments = pgTable(
+  "task_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    taskId: uuid("task_id").notNull(),
+    rangerUserId: text("ranger_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    assignedByUserId: text("assigned_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    reason: text("reason").notNull(),
+    assignedAt: timestamp("assigned_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    unassignedAt: timestamp("unassigned_at", { withTimezone: true }),
+    unassignedByUserId: text("unassigned_by_user_id").references(
+      () => user.id,
+      { onDelete: "restrict" },
+    ),
+  },
+  (t) => [
+    foreignKey({
+      name: "task_assignments_task_org_fk",
+      columns: [t.taskId, t.organizationId],
+      foreignColumns: [domainTasks.id, domainTasks.organizationId],
+    }),
+    uniqueIndex("task_assignments_active_task_uk")
+      .on(t.taskId)
+      .where(sql`${t.unassignedAt} IS NULL`),
+    check("task_assignments_reason_ck", sql`length(btrim(${t.reason})) > 0`),
+    check(
+      "task_assignments_unassign_ck",
+      sql`${t.unassignedAt} IS NULL OR (${t.unassignedByUserId} IS NOT NULL AND ${t.unassignedAt} >= ${t.assignedAt})`,
+    ),
+  ],
+);
+
+/** Field report authored by Ranger; server must verify live assignment. */
+export const taskFindings = pgTable(
+  "task_findings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    taskId: uuid("task_id").notNull(),
+    authorUserId: text("author_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    summary: text("summary").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "task_findings_task_org_fk",
+      columns: [t.taskId, t.organizationId],
+      foreignColumns: [domainTasks.id, domainTasks.organizationId],
+    }),
+    unique("task_findings_id_org_uq").on(t.id, t.organizationId),
+    check("task_findings_summary_ck", sql`length(btrim(${t.summary})) > 0`),
+  ],
+);
+
+/** Private object storage metadata; not an upload validation implementation. */
+export const evidenceMedia = pgTable(
+  "evidence_media",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "restrict" }),
+    storageKey: text("storage_key").notNull(),
+    availability: evidenceAvailability("availability")
+      .notNull()
+      .default("uploading"),
+    sha256: text("sha256"),
+    mimeType: text("mime_type"),
+    byteLength: bigint("byte_length", { mode: "number" }),
+    // This is a placeholder. Legal classification/retention remains OPEN.
+    classification: text("classification")
+      .notNull()
+      .default("restricted_pending_policy"),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("evidence_media_id_org_uq").on(t.id, t.organizationId),
+    unique("evidence_media_org_storage_uq").on(t.organizationId, t.storageKey),
+    check(
+      "evidence_media_key_ck",
+      sql`length(btrim(${t.storageKey})) > 0 AND ${t.storageKey} !~* '^https?://'`,
+    ),
+    check(
+      "evidence_media_available_metadata_ck",
+      sql`${t.availability} <> 'available' OR (${t.sha256} IS NOT NULL AND ${t.sha256} ~ '^[0-9a-fA-F]{64}$' AND ${t.mimeType} IS NOT NULL AND length(btrim(${t.mimeType})) > 0 AND ${t.byteLength} IS NOT NULL AND ${t.byteLength} > 0)`,
+    ),
+    check(
+      "evidence_media_length_ck",
+      sql`${t.byteLength} IS NULL OR ${t.byteLength} >= 0`,
+    ),
+  ],
+);
+
+/** Evidence targets exactly one observation OR field finding in one org. */
+export const evidenceLinks = pgTable(
+  "evidence_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    mediaId: uuid("media_id").notNull(),
+    observationId: uuid("observation_id"),
+    findingId: uuid("finding_id"),
+    linkedByUserId: text("linked_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "evidence_links_media_org_fk",
+      columns: [t.mediaId, t.organizationId],
+      foreignColumns: [evidenceMedia.id, evidenceMedia.organizationId],
+    }),
+    foreignKey({
+      name: "evidence_links_observation_org_fk",
+      columns: [t.observationId, t.organizationId],
+      foreignColumns: [observations.id, observations.organizationId],
+    }),
+    foreignKey({
+      name: "evidence_links_finding_org_fk",
+      columns: [t.findingId, t.organizationId],
+      foreignColumns: [taskFindings.id, taskFindings.organizationId],
+    }),
+    check(
+      "evidence_links_one_target_ck",
+      sql`num_nonnulls(${t.observationId}, ${t.findingId}) = 1`,
+    ),
+    index("evidence_links_media_idx").on(t.mediaId),
+  ],
+);
