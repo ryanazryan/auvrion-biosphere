@@ -1,13 +1,15 @@
 import "./globals.css";
 
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Montserrat } from "next/font/google";
 import type { ReactNode } from "react";
 
-const inter = Inter({
+// One typography system for Authentication, Admin and Operator.
+const montserrat = Montserrat({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-montserrat",
 });
 
 export const metadata: Metadata = {
@@ -20,7 +22,7 @@ export default function RootLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="id">
-      <body className={inter.variable}>{children}</body>
+      <body className={montserrat.variable}>{children}</body>
     </html>
   );
 }
