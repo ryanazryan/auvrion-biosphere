@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { readPrivateWav, savePrivateWav } from "./private-storage";
+import { MAX_AUDIO_BYTES } from "./wav-validation";
 
 const previousRoot = process.env.PRIVATE_EVIDENCE_DIR;
 
@@ -117,5 +118,30 @@ describe("AB-WC-010 private filesystem storage", () => {
     await expect(savePrivateWav(makeValidWav(), "audio/wav")).rejects.toThrow(
       "PRIVATE_EVIDENCE_DIR_MUST_BE_ABSOLUTE",
     );
+  });
+
+  it("publishes only the final WAV file after successful staging", async () => {
+    const input = makeValidWav();
+
+    const result = await savePrivateWav(input, "audio/wav");
+
+    const files = await readdir(storageRoot);
+
+    expect(files).toEqual([result.storageKey]);
+    expect(files.some((file) => file.endsWith(".part"))).toBe(false);
+
+    const stored = await readFile(join(storageRoot, result.storageKey));
+
+    expect(stored).toEqual(input);
+  });
+
+  it("rejects oversized input without creating staging files", async () => {
+    const oversized = Buffer.alloc(MAX_AUDIO_BYTES + 1);
+
+    await expect(savePrivateWav(oversized, "audio/wav")).rejects.toThrow(
+      "AUDIO_TOO_LARGE",
+    );
+
+    expect(await readdir(storageRoot)).toEqual([]);
   });
 });
