@@ -1,9 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
-export function LogoutButton() {
+type LogoutButtonProps = {
+  /** The default appearance is preserved for authentication and admin screens. */
+  variant?: "default" | "sidebar";
+  icon?: ReactNode;
+};
+
+export function LogoutButton({
+  variant = "default",
+  icon,
+}: LogoutButtonProps = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -30,15 +39,24 @@ export function LogoutButton() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className={variant === "sidebar" ? "mt-1 space-y-1" : "space-y-2"}>
       <button
         type="button"
         onClick={handleLogout}
         disabled={loading}
         aria-busy={loading}
-        className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-surface px-5 text-sm font-medium text-fg transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
+        className={
+          variant === "sidebar"
+            ? "flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-[13px] text-fg/80 transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
+            : "inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-surface px-5 text-sm font-medium text-fg transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
+        }
       >
-        {loading ? "Sedang keluar..." : "Logout"}
+        {variant === "sidebar" && icon}
+        {loading
+          ? "Sedang keluar..."
+          : variant === "sidebar"
+            ? "Keluar"
+            : "Logout"}
       </button>
 
       {error && (
