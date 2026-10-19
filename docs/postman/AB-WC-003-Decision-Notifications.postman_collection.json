@@ -1,0 +1,100 @@
+{
+  "info": {
+    "name": "Auvrion Biosphere - AB-WC-003 Decision Notification",
+    "description": "Local-only collection. Requires authenticated admin session with MFA and manage_access capability; use Postman cookie jar. Fresh verified application ID needed for decisions; do not reuse same ID for approve and reject.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Decision Approve [fresh email_verified applicant]",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "{{baseUrl}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/admin/access-applications/{{applicationId}}/decision",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decision\": \"approved\",\n  \"reason\": \"Verified development request\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "02 - Decision Reject [different email_verified applicant]",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "{{baseUrl}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/admin/access-applications/{{applicationId}}/decision",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decision\": \"rejected\",\n  \"reason\": \"Tidak memenuhi persyaratan saat ini\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "03 - Retry pending notification outbox [admin+MFA]",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "{{baseUrl}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/admin/access-notifications/dispatch",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "applicationId",
+      "value": "replace-with-real-application-uuid"
+    }
+  ]
+}

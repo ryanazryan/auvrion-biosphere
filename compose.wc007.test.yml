@@ -1,0 +1,25 @@
+# AB-WC-007 test-only PostgreSQL/PostGIS. Separate from dev :5433 and WC004 :5434.
+name: auvrion-wc007-test
+
+services:
+  db:
+    image: postgis/postgis:17-3.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: auvrion_wc007_test
+    ports:
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - wc007_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  wc007_postgres_data:
