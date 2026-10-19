@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
   --color-ink: #142d25;
   --color-brand: #20785f;
   --color-brand-hover: #1a634e;
@@ -18,40 +19,36 @@
   --color-danger: #a83c3c;
   --color-danger-50: #fbefef;
 }
-
 html {
   -webkit-text-size-adjust: 100%;
 }
-
 body {
   @apply bg-bg text-fg font-sans antialiased;
-  font-feature-settings: "cv11", "ss01";
+  font-feature-settings: "kern";
 }
-
 .tnum {
   font-variant-numeric: tabular-nums;
 }
-
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
 }
-
 :focus-visible {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
 }
-
+dialog::backdrop {
+  background: rgb(20 45 37 / 0.45);
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    /* biome-ignore lint/complexity/noImportantStyles: Override component transitions for reduced-motion accessibility. */
+    /* biome-ignore lint/complexity/noImportantStyles: Ensure motion-reduction wins over component classes. */
     transition-duration: 0ms !important;
-
-    /* biome-ignore lint/complexity/noImportantStyles: Override component animations for reduced-motion accessibility. */
+    /* biome-ignore lint/complexity/noImportantStyles: Ensure motion-reduction wins over component classes. */
     animation-duration: 0ms !important;
   }
 }
