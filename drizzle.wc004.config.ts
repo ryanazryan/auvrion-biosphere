@@ -1,34 +1,26 @@
 import { loadEnvFile } from "node:process";
 import { defineConfig } from "drizzle-kit";
 
-// AB-WC-004: test-only Drizzle configuration; NEVER change the development DB.
 loadEnvFile(".env.local");
-
-const developmentUrl = new URL(
-  process.env.DATABASE_URL ?? "postgres://invalid",
-);
+const dev = new URL(process.env.DATABASE_URL ?? "postgres://invalid");
 if (
-  !["postgresql:", "postgres:"].includes(developmentUrl.protocol) ||
-  developmentUrl.hostname !== "127.0.0.1" ||
-  developmentUrl.port !== "5433" ||
-  developmentUrl.pathname !== "/auvrion_dev" ||
-  decodeURIComponent(developmentUrl.username) !== "auvrion_dev"
+  !["postgres:", "postgresql:"].includes(dev.protocol) ||
+  dev.hostname !== "127.0.0.1" ||
+  dev.port !== "5433" ||
+  dev.pathname !== "/auvrion_dev" ||
+  decodeURIComponent(dev.username) !== "auvrion_dev"
 ) {
-  throw new Error("WC004_REFUSING_UNEXPECTED_DEVELOPMENT_DATABASE");
+  throw new Error("WC007_REFUSING_UNEXPECTED_LOCAL_DEV_DATABASE");
 }
-
-const testUrl = new URL(developmentUrl.toString());
-testUrl.port = "5434";
-testUrl.pathname = "/auvrion_wc004_test";
-
+const target = new URL(dev.toString());
+target.port = "5434";
+target.pathname = "/auvrion_wc004_test";
 if (
-  testUrl.hostname !== "127.0.0.1" ||
-  testUrl.port !== "5434" ||
-  testUrl.pathname !== "/auvrion_wc004_test"
-) {
-  throw new Error("WC004_REFUSING_NONLOCAL_TEST_DATABASE");
-}
-
+  target.hostname !== "127.0.0.1" ||
+  target.port !== "5434" ||
+  target.pathname !== "/auvrion_wc004_test"
+)
+  throw new Error("WC007_REFUSING_NONISOLATED_TEST_DATABASE");
 export default defineConfig({
   dialect: "postgresql",
   schema: [
@@ -42,7 +34,10 @@ export default defineConfig({
     "./src/server/db/access-decision-notification-schema.ts",
     "./src/server/db/account-activation-schema.ts",
     "./src/server/db/access-lifecycle-audit-schema.ts",
+    "./src/server/db/observation-domain-schema.ts",
+    "./src/server/db/operations-domain-schema.ts",
+    "./src/server/db/report-domain-schema.ts",
   ],
   out: "./drizzle",
-  dbCredentials: { url: testUrl.toString() },
+  dbCredentials: { url: target.toString() },
 });
