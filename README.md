@@ -1,21 +1,138 @@
-# AB-WC-011 WebGIS Map Controls v6 — visibility fix
+# Auvrion Biosphere
 
-Basis: exact v5 GisMapCanvas.tsx assembled from the user's 2026-10-20 upload. GisWorkspace.tsx and dropdowns are untouched.
+**An Integrated AIoT & WebGIS Platform for Biodiversity Conservation and Forest Fire Risk Monitoring**
 
-Changes:
-- Zoom and Compass/Fit share a SINGLE absolutely positioned right-side stack. If zoom is rendered, other map controls are rendered in the same container.
-- The compass keeps its normal icon appearance and remains clickable even when already facing north. It is disabled only until the real MapLibre map load completes.
-- Fit remains visually distinct but disabled unless REAL approved observation coordinates and an approved REAL basemap exist. No synthetic markers or fake points.
-- Legend remains a separate control and keeps its existing mobile/desktop positioning.
+Auvrion Biosphere is an environmental intelligence platform designed to connect biodiversity observations, environmental monitoring, geospatial information, and human-led incident response within an integrated web ecosystem.
 
-Install from repository root after backing up local GisMapCanvas.tsx:
-  unzip -o AB-WC-011-Map-Controls-Visibility-v6.zip -d .
+Developed by **Team Pais Patin** for the **UINIC 8.0 Web Development Competition 2026**.
 
-Run:
-  npx biome check --write src/figma-operator/screens/operator/GisMapCanvas.tsx
-  npm run lint
-  npm run typecheck
+## Project Overview
 
-Visual validation: in desktop and mobile, confirm zoom, compass, and fit are three pairs of buttons at top-right. Fit is disabled for zero approved positions. If zoom appears but compass is missing, check whether local file actually includes 'Orientasi dan pembingkaian peta' and restart the Next dev server / hard reload before diagnosing CSS.
+Environmental monitoring data is often fragmented across separate devices, applications, and reporting processes.
 
-The .mjs.map 404 is a missing OPTIONAL debug source map request, not the worker script. Do not change or edit vendor minified assets to silence it; main /vendor/maplibre/maplibre-gl-worker.mjs should load 200.
+Auvrion Biosphere aims to connect environmental observations with verification and operational response, enabling users to understand potential risks and coordinate appropriate actions.
+
+**Core principle: IoT observes. AI assists. Web orchestrates. Humans decide.**
+
+## MVP Scope
+
+The proposed V1 focuses on two observation capabilities:
+
+### LISTEN — Biodiversity Monitoring
+
+- Bioacoustic observation through a proof-of-concept recording device.
+- Audio observation records and manual uploads.
+- AI-assisted candidate analysis where feasible.
+- Human verification before findings are treated as confirmed evidence.
+
+### PREVENT — Environmental Risk Monitoring
+
+- Environmental measurements using BME280 and PMS5003 sensors.
+- Temperature, humidity, pressure, and particulate indicators.
+- Environmental risk observations and early-warning support.
+- Human review of potential risk indicators.
+
+Sensor readings and AI outputs are not automatically considered verified evidence of wildlife presence or forest fires.
+
+### Supporting Platform Capabilities
+
+The planned system includes:
+
+- WebGIS-based observation visualization.
+- Observation provenance and verification.
+- Incident management and response workflows.
+- Role-based access control.
+- Evidence and operational history.
+- Reporting capabilities.
+
+Operational workflows are intended to support **Operators, Supervisors, and Rangers**.
+
+## Technology Stack
+
+The proposed architecture is a **Next.js full-stack modular monolith**.
+
+| Layer | Planned Technology |
+|---|---|
+| Full-stack framework | Next.js |
+| Frontend | React, TypeScript |
+| Styling | Tailwind CSS |
+| Backend | Next.js Route Handlers and server-side modules |
+| Database | PostgreSQL + PostGIS |
+| ORM | Drizzle ORM |
+| Authentication | Better Auth |
+| Geospatial visualization | MapLibre GL JS |
+| Testing | Automated unit, integration, and end-to-end tests |
+
+Technology selections and exact dependency versions will be validated during implementation.
+
+## Development Status
+
+python - <<'PY'
+from pathlib import Path
+
+path = Path("README.md")
+content = path.read_text(encoding="utf-8")
+
+start = content.index("## Development Status\n")
+end = content.index("## Engineering Principles\n", start)
+
+replacement = """## Development Status
+
+**Status: Active V1 Prototype Development**
+
+Auvrion Biosphere has an implemented application foundation, including:
+
+- Better Auth authentication, MFA assurance, and role-based access controls.
+- PostgreSQL/PostGIS domain schemas and observation data services.
+- Gated onboarding and administrative access management.
+- Operator observation workspace with manual intake, list, and detail views.
+- Private WAV evidence upload and authorized playback.
+- Scoped MapLibre WebGIS workspace with textual fallback.
+- Automated lint, typecheck, unit tests, and selected database integration tests.
+
+These capabilities are implemented as development-stage functionality.
+They do not imply production certification or complete end-to-end acceptance.
+
+Remaining work includes operational response workflows, IoT integration,
+review and reporting features, deployment, and final security testing.
+
+"""
+
+path.write_text(content[:start] + replacement + content[end:], encoding="utf-8")
+PY
+
+## Engineering Principles
+
+- Build features from verified requirements.
+- Prefer simple, maintainable architecture.
+- Keep frontend and server-side responsibilities separate.
+- Enforce authentication and authorization on the server.
+- Validate untrusted inputs and protect sensitive data.
+- Minimize dependencies and maintain reproducible installations.
+- Test implemented behavior before declaring features complete.
+- Keep simulated, historical, and observed data distinguishable.
+- Preserve human oversight for consequential operational decisions.
+
+## Development Workflow
+
+- `main` — stable integration branch.
+- `develop` — active development branch.
+- Feature branches may be introduced when needed.
+
+Changes should be reviewed and tested before integration into `main`.
+
+## Team
+
+**Pais Patin**
+
+- Tech Lead — Software engineering and technical architecture.
+- Financial Lead — Financial planning, budgeting, and procurement.
+- Pitch Lead — Product narrative, research, and presentation.
+
+## Disclaimer
+
+Auvrion Biosphere is a competition-stage prototype under development.
+
+It is not a certified wildfire detection system, emergency response system, or substitute for professional environmental assessment.
+
+Environmental indicators and automated analyses require appropriate validation and human interpretation.
