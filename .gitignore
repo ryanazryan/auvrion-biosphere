@@ -67,3 +67,5 @@ Desktop.ini
 # Local credentials and private notes
 /auvrion-biosphere.txt
 /githubnoreplay.txt
+# Generated MapLibre v6 Web Worker assets, prepared before dev/build
+/public/vendor/maplibre/

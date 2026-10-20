@@ -9,12 +9,15 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "test": "vitest run",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "predev": "node scripts/copy-maplibre-workers.mjs",
+    "prebuild": "node scripts/copy-maplibre-workers.mjs"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.9",
     "better-auth": "1.7.9",
     "drizzle-orm": "0.45.4",
+    "maplibre-gl": "6.15.0",
     "next": "16.4.1",
     "nodemailer": "^10.1.2",
     "pg": "8.23.1",
