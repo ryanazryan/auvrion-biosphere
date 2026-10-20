@@ -15,7 +15,7 @@ export type GisRecord = {
   location: {
     hasCoordinates: boolean;
     unknownReason: string | null;
-    disclosure?: string;
+    disclosure?: "approved" | "withheld_pending_policy";
     point?: GisPoint | null;
   };
 };
@@ -115,7 +115,10 @@ export async function listGisZones(
 
 /** Never infer coordinates from an ID, zone label, or source. */
 export function approvedPoint(row: GisRecord): [number, number] | null {
-  if (!row.location.hasCoordinates) return null;
+  // Frontend is defense in depth; the server must independently authorize coordinates.
+  // Any absent or non-approved disclosure must remain hidden even if a point is present.
+  if (!row.location.hasCoordinates || row.location.disclosure !== "approved")
+    return null;
   const p = row.location.point;
   if (
     p?.type !== "Point" ||
