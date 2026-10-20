@@ -67,17 +67,6 @@ Technology selections and exact dependency versions will be validated during imp
 
 ## Development Status
 
-python - <<'PY'
-from pathlib import Path
-
-path = Path("README.md")
-content = path.read_text(encoding="utf-8")
-
-start = content.index("## Development Status\n")
-end = content.index("## Engineering Principles\n", start)
-
-replacement = """## Development Status
-
 **Status: Active V1 Prototype Development**
 
 Auvrion Biosphere has an implemented application foundation, including:
