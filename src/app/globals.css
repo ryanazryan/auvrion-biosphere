@@ -52,3 +52,44 @@ dialog::backdrop {
     animation-duration: 0ms !important;
   }
 }
+
+:root {
+  --map-paper: #eef1ec;
+  --map-forest: #e1e9dc;
+  --map-forest-dense: #d4e0cd;
+  --map-contour: #c9d3c4;
+  --map-water: #cadde3;
+  --map-water-line: #a6c3cd;
+}
+/* AB-WC-011: local cartographic illustration when an approved basemap is unavailable.
+   No tiles are fetched; this is NOT real geographic data. */
+.gis-schematic {
+  --map-paper: #eef1ec;
+  background-color: #eef1ec;
+  background-image:
+    repeating-radial-gradient(
+      ellipse at 79% 22%,
+      transparent 0 27px,
+      #dbe2d8 28px 29px,
+      transparent 30px 53px
+    ),
+    repeating-radial-gradient(
+      ellipse at 13% 84%,
+      transparent 0 32px,
+      #dbe2d8 33px 34px,
+      transparent 35px 59px
+    );
+}
+.gis-marker {
+  width: 22px;
+  height: 22px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--marker, #20785f);
+  box-shadow: 0 1px 4px rgb(20 45 37 / 0.3);
+  cursor: pointer;
+}
+.gis-marker:focus-visible {
+  outline: 3px solid #142d25;
+  outline-offset: 3px;
+}

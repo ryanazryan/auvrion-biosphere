@@ -28,6 +28,12 @@ const NAV: Item[] = [
       p !== "/operator/observations/new",
   },
   {
+    href: "/operator/map",
+    label: "Peta Observasi",
+    icon: <I.MapPin />,
+    active: (p) => p === "/operator/map",
+  },
+  {
     href: "/operator/observations/new",
     label: "Catat Observasi",
     icon: <I.Plus />,
@@ -56,7 +62,7 @@ function Nav({ path, onNavigate }: { path: string; onNavigate?: () => void }) {
                 href={n.href}
                 onClick={onNavigate}
                 aria-current={on ? "page" : undefined}
-                className={`${row} ${on ? "bg-brand-50 text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-brand [&_svg]:text-brand" : "text-fg/80 hover:bg-bg hover:text-fg [&_svg]:text-muted"}`}
+                className={`${row} ${on ? "bg-brand-50 text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-0.75 before:rounded-full before:bg-brand [&_svg]:text-brand" : "text-fg/80 hover:bg-bg hover:text-fg [&_svg]:text-muted"}`}
               >
                 {n.icon}
                 {n.label}
@@ -81,7 +87,7 @@ function Nav({ path, onNavigate }: { path: string; onNavigate?: () => void }) {
               <span className="sr-only"> (belum tersedia)</span>
               <I.Lock
                 aria-hidden="true"
-                className="ml-auto !size-3.5 opacity-60"
+                className="ml-auto size-3.5! opacity-60"
               />
             </span>
           </li>
@@ -138,10 +144,12 @@ export function OperatorLayout({
   path,
   crumbs,
   children,
+  workspace = false,
 }: {
   path: string;
   crumbs: Crumb[];
   children: ReactNode;
+  workspace?: boolean;
 }) {
   const { operator: OPERATOR, timeZone, setTimeZone } = useOperator();
   const [drawer, setDrawer] = useState(false);
@@ -155,7 +163,7 @@ export function OperatorLayout({
   }, [drawer]);
   return (
     <div className="min-h-dvh bg-bg">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-line bg-surface pt-[var(--safe-top)] pl-[var(--safe-left)] lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-line bg-surface pt-(--safe-top) pl-(--safe-left) lg:flex">
         <div className="border-b border-line">
           <Brand />
         </div>
@@ -165,7 +173,7 @@ export function OperatorLayout({
 
       {drawer && (
         <div
-          className="fixed inset-0 z-40 lg:hidden"
+          className="fixed inset-0 z-50 lg:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Navigasi operator"
@@ -176,7 +184,7 @@ export function OperatorLayout({
             onClick={() => setDrawer(false)}
             className="absolute inset-0 bg-ink/40"
           />
-          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-line bg-surface pt-[var(--safe-top)] pl-[var(--safe-left)]">
+          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-line bg-surface pt-(--safe-top) pl-(--safe-left)">
             <div className="flex items-center border-b border-line pr-2">
               <div className="min-w-0 flex-1">
                 <Brand />
@@ -197,7 +205,7 @@ export function OperatorLayout({
       )}
 
       <div className="lg:pl-60">
-        <header className="sticky top-0 z-20 border-b border-line bg-surface pt-[var(--safe-top)] pr-[var(--safe-right)] pl-[var(--safe-left)] lg:pl-0">
+        <header className="sticky top-0 z-20 border-b border-line bg-surface pt-(--safe-top) pr-(--safe-right) pl-(--safe-left) lg:pl-0">
           <div className="flex h-14 items-center gap-2 px-3 min-[360px]:px-4 sm:px-6">
             <button
               type="button"
@@ -271,8 +279,14 @@ export function OperatorLayout({
             </span>
           </div>
         </header>
-        <div className="pr-[var(--safe-right)] pl-[var(--safe-left)] lg:pl-0">
-          <main className="mx-auto max-w-[1180px] px-4 pt-6 min-[360px]:px-5 pb-[calc(7rem+var(--safe-bottom))] sm:px-6 sm:pt-7">
+        <div className="pr-(--safe-right) pl-(--safe-left) lg:pl-0">
+          <main
+            className={
+              workspace
+                ? "flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-surface max-md:h-[calc(100dvh-3.5rem)] max-md:min-h-0"
+                : "mx-auto max-w-295 px-4 pt-6 min-[360px]:px-5 pb-[calc(7rem+var(--safe-bottom))] sm:px-6 sm:pt-7"
+            }
+          >
             {children}
           </main>
         </div>
