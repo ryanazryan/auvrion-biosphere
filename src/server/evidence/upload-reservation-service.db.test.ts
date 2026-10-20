@@ -11,9 +11,11 @@
  * They do not write actual WAV files to private storage.
  */
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdtemp, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { loadEnvFile } from "node:process";
-
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -27,7 +29,6 @@ import {
   it,
   vi,
 } from "vitest";
-
 import { user } from "@/server/db/auth-schema";
 import { organizations } from "@/server/db/grants-schema";
 import {
@@ -39,6 +40,10 @@ import {
   evidenceMedia,
   evidenceUploadRequests,
 } from "@/server/db/operations-domain-schema";
+import {
+  inspectAudioReconciliation,
+  reconcileExpiredAudioReservations,
+} from "./reconciliation-service";
 
 const mocks = vi.hoisted(() => ({
   getDb: vi.fn(),
@@ -533,5 +538,174 @@ describe.skipIf(!ENABLED)("AB-WC-010 PostgreSQL upload reservation", () => {
     expect(reservations[0]?.mediaId).toBe(media[0]?.id);
 
     expect(links[0]?.mediaId).toBe(media[0]?.id);
+  });
+
+  it("reconciles an expired reservation without deleting or reacquiring evidence", async () => {
+    const f = fixture;
+
+    if (!f) {
+      throw new Error("WC010_TEST_FIXTURE_MISSING");
+    }
+
+    const input = {
+      organizationId: f.organizationId,
+      observationId: f.observationId,
+      userId: f.userId,
+      idempotencyKey: randomUUID(),
+      requestSha256: "e".repeat(64),
+    };
+
+    const reserved = await reserveAudioUpload(input);
+
+    expect(reserved.kind).toBe("acquired");
+
+    if (reserved.kind !== "acquired") {
+      throw new Error("WC010_RESERVATION_NOT_ACQUIRED");
+    }
+
+    // Simulate a processor that stopped and whose lease expired.
+    await db
+      .update(evidenceUploadRequests)
+      .set({
+        leaseExpiresAt: new Date(Date.now() - 60_000),
+      })
+      .where(eq(evidenceUploadRequests.id, reserved.reservationId));
+
+    const result = await reconcileExpiredAudioReservations(f.organizationId);
+
+    expect(result.transitionedToFailed).toBeGreaterThanOrEqual(1);
+
+    const [row] = await db
+      .select()
+      .from(evidenceUploadRequests)
+      .where(eq(evidenceUploadRequests.id, reserved.reservationId));
+
+    expect(row).toMatchObject({
+      status: "failed",
+      leaseToken: null,
+      leaseExpiresAt: null,
+      mediaId: null,
+    });
+
+    // Same key is not automatically stolen or retried.
+    const replay = await reserveAudioUpload(input);
+
+    expect(replay.kind).toBe("reconciliation_required");
+
+    const mediaRows = await db
+      .select()
+      .from(evidenceMedia)
+      .where(eq(evidenceMedia.organizationId, f.organizationId));
+
+    expect(mediaRows).toHaveLength(0);
+  });
+
+  it("audits private WAV references, missing files and orphan candidates without deleting files", async () => {
+    const f = fixture;
+
+    if (!f) {
+      throw new Error("WC010_TEST_FIXTURE_MISSING");
+    }
+
+    const privateRoot = await mkdtemp(
+      join(tmpdir(), "auvrion-wc010-reconcile-"),
+    );
+
+    const previousRoot = process.env.PRIVATE_EVIDENCE_DIR;
+    process.env.PRIVATE_EVIDENCE_DIR = privateRoot;
+
+    try {
+      const referencedKey = `${randomUUID()}.wav`;
+      const missingKey = `${randomUUID()}.wav`;
+      const orphanKey = `${randomUUID()}.wav`;
+      const stagingKey = `.${randomUUID()}.wav.${randomUUID()}.part`;
+
+      const referencedPath = join(privateRoot, referencedKey);
+      const orphanPath = join(privateRoot, orphanKey);
+      const stagingPath = join(privateRoot, stagingKey);
+
+      // A valid, minimal PCM16 WAV test fixture.
+      const sampleRate = 16000;
+      const dataLength = sampleRate * 2;
+      const wav = Buffer.alloc(44 + dataLength);
+
+      wav.write("RIFF", 0, "ascii");
+      wav.writeUInt32LE(wav.length - 8, 4);
+      wav.write("WAVE", 8, "ascii");
+      wav.write("fmt ", 12, "ascii");
+      wav.writeUInt32LE(16, 16);
+      wav.writeUInt16LE(1, 20);
+      wav.writeUInt16LE(1, 22);
+      wav.writeUInt32LE(sampleRate, 24);
+      wav.writeUInt32LE(sampleRate * 2, 28);
+      wav.writeUInt16LE(2, 32);
+      wav.writeUInt16LE(16, 34);
+      wav.write("data", 36, "ascii");
+      wav.writeUInt32LE(dataLength, 40);
+
+      const digest = createHash("sha256").update(wav).digest("hex");
+
+      await writeFile(referencedPath, wav);
+      await writeFile(orphanPath, wav);
+      await writeFile(stagingPath, wav);
+
+      const oldTime = new Date(Date.now() - 20 * 60_000);
+
+      await utimes(orphanPath, oldTime, oldTime);
+      await utimes(stagingPath, oldTime, oldTime);
+
+      const before = await inspectAudioReconciliation();
+
+      await db.insert(evidenceMedia).values([
+        {
+          organizationId: f.organizationId,
+          storageKey: referencedKey,
+          availability: "available",
+          sha256: digest,
+          mimeType: "audio/wav",
+          byteLength: wav.byteLength,
+          createdByUserId: f.userId,
+        },
+        {
+          organizationId: f.organizationId,
+          storageKey: missingKey,
+          availability: "available",
+          sha256: digest,
+          mimeType: "audio/wav",
+          byteLength: wav.byteLength,
+          createdByUserId: f.userId,
+        },
+      ]);
+
+      const after = await inspectAudioReconciliation();
+
+      expect(after.referencedAudio - before.referencedAudio).toBe(2);
+
+      expect(after.missingAvailableFiles - before.missingAvailableFiles).toBe(
+        1,
+      );
+
+      expect(before.unreferencedPublishedCandidates).toBe(1);
+      expect(after.unreferencedPublishedCandidates).toBe(1);
+
+      expect(before.stagingCandidates).toBe(1);
+      expect(after.stagingCandidates).toBe(1);
+
+      // Inventory and reconciliation must not delete evidence.
+      expect((await stat(referencedPath)).isFile()).toBe(true);
+      expect((await stat(orphanPath)).isFile()).toBe(true);
+      expect((await stat(stagingPath)).isFile()).toBe(true);
+    } finally {
+      if (previousRoot === undefined) {
+        delete process.env.PRIVATE_EVIDENCE_DIR;
+      } else {
+        process.env.PRIVATE_EVIDENCE_DIR = previousRoot;
+      }
+
+      await rm(privateRoot, {
+        recursive: true,
+        force: true,
+      });
+    }
   });
 });

@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   lstat,
   open,
+  readdir,
   readFile,
   realpath,
   rename,
@@ -15,6 +16,9 @@ import { MAX_AUDIO_BYTES, validateWavPcm16 } from "./wav-validation";
 
 const STORAGE_KEY_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.wav$/;
+
+const STAGING_KEY_PATTERN =
+  /^\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.wav\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.part$/;
 
 async function getPrivateStorageRoot(): Promise<string> {
   const configured = process.env.PRIVATE_EVIDENCE_DIR;
@@ -167,4 +171,60 @@ export async function deletePrivateWav(
   const filename = getFilename(storageKey);
 
   await unlink(join(root, filename));
+}
+
+export type PrivateAudioInventoryEntry = {
+  name: string;
+  kind: "published" | "staging";
+  modifiedAtMs: number;
+};
+
+/**
+ * Internal-only, read-only inventory.
+ *
+ * Does not delete files and must not be exposed
+ * through a user-facing HTTP endpoint.
+ */
+export async function inspectPrivateAudioInventory(): Promise<
+  PrivateAudioInventoryEntry[]
+> {
+  const root = await getPrivateStorageRoot();
+  const entries = await readdir(root, { withFileTypes: true });
+
+  const result: PrivateAudioInventoryEntry[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isFile() || entry.isSymbolicLink()) {
+      continue;
+    }
+
+    const kind = STORAGE_KEY_PATTERN.test(entry.name)
+      ? "published"
+      : STAGING_KEY_PATTERN.test(entry.name)
+        ? "staging"
+        : null;
+
+    if (!kind) {
+      continue;
+    }
+
+    try {
+      const stat = await lstat(join(root, entry.name));
+
+      if (!stat.isFile() || stat.isSymbolicLink()) {
+        continue;
+      }
+
+      result.push({
+        name: entry.name,
+        kind,
+        modifiedAtMs: stat.mtimeMs,
+      });
+    } catch {
+      // A concurrently removed file is not a stable
+      // inventory entry. The next scan can retry.
+    }
+  }
+
+  return result;
 }
