@@ -85,11 +85,6 @@ They do not imply production certification or complete end-to-end acceptance.
 Remaining work includes operational response workflows, IoT integration,
 review and reporting features, deployment, and final security testing.
 
-"""
-
-path.write_text(content[:start] + replacement + content[end:], encoding="utf-8")
-PY
-
 ## Engineering Principles
 
 - Build features from verified requirements.
