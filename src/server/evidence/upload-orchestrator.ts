@@ -7,6 +7,7 @@ import { getDb } from "@/server/db";
 import {
   evidenceLinks,
   evidenceMedia,
+  evidenceUploadRequests,
 } from "@/server/db/operations-domain-schema";
 import { isUuid } from "@/server/observations/observation-input";
 import { getScopedObservation } from "@/server/observations/observation-service";
@@ -22,9 +23,14 @@ import {
 } from "./upload-idempotency";
 import {
   completeReservedAudioUpload,
+  failReservedAudioUpload,
   reserveAudioUpload,
 } from "./upload-reservation-service";
 import { validateWavPcm16 } from "./wav-validation";
+
+// ============================================================
+// AB-WC-010 — Types
+// ============================================================
 
 type UploadInput = {
   organizationId: string;
@@ -50,12 +56,26 @@ type ReplayInput = {
   expectedByteLength: number;
 };
 
+// ============================================================
+// 1. Verified Replay
+// ============================================================
+
 /**
- * A completed reservation is not sufficient proof that
- * the stored evidence is currently readable.
+ * Verify previously completed evidence before returning a
+ * successful idempotent replay.
  *
- * Recheck media metadata, tenant scope, observation link,
- * creator, SHA-256, WAV structure and byte length.
+ * A completed reservation alone is not sufficient proof
+ * that the underlying private file remains available.
+ *
+ * Verify:
+ * - media belongs to the authorized organization,
+ * - media links to the intended observation,
+ * - media was created by the authenticated uploader,
+ * - media is available,
+ * - MIME and expected metadata match,
+ * - private WAV is readable,
+ * - SHA-256 matches,
+ * - byte length and WAV structure are valid.
  */
 async function readVerifiedReplay(input: ReplayInput): Promise<UploadResult> {
   try {
@@ -116,23 +136,56 @@ async function readVerifiedReplay(input: ReplayInput): Promise<UploadResult> {
       replayed: true,
     };
   } catch {
-    // Never return 200 for unreadable or corrupted evidence.
+    /**
+     * Never return HTTP 200 when:
+     * - media metadata is missing,
+     * - the observation link is invalid,
+     * - the private file is missing,
+     * - the file's SHA-256 differs,
+     * - the WAV structure is invalid.
+     *
+     * Do not expose internal details.
+     */
     throw new EvidenceServiceError(503, "EVIDENCE_RECONCILIATION_REQUIRED");
   }
 }
 
+// ============================================================
+// 2. Idempotent Audio Upload Orchestration
+// ============================================================
+
 /**
- * AB-WC-010 — Idempotent private audio upload orchestration.
+ * AB-WC-010 — Idempotent private audio upload.
  *
- * This is the authenticated service layer, not an HTTP handler.
- * Caller-provided user IDs are not accepted.
+ * Responsibilities:
+ * 1. Validate organization and observation IDs.
+ * 2. Validate the idempotency key.
+ * 3. Resolve authenticated operator and MFA assurance.
+ * 4. Enforce observation organization and domain.
+ * 5. Validate WAV before acquiring a reservation.
+ * 6. Generate a canonical upload fingerprint.
+ * 7. Acquire/read PostgreSQL reservation.
+ * 8. Verify previously completed evidence on replay.
+ * 9. Save a new private WAV for newly acquired uploads.
+ * 10. Atomically complete media, link, and reservation.
+ * 11. Handle storage failure and uncertain commit outcomes.
+ *
+ * Never accept client-supplied user IDs.
  */
 export async function uploadAudioIdempotently(
   input: UploadInput,
 ): Promise<UploadResult> {
+  // ----------------------------------------------------------
+  // A. Validate target identifiers
+  // ----------------------------------------------------------
+
   if (!isUuid(input.organizationId) || !isUuid(input.observationId)) {
     throw new EvidenceServiceError(400, "INVALID_EVIDENCE_TARGET");
   }
+
+  // ----------------------------------------------------------
+  // B. Validate idempotency key
+  // ----------------------------------------------------------
 
   const parsedKey = parseIdempotencyKey(input.idempotencyKey);
 
@@ -140,13 +193,25 @@ export async function uploadAudioIdempotently(
     throw new EvidenceServiceError(400, parsedKey.error);
   }
 
-  // Derive the uploader from the signed session.
-  // Includes current account, role, organization, and MFA checks.
+  // ----------------------------------------------------------
+  // C. Reauthorize authenticated operator
+  // ----------------------------------------------------------
+
+  /**
+   * Authorization happens independently inside the
+   * service even though the HTTP route already checks it.
+   *
+   * This prevents unauthorized use by other server callers.
+   */
   const access = await checkOperationalAccess(input.organizationId, "operator");
 
   if (!access.allowed) {
     throw new EvidenceServiceError(access.status, access.reason);
   }
+
+  // ----------------------------------------------------------
+  // D. Verify observation scope and supported domain
+  // ----------------------------------------------------------
 
   const observation = await getScopedObservation(
     input.organizationId,
@@ -164,15 +229,25 @@ export async function uploadAudioIdempotently(
     );
   }
 
-  // Validate before claiming a persistent reservation.
-  // Invalid WAV uploads must not create processing rows.
+  // ----------------------------------------------------------
+  // E. Validate WAV before creating a reservation
+  // ----------------------------------------------------------
+
   const validated = validateWavPcm16(input.bytes, input.declaredMimeType);
 
   if (!validated.ok) {
     throw new Error(validated.error);
   }
 
+  // ----------------------------------------------------------
+  // F. Generate canonical upload fingerprint
+  // ----------------------------------------------------------
+
   const fingerprint = createAudioUploadFingerprint(input);
+
+  // ----------------------------------------------------------
+  // G. Acquire or inspect PostgreSQL reservation
+  // ----------------------------------------------------------
 
   const reservation = await reserveAudioUpload({
     organizationId: input.organizationId,
@@ -182,17 +257,24 @@ export async function uploadAudioIdempotently(
     requestSha256: fingerprint.requestSha256,
   });
 
+  // Same key, different request fingerprint.
   if (reservation.kind === "conflict") {
     throw new EvidenceServiceError(409, "IDEMPOTENCY_KEY_CONFLICT");
   }
 
+  // Another request currently owns this upload.
   if (reservation.kind === "processing") {
     throw new EvidenceServiceError(409, "AUDIO_UPLOAD_IN_PROGRESS");
   }
 
+  // Expired or failed reservation requires reconciliation.
   if (reservation.kind === "reconciliation_required") {
     throw new EvidenceServiceError(503, "EVIDENCE_RECONCILIATION_REQUIRED");
   }
+
+  // ----------------------------------------------------------
+  // H. Verified replay of previously completed upload
+  // ----------------------------------------------------------
 
   if (reservation.kind === "completed") {
     return readVerifiedReplay({
@@ -205,28 +287,102 @@ export async function uploadAudioIdempotently(
     });
   }
 
-  // Only the processor that acquired the reservation
-  // may reach the private storage write.
-  const stored = await savePrivateWav(input.bytes, input.declaredMimeType);
+  // ----------------------------------------------------------
+  // I. Newly acquired reservation
+  // ----------------------------------------------------------
 
-  // Refuse to complete if stored bytes are inconsistent
-  // with the content fingerprint used for reservation.
+  /**
+   * Only this reservation's active lease token may
+   * complete the upload.
+   */
+  const owner = {
+    organizationId: input.organizationId,
+    observationId: input.observationId,
+    userId: access.userId,
+    reservationId: reservation.reservationId,
+    leaseToken: reservation.leaseToken,
+    requestSha256: fingerprint.requestSha256,
+  };
+
+  // ----------------------------------------------------------
+  // J. Save private WAV
+  // ----------------------------------------------------------
+
+  /**
+   * savePrivateWav:
+   * - validates WAV again,
+   * - creates an exclusive staging file,
+   * - flushes bytes,
+   * - atomically renames to a private storage key.
+   *
+   * No media/link completion has been attempted yet.
+   */
+  const stored = await savePrivateWav(
+    input.bytes,
+    input.declaredMimeType,
+  ).catch(async () => {
+    /**
+     * Only the active reservation owner can transition
+     * the reservation to failed.
+     *
+     * If the transition fails, preserve the existing
+     * reservation state for reconciliation.
+     */
+    await failReservedAudioUpload(owner).catch(() => false);
+
+    throw new EvidenceServiceError(503, "EVIDENCE_RECONCILIATION_REQUIRED");
+  });
+
+  // ----------------------------------------------------------
+  // K. Validate stored file metadata
+  // ----------------------------------------------------------
+
+  /**
+   * Refuse database completion if the stored metadata
+   * differs from the original fingerprint.
+   */
   if (
     stored.sha256 !== fingerprint.fileSha256 ||
     stored.byteLength !== fingerprint.byteLength ||
     stored.mimeType !== fingerprint.mimeType
   ) {
+    let removed = false;
+
+    try {
+      /**
+       * deletePrivateWav independently verifies the file
+       * SHA-256 before deleting it.
+       */
+      await deletePrivateWav(stored.storageKey, stored.sha256);
+
+      removed = true;
+    } catch {
+      /**
+       * Keep the reservation for reconciliation when
+       * cleanup cannot safely finish.
+       */
+    }
+
+    if (removed) {
+      await failReservedAudioUpload(owner).catch(() => false);
+    }
+
     throw new EvidenceServiceError(503, "EVIDENCE_RECONCILIATION_REQUIRED");
   }
 
+  // ----------------------------------------------------------
+  // L. Atomic PostgreSQL completion
+  // ----------------------------------------------------------
+
   try {
+    /**
+     * This service uses a database transaction to:
+     * - create evidence_media,
+     * - create evidence_links,
+     * - complete the reservation using lease fencing.
+     */
     const completed = await completeReservedAudioUpload({
-      organizationId: input.organizationId,
-      observationId: input.observationId,
-      userId: access.userId,
-      reservationId: reservation.reservationId,
-      leaseToken: reservation.leaseToken,
-      requestSha256: fingerprint.requestSha256,
+      ...owner,
       stored: {
         storageKey: stored.storageKey,
         sha256: stored.sha256,
@@ -241,34 +397,115 @@ export async function uploadAudioIdempotently(
       durationSeconds: stored.durationSeconds,
       replayed: false,
     };
-  } catch {
-    // A connection may fail after PostgreSQL has committed.
-    // Never delete a file unless a successful DB read
-    // confirms no media row references this storage key.
-    try {
-      const db = getDb();
+  } catch (error) {
+    // --------------------------------------------------------
+    // M. Explicit lease-fencing rejection
+    // --------------------------------------------------------
 
-      const [existingMedia] = await db
-        .select({ id: evidenceMedia.id })
-        .from(evidenceMedia)
+    /**
+     * The completion transaction explicitly rolled back
+     * when UPLOAD_RESERVATION_FENCE_REJECTED was raised.
+     *
+     * The file is owned by this upload attempt.
+     *
+     * Attempt cleanup, but never assume that cleanup
+     * succeeded if deletion throws.
+     */
+    if (
+      error instanceof Error &&
+      error.message === "UPLOAD_RESERVATION_FENCE_REJECTED"
+    ) {
+      await deletePrivateWav(stored.storageKey, stored.sha256).catch(() => {
+        // File cleanup requires later reconciliation.
+      });
+
+      throw new EvidenceServiceError(503, "EVIDENCE_RECONCILIATION_REQUIRED");
+    }
+
+    // --------------------------------------------------------
+    // N. Ambiguous PostgreSQL commit outcome
+    // --------------------------------------------------------
+
+    /**
+     * A lost database connection can make a successful
+     * COMMIT appear to have failed.
+     *
+     * Never delete the private WAV merely because the
+     * completion function threw an error.
+     *
+     * Instead, check the reservation's persisted state.
+     */
+    try {
+      const [state] = await getDb()
+        .select({
+          status: evidenceUploadRequests.status,
+          mediaId: evidenceUploadRequests.mediaId,
+        })
+        .from(evidenceUploadRequests)
         .where(
           and(
-            eq(evidenceMedia.organizationId, input.organizationId),
-            eq(evidenceMedia.storageKey, stored.storageKey),
+            eq(evidenceUploadRequests.id, reservation.reservationId),
+            eq(evidenceUploadRequests.organizationId, input.organizationId),
+            eq(evidenceUploadRequests.observationId, input.observationId),
+            eq(evidenceUploadRequests.userId, access.userId),
+            eq(evidenceUploadRequests.requestSha256, fingerprint.requestSha256),
           ),
         )
         .limit(1);
 
-      if (!existingMedia) {
-        await deletePrivateWav(stored.storageKey, stored.sha256);
+      if (state?.status === "completed" && state.mediaId) {
+        /**
+         * PostgreSQL indicates the upload committed.
+         *
+         * Verify:
+         * - media metadata,
+         * - observation linkage,
+         * - creator identity,
+         * - private file SHA-256,
+         * - WAV format and length.
+         */
+        const verified = await readVerifiedReplay({
+          organizationId: input.organizationId,
+          observationId: input.observationId,
+          userId: access.userId,
+          mediaId: state.mediaId,
+          expectedSha256: fingerprint.fileSha256,
+          expectedByteLength: fingerprint.byteLength,
+        });
+
+        /**
+         * The request originally acquired this
+         * reservation and has now confirmed completion.
+         *
+         * Return 201 for the recovered first upload.
+         */
+        return {
+          ...verified,
+          replayed: false,
+        };
       }
     } catch {
-      // Preserve the private file when DB state
-      // or cleanup cannot be established.
+      /**
+       * Database state or media integrity cannot be
+       * confirmed.
+       *
+       * Preserve the private file.
+       */
     }
 
-    // Preserve the reservation for explicit reconciliation.
-    // Do not automatically steal its lease or retry writing.
+    // --------------------------------------------------------
+    // O. Unknown outcome — fail closed
+    // --------------------------------------------------------
+
+    /**
+     * Do not:
+     * - delete a potentially committed WAV,
+     * - overwrite the reservation,
+     * - automatically steal an expired lease,
+     * - fabricate a successful response.
+     *
+     * Keep file and reservation state for reconciliation.
+     */
     throw new EvidenceServiceError(503, "EVIDENCE_RECONCILIATION_REQUIRED");
   }
 }
