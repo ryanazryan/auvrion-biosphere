@@ -67,13 +67,23 @@ Technology selections and exact dependency versions will be validated during imp
 
 ## Development Status
 
-**Status: Initial Development**
+**Status: Active V1 Prototype Development**
 
-The project is being initialized manually with an emphasis on maintainability, security, and verifiable functionality.
+Auvrion Biosphere has an implemented application foundation, including:
 
-Planned capabilities listed in this README should not be interpreted as completed or tested features.
+- Better Auth authentication, MFA assurance, and role-based access controls.
+- PostgreSQL/PostGIS domain schemas and observation data services.
+- Gated onboarding and administrative access management.
+- Operator observation workspace with manual intake, list, and detail views.
+- Private WAV evidence upload and authorized playback.
+- Scoped MapLibre WebGIS workspace with textual fallback.
+- Automated lint, typecheck, unit tests, and selected database integration tests.
 
-Local setup and execution instructions will be documented after the initial application foundation is implemented and verified.
+These capabilities are implemented as development-stage functionality.
+They do not imply production certification or complete end-to-end acceptance.
+
+Remaining work includes operational response workflows, IoT integration,
+review and reporting features, deployment, and final security testing.
 
 ## Engineering Principles
 
