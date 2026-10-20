@@ -1,11 +1,18 @@
 /**
- * AB-WC-010 — Signed session + PostgreSQL + private audio.
+ * AB-WC-010 — Signed session, PostgreSQL, private audio,
+ * and HTTP idempotency integration.
  *
  * Handler-level integration, NOT a real network request.
- * MFA assurance is seeded as a fixture; no TOTP challenge is performed.
+ * MFA assurance is seeded as a fixture.
+ * No actual TOTP challenge is performed.
  *
  * RUN_WC010_HTTP_DB_TESTS=YES
- * Database: 127.0.0.1:5435/auvrion_wc007_test ONLY.
+ *
+ * Database:
+ * 127.0.0.1:5435/auvrion_wc007_test ONLY.
+ *
+ * All database fixtures are rolled back.
+ * Private WAV files are stored in a temporary test directory.
  */
 
 import { createHash, randomUUID } from "node:crypto";
@@ -30,6 +37,7 @@ import {
 import {
   evidenceLinks,
   evidenceMedia,
+  evidenceUploadRequests,
 } from "@/server/db/operations-domain-schema";
 
 const adapter = vi.hoisted(() => ({
@@ -44,14 +52,20 @@ vi.mock("@/server/db", () => ({
 }));
 
 vi.mock("next/headers", () => ({
-  headers: async () => new Headers({ cookie: adapter.cookie }),
+  headers: async () =>
+    new Headers({
+      cookie: adapter.cookie,
+    }),
 }));
 
 const ENABLED = process.env.RUN_WC010_HTTP_DB_TESTS === "YES";
+
 const ORIGIN = "http://localhost:3000";
+
 const PASSWORD = `WC010-Local-${randomUUID()}-Strong#1`;
 
 type Database = ReturnType<typeof drizzle>;
+
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 type Persona = {
@@ -60,6 +74,19 @@ type Persona = {
   sessionId: string;
 };
 
+type UploadPayload = {
+  mediaId: string;
+  byteLength: number;
+  durationSeconds: number;
+  mimeType: string;
+};
+
+/**
+ * Derive an isolated PostgreSQL test URL.
+ *
+ * Never allow this test to connect directly to
+ * the development or production database.
+ */
 function isolatedDatabaseUrl(): string {
   loadEnvFile(".env.local");
 
@@ -78,12 +105,29 @@ function isolatedDatabaseUrl(): string {
   source.port = "5435";
   source.pathname = "/auvrion_wc007_test";
 
+  if (
+    source.hostname !== "127.0.0.1" ||
+    source.port !== "5435" ||
+    source.pathname !== "/auvrion_wc007_test"
+  ) {
+    throw new Error("WC010_HTTP_REFUSED_TEST_DATABASE");
+  }
+
   return source.toString();
 }
 
+/**
+ * Generate a valid one-second, mono, PCM16 WAV file.
+ *
+ * Sample rate: 48000 Hz
+ * Channels: 1
+ * Bits per sample: 16
+ * Duration: 1 second
+ */
 function validWav(): Buffer {
   const sampleRate = 48000;
   const dataLength = sampleRate * 2;
+
   const buffer = Buffer.alloc(44 + dataLength);
 
   buffer.write("RIFF", 0, "ascii");
@@ -106,7 +150,7 @@ function validWav(): Buffer {
 }
 
 describe.skipIf(!ENABLED)(
-  "AB-WC-010 signed-session secure upload integration",
+  "AB-WC-010 signed-session idempotent audio upload integration",
   () => {
     let pool: Pool | undefined;
     let database: Database;
@@ -126,7 +170,7 @@ describe.skipIf(!ENABLED)(
       vi.stubEnv("BETTER_AUTH_URL", ORIGIN);
       vi.stubEnv("ENABLE_LOCAL_ACCESS_REQUESTS", "YES");
 
-      privateRoot = await mkdtemp(join(tmpdir(), "auvrion-wc010-http-"));
+      privateRoot = await mkdtemp(join(tmpdir(), "auvrion-wc010-idempotency-"));
 
       vi.stubEnv("PRIVATE_EVIDENCE_DIR", privateRoot);
 
@@ -137,12 +181,18 @@ describe.skipIf(!ENABLED)(
       });
 
       const identity = await pool.query(
-        "SELECT current_database() AS name, current_user AS username",
+        `SELECT
+           current_database() AS name,
+           current_user AS username,
+           to_regclass(
+             'public.evidence_upload_requests'
+           ) AS reservation_table`,
       );
 
       if (
         identity.rows[0]?.name !== "auvrion_wc007_test" ||
-        identity.rows[0]?.username !== "auvrion_dev"
+        identity.rows[0]?.username !== "auvrion_dev" ||
+        identity.rows[0]?.reservation_table !== "evidence_upload_requests"
       ) {
         throw new Error("WC010_REFUSED_TEST_DATABASE_IDENTITY");
       }
@@ -156,6 +206,7 @@ describe.skipIf(!ENABLED)(
 
       try {
         await pool?.end();
+
         if (privateRoot) {
           await rm(privateRoot, {
             recursive: true,
@@ -167,13 +218,17 @@ describe.skipIf(!ENABLED)(
       }
     }, 20000);
 
-    it("enforces signed sessions, roles, MFA, tenant isolation, and persists private WAV", async () => {
+    it("enforces authorization and performs idempotent private WAV upload", async () => {
       const expectedRollback = new Error("WC010_EXPECTED_FIXTURE_ROLLBACK");
 
       await expect(
         database.transaction(async (tx: Transaction) => {
-          // Auth is imported only after its DB adapter
-          // has been directed to this isolated transaction.
+          /**
+           * The whole test uses an isolated PostgreSQL
+           * transaction so synthetic data can be rolled back.
+           *
+           * All requests are sequential in this test.
+           */
           adapter.getDb.mockReturnValue(tx);
 
           const [{ auth }, { hashPassword }, { POST }] = await Promise.all([
@@ -182,12 +237,19 @@ describe.skipIf(!ENABLED)(
             import("./route"),
           ]);
 
+          // ============================================
+          // 1. Synthetic organizations and observations
+          // ============================================
+
           const orgA = randomUUID();
           const orgB = randomUUID();
+
           const sourceA = randomUUID();
           const sourceB = randomUUID();
+
           const observationA = randomUUID();
           const observationB = randomUUID();
+
           const actorId = `wc010-actor-${randomUUID()}`;
 
           await tx.insert(user).values({
@@ -248,6 +310,10 @@ describe.skipIf(!ENABLED)(
             },
           ]);
 
+          // ============================================
+          // 2. Create authenticated test personas
+          // ============================================
+
           async function persona(
             role: "operator" | "supervisor",
             organizationId: string,
@@ -303,7 +369,9 @@ describe.skipIf(!ENABLED)(
                 email,
                 password: PASSWORD,
               },
-              headers: new Headers({ Origin: ORIGIN }),
+              headers: new Headers({
+                Origin: ORIGIN,
+              }),
               asResponse: true,
             });
 
@@ -317,6 +385,7 @@ describe.skipIf(!ENABLED)(
             expect(cookies).toHaveLength(1);
 
             const cookie = cookies[0];
+
             const current = await auth.api.getSession({
               headers: new Headers({ cookie }),
             });
@@ -324,10 +393,14 @@ describe.skipIf(!ENABLED)(
             expect(current?.user.id).toBe(userId);
 
             const sessionId = current?.session.id ?? "";
+
             expect(sessionId).toBeTruthy();
 
             if (assured) {
-              // Fixture, NOT proof of an actual TOTP login.
+              /**
+               * Synthetic MFA assurance fixture.
+               * Not an actual TOTP verification.
+               */
               await tx.insert(mfaSessionAssurance).values({
                 sessionId,
                 userId,
@@ -336,13 +409,24 @@ describe.skipIf(!ENABLED)(
               });
             }
 
-            return { cookie, userId, sessionId };
+            return {
+              cookie,
+              userId,
+              sessionId,
+            };
           }
 
           const operator = await persona("operator", orgA, true);
+
           const foreignOperator = await persona("operator", orgB, true);
+
           const supervisor = await persona("supervisor", orgA, true);
+
           const unassured = await persona("operator", orgA, false);
+
+          // ============================================
+          // 3. HTTP upload request helper
+          // ============================================
 
           const wav = validWav();
 
@@ -350,12 +434,15 @@ describe.skipIf(!ENABLED)(
             cookie: string,
             organizationId = orgA,
             id = observationA,
+            idempotencyKey = randomUUID(),
+            audioBytes: Uint8Array = wav,
           ) {
             adapter.cookie = cookie;
 
-            // Dedicated ArrayBuffer fixes TS6 BodyInit typing.
-            const body = new Uint8Array(new ArrayBuffer(wav.length));
-            body.set(wav);
+            // Dedicated ArrayBuffer for TS6 BodyInit.
+            const body = new Uint8Array(new ArrayBuffer(audioBytes.byteLength));
+
+            body.set(audioBytes);
 
             return POST(
               new Request(
@@ -366,58 +453,84 @@ describe.skipIf(!ENABLED)(
                   headers: {
                     Origin: ORIGIN,
                     "Content-Type": "audio/wav",
+                    "Idempotency-Key": idempotencyKey,
                     Cookie: cookie,
                   },
                   body,
                 },
               ),
-              { params: Promise.resolve({ id }) },
+              {
+                params: Promise.resolve({ id }),
+              },
             );
           }
 
-          // 1. Missing and forged signed sessions.
+          // ============================================
+          // 4. Signed session and authorization tests
+          // ============================================
+
+          // Missing authenticated session.
           expect((await upload("")).status).toBe(401);
+
+          // Forged session token.
           expect(
             (await upload("better-auth.session_token=forged.invalid")).status,
           ).toBe(401);
 
-          // 2. Missing current-session MFA assurance.
+          // Operator without current-session MFA assurance.
           expect((await upload(unassured.cookie)).status).toBe(403);
 
-          // 3. Wrong operational role.
+          // Supervisor does not satisfy operator policy.
           expect((await upload(supervisor.cookie)).status).toBe(403);
 
-          // 4. Operator from organization B cannot use A.
+          // Foreign organization operator.
           expect((await upload(foreignOperator.cookie)).status).toBe(403);
 
-          // 5. Operator A cannot target observation B
-          // while selecting organization A.
+          // Authorized operator cannot upload to a
+          // foreign observation.
           expect(
             (await upload(operator.cookie, orgA, observationB)).status,
           ).toBe(404);
 
-          // No denied request may create private audio.
+          // No denied request may create private files.
           expect(await readdir(privateRoot)).toHaveLength(0);
 
-          // 6. Valid signed Operator session.
-          const response = await upload(operator.cookie);
+          // ============================================
+          // 5. First upload — HTTP 201
+          // ============================================
+
+          const uploadKey = randomUUID();
+
+          const response = await upload(
+            operator.cookie,
+            orgA,
+            observationA,
+            uploadKey,
+          );
 
           expect(response.status).toBe(201);
+
           expect(response.headers.get("cache-control")).toBe("no-store");
 
-          const payload = (await response.json()) as {
-            mediaId: string;
-            byteLength: number;
-            durationSeconds: number;
-          };
+          expect(response.headers.get("x-content-type-options")).toBe(
+            "nosniff",
+          );
+
+          const payload = (await response.json()) as UploadPayload;
 
           expect(payload.mediaId).toBeTruthy();
           expect(payload.byteLength).toBe(wav.length);
           expect(payload.durationSeconds).toBe(1);
+          expect(payload.mimeType).toBe("audio/wav");
 
-          // Never leak storage key via HTTP response.
+          // Internal metadata must not leak over HTTP.
           expect(payload).not.toHaveProperty("storageKey");
+
           expect(payload).not.toHaveProperty("sha256");
+
+          // ============================================
+          // 6. Validate initial database persistence
+          // ============================================
 
           const media = await tx
             .select()
@@ -429,8 +542,14 @@ describe.skipIf(!ENABLED)(
             .from(evidenceLinks)
             .where(eq(evidenceLinks.mediaId, payload.mediaId));
 
+          const reservations = await tx
+            .select()
+            .from(evidenceUploadRequests)
+            .where(eq(evidenceUploadRequests.organizationId, orgA));
+
           expect(media).toHaveLength(1);
           expect(links).toHaveLength(1);
+          expect(reservations).toHaveLength(1);
 
           expect(media[0]).toMatchObject({
             organizationId: orgA,
@@ -443,6 +562,19 @@ describe.skipIf(!ENABLED)(
           expect(links[0]).toMatchObject({
             organizationId: orgA,
             observationId: observationA,
+            mediaId: payload.mediaId,
+          });
+
+          expect(reservations[0]).toMatchObject({
+            organizationId: orgA,
+            observationId: observationA,
+            userId: operator.userId,
+            idempotencyKey: uploadKey,
+            status: "completed",
+            mediaId: payload.mediaId,
+            leaseToken: null,
+            leaseExpiresAt: null,
+            attempt: 1,
           });
 
           const storedMedia = media[0];
@@ -461,8 +593,101 @@ describe.skipIf(!ENABLED)(
             storedMedia.sha256,
           );
 
-          // Roll back all users, sessions, observations
-          // and evidence metadata created by this test.
+          // Exactly one WAV should exist after upload.
+          expect(await readdir(privateRoot)).toHaveLength(1);
+
+          // ============================================
+          // 7. Idempotent retry — HTTP 200
+          // ============================================
+
+          /**
+           * Same user, organization, observation,
+           * key, and exact WAV content.
+           */
+          const replay = await upload(
+            operator.cookie,
+            orgA,
+            observationA,
+            uploadKey,
+          );
+
+          expect(replay.status).toBe(200);
+
+          const replayPayload = (await replay.json()) as UploadPayload;
+
+          // Must return the original media ID.
+          expect(replayPayload).toEqual(payload);
+
+          // Same successful response cannot create
+          // another private file.
+          expect(await readdir(privateRoot)).toHaveLength(1);
+
+          // ============================================
+          // 8. Fingerprint conflict — HTTP 409
+          // ============================================
+
+          /**
+           * Change one PCM sample without breaking
+           * the WAV structure.
+           */
+          const changedWav = Buffer.from(wav);
+
+          changedWav[44] = 1;
+
+          const conflict = await upload(
+            operator.cookie,
+            orgA,
+            observationA,
+            uploadKey,
+            changedWav,
+          );
+
+          expect(conflict.status).toBe(409);
+
+          expect(await conflict.json()).toEqual({
+            error: "IDEMPOTENCY_KEY_CONFLICT",
+          });
+
+          // Conflicting requests must not create files.
+          expect(await readdir(privateRoot)).toHaveLength(1);
+
+          // ============================================
+          // 9. Verify database contains no duplicates
+          // ============================================
+
+          const finalMedia = await tx
+            .select()
+            .from(evidenceMedia)
+            .where(eq(evidenceMedia.organizationId, orgA));
+
+          const finalLinks = await tx
+            .select()
+            .from(evidenceLinks)
+            .where(eq(evidenceLinks.organizationId, orgA));
+
+          const finalReservations = await tx
+            .select()
+            .from(evidenceUploadRequests)
+            .where(eq(evidenceUploadRequests.organizationId, orgA));
+
+          expect(finalMedia).toHaveLength(1);
+          expect(finalLinks).toHaveLength(1);
+          expect(finalReservations).toHaveLength(1);
+
+          expect(finalMedia[0]?.id).toBe(payload.mediaId);
+
+          expect(finalLinks[0]?.mediaId).toBe(payload.mediaId);
+
+          expect(finalReservations[0]?.mediaId).toBe(payload.mediaId);
+
+          expect(finalReservations[0]?.status).toBe("completed");
+
+          expect(finalReservations[0]?.attempt).toBe(1);
+
+          // ============================================
+          // 10. Roll back synthetic database fixtures
+          // ============================================
+
           throw expectedRollback;
         }),
       ).rejects.toBe(expectedRollback);

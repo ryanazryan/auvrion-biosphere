@@ -1,8 +1,7 @@
 import { checkOperationalAccess } from "@/server/authorization/operational-access";
-import {
-  attachAudioToObservation,
-  EvidenceServiceError,
-} from "@/server/evidence/evidence-service";
+import { EvidenceServiceError } from "@/server/evidence/evidence-service";
+import { parseIdempotencyKey } from "@/server/evidence/upload-idempotency";
+import { uploadAudioIdempotently } from "@/server/evidence/upload-orchestrator";
 import { MAX_AUDIO_BYTES } from "@/server/evidence/wav-validation";
 import { isUuid } from "@/server/observations/observation-input";
 
@@ -37,6 +36,12 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/**
+ * Reject cross-origin audio uploads.
+ *
+ * Both the Origin header and request URL must match
+ * the configured trusted application origin.
+ */
 function isAllowedOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   const fetchSite = request.headers.get("sec-fetch-site");
@@ -51,7 +56,9 @@ function isAllowedOrigin(request: Request): boolean {
   try {
     const configured = process.env.BETTER_AUTH_URL;
 
-    if (!configured) return false;
+    if (!configured) {
+      return false;
+    }
 
     const trustedOrigin = new URL(configured).origin;
     const requestOrigin = new URL(request.url).origin;
@@ -63,13 +70,21 @@ function isAllowedOrigin(request: Request): boolean {
 }
 
 type ReadResult =
-  | { ok: true; bytes: Buffer }
+  | {
+      ok: true;
+      bytes: Buffer;
+    }
   | {
       ok: false;
       status: number;
       error: string;
     };
 
+/**
+ * Read raw upload bytes with an enforced 10 MiB limit.
+ *
+ * Authorization must happen before calling this function.
+ */
 async function readAudioBounded(
   request: Request,
   declaredLength: number | null,
@@ -84,13 +99,16 @@ async function readAudioBounded(
 
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
+
   let total = 0;
 
   try {
     while (true) {
       const part = await reader.read();
 
-      if (part.done) break;
+      if (part.done) {
+        break;
+      }
 
       if (part.value.byteLength > MAX_AUDIO_BYTES - total) {
         await reader.cancel().catch(() => {});
@@ -145,6 +163,10 @@ async function readAudioBounded(
   }
 }
 
+/**
+ * Map known service and validation errors to safe
+ * HTTP responses without leaking internal details.
+ */
 function evidenceErrorResponse(error: unknown): Response {
   if (error instanceof EvidenceServiceError) {
     return json({ error: error.reason }, error.status);
@@ -164,33 +186,70 @@ function evidenceErrorResponse(error: unknown): Response {
     }
   }
 
-  // Never reveal filesystem paths, DB details, or stack traces.
+  // Never expose storage keys, filesystem paths,
+  // database errors, or stack traces.
   return json({ error: "AUDIO_UPLOAD_FAILED" }, 500);
 }
 
+/**
+ * AB-WC-010 — Idempotent private WAV upload endpoint.
+ *
+ * POST /api/observations/[id]/evidence/audio
+ *
+ * Required:
+ * - organizationId query parameter
+ * - same-origin request
+ * - Idempotency-Key header
+ * - supported WAV Content-Type
+ * - active authenticated operator with MFA assurance
+ *
+ * Response:
+ * - 201: newly uploaded evidence
+ * - 200: verified idempotent replay
+ * - 409: conflicting or in-progress upload
+ * - 503: evidence reconciliation required
+ */
 export async function POST(
   request: Request,
-  context: { params: Promise<{ id: string }> },
+  context: {
+    params: Promise<{
+      id: string;
+    }>;
+  },
 ) {
   const { id: observationId } = await context.params;
+
   const params = new URL(request.url).searchParams;
   const organizationId = params.get("organizationId");
 
+  // Only one organization selector is permitted.
   if (
     !isUuid(observationId) ||
     !isUuid(organizationId) ||
     params.size !== 1 ||
     params.getAll("organizationId").length !== 1
   ) {
-    return json({ error: "INVALID_OBSERVATION_OR_ORGANIZATION_ID" }, 400);
+    return json(
+      {
+        error: "INVALID_OBSERVATION_OR_ORGANIZATION_ID",
+      },
+      400,
+    );
   }
 
-  // Fail closed when the browser origin differs from our
-  // configured application origin.
+  // Reject requests outside the trusted application origin.
   if (!isAllowedOrigin(request)) {
     return json({ error: "ORIGIN_NOT_ALLOWED" }, 403);
   }
 
+  // Require a valid idempotency key before reading bytes.
+  const parsedKey = parseIdempotencyKey(request.headers.get("idempotency-key"));
+
+  if (!parsedKey.ok) {
+    return json({ error: parsedKey.error }, 400);
+  }
+
+  // Validate the declared MIME type.
   const declaredMimeType = request.headers.get("content-type") ?? "";
 
   const mime = declaredMimeType.split(";")[0]?.trim().toLowerCase();
@@ -199,13 +258,16 @@ export async function POST(
     return json({ error: "UNSUPPORTED_AUDIO_MIME" }, 415);
   }
 
+  // Reject compressed request bodies.
   const encoding = request.headers.get("content-encoding");
 
   if (encoding && encoding.toLowerCase() !== "identity") {
     return json({ error: "CONTENT_ENCODING_NOT_ALLOWED" }, 415);
   }
 
+  // Validate Content-Length if supplied.
   const lengthHeader = request.headers.get("content-length");
+
   let declaredLength: number | null = null;
 
   if (lengthHeader !== null) {
@@ -224,14 +286,23 @@ export async function POST(
     }
   }
 
-  // Check active role, organization, account status and
-  // current-session MFA BEFORE consuming upload bytes.
+  /**
+   * Authorization must happen before consuming request bytes.
+   *
+   * Check current:
+   * - authenticated session
+   * - account access status
+   * - organization membership
+   * - operator role
+   * - MFA assurance
+   */
   const access = await checkOperationalAccess(organizationId, "operator");
 
   if (!access.allowed) {
     return json({ error: access.reason }, access.status);
   }
 
+  // Read the body within the configured upload limit.
   const uploaded = await readAudioBounded(request, declaredLength);
 
   if (!uploaded.ok) {
@@ -239,16 +310,27 @@ export async function POST(
   }
 
   try {
-    // The service independently rechecks authorization and
-    // observation ownership before writing private media.
-    const result = await attachAudioToObservation({
+    /**
+     * Upload orchestrator responsibilities:
+     *
+     * 1. Reauthorize the authenticated operator.
+     * 2. Validate scoped biodiversity observation.
+     * 3. Validate WAV structure and duration.
+     * 4. Generate canonical upload fingerprint.
+     * 5. Acquire or read PostgreSQL reservation.
+     * 6. Write private WAV only for a new reservation.
+     * 7. Complete media, link and reservation atomically.
+     * 8. Verify stored evidence on identical retries.
+     */
+    const result = await uploadAudioIdempotently({
       organizationId,
       observationId,
+      idempotencyKey: parsedKey.value,
       bytes: uploaded.bytes,
       declaredMimeType,
     });
 
-    // Do not expose storageKey, physical path, or SHA here.
+    // Never reveal storageKey, file path, or SHA-256.
     return json(
       {
         mediaId: result.mediaId,
@@ -256,7 +338,7 @@ export async function POST(
         durationSeconds: result.durationSeconds,
         mimeType: "audio/wav",
       },
-      201,
+      result.replayed ? 200 : 201,
     );
   } catch (error) {
     return evidenceErrorResponse(error);

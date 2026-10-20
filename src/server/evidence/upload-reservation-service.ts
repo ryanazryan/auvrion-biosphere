@@ -14,12 +14,20 @@ import { isUuid } from "@/server/observations/observation-input";
 import { parseIdempotencyKey } from "./upload-idempotency";
 import { MAX_AUDIO_BYTES } from "./wav-validation";
 
+// ============================================================
+// AB-WC-010 — Upload Reservation Types
+// ============================================================
+
 type ReserveInput = {
   organizationId: string;
   observationId: string;
-  // This must come from server-side authenticated access,
-  // never directly from an HTTP request payload.
+
+  /**
+   * Must be derived from authenticated server-side access.
+   * Never trust a userId supplied in the HTTP request body.
+   */
   userId: string;
+
   idempotencyKey: string;
   requestSha256: string;
 };
@@ -30,13 +38,56 @@ type ReservationResult =
       reservationId: string;
       leaseToken: string;
     }
-  | { kind: "processing" }
-  | { kind: "conflict" }
-  | { kind: "completed"; mediaId: string }
-  | { kind: "reconciliation_required" };
+  | {
+      kind: "processing";
+    }
+  | {
+      kind: "conflict";
+    }
+  | {
+      kind: "completed";
+      mediaId: string;
+    }
+  | {
+      kind: "reconciliation_required";
+    };
+
+type CompleteUploadInput = {
+  organizationId: string;
+  observationId: string;
+  userId: string;
+
+  reservationId: string;
+  leaseToken: string;
+  requestSha256: string;
+
+  stored: {
+    storageKey: string;
+    sha256: string;
+    mimeType: "audio/wav";
+    byteLength: number;
+  };
+};
+
+type FailUploadInput = Omit<CompleteUploadInput, "stored">;
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
+// ============================================================
+// 1. Reserve Audio Upload
+// ============================================================
+
+/**
+ * Create a durable PostgreSQL reservation for a logical upload.
+ *
+ * Unique constraint:
+ * (organization_id, user_id, idempotency_key)
+ *
+ * The database, not an in-memory JavaScript lock, arbitrates
+ * concurrent requests.
+ *
+ * Expired leases are never automatically stolen.
+ */
 export async function reserveAudioUpload(
   input: ReserveInput,
 ): Promise<ReservationResult> {
@@ -55,8 +106,10 @@ export async function reserveAudioUpload(
   const db = getDb();
   const leaseToken = randomUUID();
 
-  // PostgreSQL's unique constraint arbitrates concurrent
-  // inserts. A losing request never owns the upload.
+  /**
+   * PostgreSQL's unique constraint ensures that only
+   * one request can acquire a reservation for this key.
+   */
   const [created] = await db
     .insert(evidenceUploadRequests)
     .values({
@@ -77,7 +130,9 @@ export async function reserveAudioUpload(
         evidenceUploadRequests.idempotencyKey,
       ],
     })
-    .returning({ id: evidenceUploadRequests.id });
+    .returning({
+      id: evidenceUploadRequests.id,
+    });
 
   if (created) {
     return {
@@ -87,7 +142,13 @@ export async function reserveAudioUpload(
     };
   }
 
-  // Read the existing committed reservation.
+  /**
+   * Another request already owns or previously used
+   * this idempotency key.
+   *
+   * Read the existing reservation instead of creating
+   * a new one.
+   */
   const [existing] = await db
     .select({
       id: evidenceUploadRequests.id,
@@ -95,6 +156,7 @@ export async function reserveAudioUpload(
       requestSha256: evidenceUploadRequests.requestSha256,
       status: evidenceUploadRequests.status,
       mediaId: evidenceUploadRequests.mediaId,
+
       leaseActive: sql<boolean>`
         ${evidenceUploadRequests.leaseExpiresAt} > now()
       `,
@@ -109,72 +171,102 @@ export async function reserveAudioUpload(
     )
     .limit(1);
 
-  // Could be concurrently deleted or otherwise unavailable.
-  // Never interpret uncertainty as a new reservation.
+  /**
+   * A concurrently deleted or otherwise unavailable
+   * reservation must not be treated as a new upload.
+   */
   if (!existing) {
-    return { kind: "reconciliation_required" };
+    return {
+      kind: "reconciliation_required",
+    };
   }
 
+  /**
+   * Same idempotency key but different target or content.
+   */
   if (
     existing.observationId !== input.observationId ||
     existing.requestSha256 !== input.requestSha256
   ) {
-    return { kind: "conflict" };
+    return {
+      kind: "conflict",
+    };
   }
 
+  /**
+   * Previously completed upload.
+   *
+   * The caller MUST independently:
+   * - verify authorization,
+   * - validate media availability,
+   * - validate observation linkage,
+   * - verify private file integrity.
+   */
   if (existing.status === "completed") {
     if (!existing.mediaId) {
-      return { kind: "reconciliation_required" };
+      return {
+        kind: "reconciliation_required",
+      };
     }
 
-    // Caller MUST reauthorize and validate availability
-    // and stored-file integrity before an HTTP replay.
     return {
       kind: "completed",
       mediaId: existing.mediaId,
     };
   }
 
+  /**
+   * An active processor still owns the reservation.
+   */
   if (existing.status === "processing") {
-    // Expired leases are NOT automatically stolen.
-    // Filesystem/database reconciliation comes first.
     if (existing.leaseActive) {
-      return { kind: "processing" };
+      return {
+        kind: "processing",
+      };
     }
 
-    return { kind: "reconciliation_required" };
+    /**
+     * Expired processing leases require reconciliation.
+     *
+     * Never automatically acquire a new lease while
+     * the previous upload's filesystem or DB state
+     * may be uncertain.
+     */
+    return {
+      kind: "reconciliation_required",
+    };
   }
 
-  // "failed" requires an explicit recovery decision.
-  return { kind: "reconciliation_required" };
+  /**
+   * Failed reservations require an explicit recovery
+   * decision before the key can be reused.
+   */
+  return {
+    kind: "reconciliation_required",
+  };
 }
 
-type CompleteUploadInput = {
-  organizationId: string;
-  observationId: string;
-  userId: string;
-  reservationId: string;
-  leaseToken: string;
-  requestSha256: string;
-  stored: {
-    storageKey: string;
-    sha256: string;
-    mimeType: "audio/wav";
-    byteLength: number;
-  };
-};
+// ============================================================
+// 2. Complete Reserved Audio Upload
+// ============================================================
 
 /**
- * Complete only a reservation still owned by this processor.
+ * Atomically complete an upload reservation.
  *
- * The caller must have already:
- * - authorized the authenticated operator,
- * - validated the target observation,
- * - written the WAV to private storage,
- * - computed the request fingerprint from those bytes.
+ * Prerequisites:
+ * - operator has been authenticated and authorized,
+ * - observation belongs to the authorized organization,
+ * - WAV has passed validation,
+ * - file has been written to private storage,
+ * - SHA-256 fingerprint has been calculated.
  *
- * Media, observation link and reservation completion
- * are persisted atomically.
+ * One database transaction:
+ * 1. Insert evidence_media.
+ * 2. Insert evidence_links.
+ * 3. Complete the owned upload reservation.
+ *
+ * A rejected fence causes the entire transaction
+ * to roll back.
  */
 export async function completeReservedAudioUpload(
   input: CompleteUploadInput,
@@ -203,6 +295,10 @@ export async function completeReservedAudioUpload(
   const db = getDb();
 
   return db.transaction(async (tx) => {
+    /**
+     * Insert metadata for the WAV file already stored
+     * in the private storage directory.
+     */
     const [media] = await tx
       .insert(evidenceMedia)
       .values({
@@ -214,12 +310,19 @@ export async function completeReservedAudioUpload(
         byteLength: input.stored.byteLength,
         createdByUserId: input.userId,
       })
-      .returning({ id: evidenceMedia.id });
+      .returning({
+        id: evidenceMedia.id,
+      });
 
     if (!media) {
       throw new Error("EVIDENCE_MEDIA_INSERT_FAILED");
     }
 
+    /**
+     * Link the media to the intended observation.
+     *
+     * Foreign keys enforce same-organization references.
+     */
     await tx.insert(evidenceLinks).values({
       organizationId: input.organizationId,
       observationId: input.observationId,
@@ -227,11 +330,17 @@ export async function completeReservedAudioUpload(
       linkedByUserId: input.userId,
     });
 
-    // The reservation may have expired or changed owners
-    // while the file was being written.
-    //
-    // PostgreSQL serializes competing updates to this row.
-    // Only the owner of a still-active processing lease wins.
+    /**
+     * Lease fencing.
+     *
+     * The reservation can be completed only if:
+     * - its identity matches,
+     * - its current status is processing,
+     * - the lease token belongs to this processor,
+     * - the lease has not expired.
+     *
+     * PostgreSQL serializes competing row updates.
+     */
     const [completed] = await tx
       .update(evidenceUploadRequests)
       .set({
@@ -250,17 +359,99 @@ export async function completeReservedAudioUpload(
           eq(evidenceUploadRequests.requestSha256, input.requestSha256),
           eq(evidenceUploadRequests.status, "processing"),
           eq(evidenceUploadRequests.leaseToken, input.leaseToken),
-          sql`${evidenceUploadRequests.leaseExpiresAt} > clock_timestamp()`,
+          sql`
+            ${evidenceUploadRequests.leaseExpiresAt}
+            > clock_timestamp()
+          `,
         ),
       )
-      .returning({ id: evidenceUploadRequests.id });
+      .returning({
+        id: evidenceUploadRequests.id,
+      });
 
     if (!completed) {
-      // This throws inside the transaction, rolling back
-      // the evidence media and link inserts as well.
+      /**
+       * Throwing inside the transaction rolls back:
+       * - evidence_media insert,
+       * - evidence_links insert,
+       * - reservation changes.
+       */
       throw new Error("UPLOAD_RESERVATION_FENCE_REJECTED");
     }
 
-    return { mediaId: media.id };
+    return {
+      mediaId: media.id,
+    };
   });
+}
+
+// ============================================================
+// 3. Fail Reserved Audio Upload
+// ============================================================
+
+/**
+ * Mark a reservation as failed only when the current
+ * processor still owns its active lease.
+ *
+ * Use only when the failure occurred BEFORE attempting
+ * PostgreSQL evidence completion.
+ *
+ * Never call after an ambiguous database commit outcome.
+ *
+ * A failed reservation:
+ * - has no committed media reference,
+ * - has no active lease token,
+ * - cannot be automatically acquired again,
+ * - requires explicit reconciliation.
+ *
+ * Returns:
+ * true  -> reservation transitioned to failed.
+ * false -> reservation could not be changed, including
+ *          wrong/expired lease or completed state.
+ */
+export async function failReservedAudioUpload(
+  input: FailUploadInput,
+): Promise<boolean> {
+  if (
+    !isUuid(input.organizationId) ||
+    !isUuid(input.observationId) ||
+    !isUuid(input.reservationId) ||
+    !isUuid(input.leaseToken) ||
+    !input.userId.trim() ||
+    !SHA256_PATTERN.test(input.requestSha256)
+  ) {
+    throw new Error("INVALID_AUDIO_FAILURE_INPUT");
+  }
+
+  const db = getDb();
+
+  const [failed] = await db
+    .update(evidenceUploadRequests)
+    .set({
+      status: "failed",
+      mediaId: null,
+      leaseToken: null,
+      leaseExpiresAt: null,
+      updatedAt: sql`now()`,
+    })
+    .where(
+      and(
+        eq(evidenceUploadRequests.id, input.reservationId),
+        eq(evidenceUploadRequests.organizationId, input.organizationId),
+        eq(evidenceUploadRequests.observationId, input.observationId),
+        eq(evidenceUploadRequests.userId, input.userId),
+        eq(evidenceUploadRequests.requestSha256, input.requestSha256),
+        eq(evidenceUploadRequests.status, "processing"),
+        eq(evidenceUploadRequests.leaseToken, input.leaseToken),
+        sql`
+          ${evidenceUploadRequests.leaseExpiresAt}
+          > clock_timestamp()
+        `,
+      ),
+    )
+    .returning({
+      id: evidenceUploadRequests.id,
+    });
+
+  return Boolean(failed);
 }
