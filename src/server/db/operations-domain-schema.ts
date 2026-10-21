@@ -22,7 +22,11 @@ import {
 } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 import { organizations } from "./grants-schema";
-import { domainCases, observations } from "./observation-domain-schema";
+import {
+  caseWorkflowStatus,
+  domainCases,
+  observations,
+} from "./observation-domain-schema";
 
 // Driver-level geometry is intentionally opaque. For application reads use
 // ST_AsGeoJSON(boundary) with explicit role-dependent location precision.
@@ -39,6 +43,17 @@ export const evidenceAvailability = pgEnum("evidence_availability", [
   "available",
   "failed",
   "invalid",
+]);
+
+/** Recorded task states only; AB-TR-024..033 remain unapproved. */
+export const taskWorkflowStatus = pgEnum("task_workflow_status", [
+  "assigned",
+  "accepted",
+  "in_progress",
+  "blocked",
+  "submitted",
+  "cancelled",
+  "completed",
 ]);
 
 export const operationalZones = pgTable(
@@ -144,7 +159,7 @@ export const observationZoneMatches = pgTable(
   ],
 );
 
-/** No workflow status here while GAP-06/07 transition rules remain open. */
+/** Task updates remain gated: only initial Assigned is permitted in WC-012. */
 export const domainTasks = pgTable(
   "domain_tasks",
   {
@@ -152,6 +167,9 @@ export const domainTasks = pgTable(
     organizationId: uuid("organization_id").notNull(),
     caseId: uuid("case_id").notNull(),
     title: text("title").notNull(),
+    status: taskWorkflowStatus("status").notNull().default("assigned"),
+    instructions: text("instructions"),
+    safetyNotes: text("safety_notes"),
     createdByUserId: text("created_by_user_id")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
@@ -170,6 +188,68 @@ export const domainTasks = pgTable(
     index("domain_tasks_case_idx").on(t.caseId),
     check("domain_tasks_positive_version_ck", sql`${t.version} > 0`),
     check("domain_tasks_nonempty_title_ck", sql`length(btrim(${t.title})) > 0`),
+  ],
+);
+
+/**
+ * Immutable versioned Case transition ledger for AB-WC-012. The unique case
+ * version and request key prevent conflicting commits/replayed write events.
+ * Application services must guard scope, MFA, actor and current state, and
+ * create the event atomically with Case and (for AB-TR-013) Task/Assignment.
+ */
+export const caseTransitionEvents = pgTable(
+  "case_transition_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    caseId: uuid("case_id").notNull(),
+    transitionId: text("transition_id").notNull(),
+    fromStatus: caseWorkflowStatus("from_status").notNull(),
+    toStatus: caseWorkflowStatus("to_status").notNull(),
+    fromVersion: integer("from_version").notNull(),
+    toVersion: integer("to_version").notNull(),
+    requestId: uuid("request_id").notNull(),
+    actorUserId: text("actor_user_id")
+      .notNull()
+      .references(() => user.id, {
+        onDelete: "restrict",
+      }),
+    reason: text("reason").notNull(),
+    taskId: uuid("task_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "case_transition_events_case_org_fk",
+      columns: [t.caseId, t.organizationId],
+      foreignColumns: [domainCases.id, domainCases.organizationId],
+    }),
+    foreignKey({
+      name: "case_transition_events_task_org_fk",
+      columns: [t.taskId, t.organizationId],
+      foreignColumns: [domainTasks.id, domainTasks.organizationId],
+    }),
+    unique("case_transition_events_case_version_uk").on(t.caseId, t.toVersion),
+    unique("case_transition_events_case_request_uk").on(t.caseId, t.requestId),
+    check(
+      "case_transition_events_reason_ck",
+      sql`length(btrim(${t.reason})) > 0 AND length(${t.reason}) <= 2000`,
+    ),
+    check(
+      "case_transition_events_version_ck",
+      sql`${t.fromVersion} > 0 AND ${t.toVersion} = ${t.fromVersion} + 1`,
+    ),
+    check(
+      "case_transition_events_approved_edges_ck",
+      sql`(
+        (${t.transitionId} = 'AB-TR-010' AND ${t.fromStatus} = 'received' AND ${t.toStatus} = 'under_review' AND ${t.taskId} IS NULL)
+        OR (${t.transitionId} = 'AB-TR-011' AND ${t.fromStatus} = 'under_review' AND ${t.toStatus} = 'awaiting_decision' AND ${t.taskId} IS NULL)
+        OR (${t.transitionId} = 'AB-TR-012' AND ${t.fromStatus} = 'awaiting_decision' AND ${t.toStatus} = 'monitoring' AND ${t.taskId} IS NULL)
+        OR (${t.transitionId} = 'AB-TR-013' AND ${t.fromStatus} = 'awaiting_decision' AND ${t.toStatus} = 'assigned' AND ${t.taskId} IS NOT NULL)
+      )`,
+    ),
   ],
 );
 

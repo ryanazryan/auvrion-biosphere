@@ -42,6 +42,15 @@ export const qualityFlag = pgEnum("observation_quality_flag", [
   "invalid",
 ]);
 
+/** AB-WC-012 V1 approval: only AB-TR-010..013 are executable. */
+export const caseWorkflowStatus = pgEnum("case_workflow_status", [
+  "received",
+  "under_review",
+  "awaiting_decision",
+  "monitoring",
+  "assigned",
+]);
+
 export const observationSources = pgTable(
   "observation_sources",
   {
@@ -206,7 +215,8 @@ export const domainCases = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "restrict" }),
     title: text("title").notNull(),
-    // Status is intentionally not persisted yet: state machine transition policy is still OPEN.
+    // V1 starts Received; only approved, scoped server transitions may change it.
+    status: caseWorkflowStatus("status").notNull().default("received"),
     version: integer("version").notNull().default(1),
     openedByUserId: text("opened_by_user_id")
       .notNull()
