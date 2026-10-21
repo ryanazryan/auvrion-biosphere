@@ -106,9 +106,12 @@ export function LoginForm() {
             <label htmlFor="login-password" className="text-[13px] font-medium">
               Kata Sandi
             </label>
-            <span className="text-xs text-muted">
-              Pemulihan melalui administrator
-            </span>
+            <Link
+              href="/forgot-password"
+              className="text-xs font-medium text-brand hover:underline"
+            >
+              Lupa kata sandi?
+            </Link>
           </div>
           <div className="relative">
             <input

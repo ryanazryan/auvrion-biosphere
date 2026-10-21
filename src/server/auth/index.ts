@@ -3,10 +3,21 @@ import "server-only";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { twoFactor } from "better-auth/plugins";
+import { emailOTP, twoFactor } from "better-auth/plugins";
 
 import { isTotpEnrollmentEligible } from "@/server/auth/enrollment-eligibility";
 import { recordMfaSessionAssurance } from "@/server/auth/mfa-assurance-store";
+import { sendLocalPasswordResetOtp } from "@/server/auth/password-reset-mailer";
+import {
+  isAllowedPasswordRecoveryEndpoint,
+  isEmailOtpPluginEndpoint,
+  localPasswordRecoveryEnabled,
+  PASSWORD_RESET_OTP_ATTEMPTS,
+  PASSWORD_RESET_OTP_LENGTH,
+  PASSWORD_RESET_OTP_TTL_SECONDS,
+  passwordResetEligibleInput,
+  passwordResetStrongPassword,
+} from "@/server/auth/password-reset-policy";
 import { getDb } from "@/server/db";
 import * as authSchema from "@/server/db/auth-schema";
 
@@ -55,6 +66,18 @@ export const auth = betterAuth({
   },
 
   plugins: [
+    emailOTP({
+      disableSignUp: true,
+      otpLength: PASSWORD_RESET_OTP_LENGTH,
+      expiresIn: PASSWORD_RESET_OTP_TTL_SECONDS,
+      allowedAttempts: PASSWORD_RESET_OTP_ATTEMPTS,
+      storeOTP: "hashed",
+      async sendVerificationOTP({ email, otp, type }) {
+        if (type !== "forget-password")
+          throw new Error("EMAIL_OTP_TYPE_DENIED");
+        await sendLocalPasswordResetOtp({ email, otp });
+      },
+    }),
     twoFactor({
       issuer: "Auvrion Biosphere",
       skipVerificationOnEnable: false,
@@ -63,6 +86,32 @@ export const auth = betterAuth({
 
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      // Avoid adding OTP-based sign-in / sign-up as a bypass of mandatory TOTP.
+      if (isEmailOtpPluginEndpoint(ctx.path)) {
+        if (
+          !localPasswordRecoveryEnabled(process.env) ||
+          !isAllowedPasswordRecoveryEndpoint(ctx.path)
+        ) {
+          throw new APIError("FORBIDDEN", { message: "EMAIL_OTP_NOT_ALLOWED" });
+        }
+        if (!passwordResetEligibleInput(ctx.body)) {
+          throw new APIError("BAD_REQUEST", {
+            message: "INVALID_RESET_REQUEST",
+          });
+        }
+        if (ctx.path === "/email-otp/reset-password") {
+          const input = ctx.body as Record<string, unknown>;
+          if (
+            !passwordResetStrongPassword(input.password) ||
+            typeof input.otp !== "string" ||
+            !/^\d{8}$/.test(input.otp)
+          ) {
+            throw new APIError("BAD_REQUEST", {
+              message: "INVALID_RESET_REQUEST",
+            });
+          }
+        }
+      }
       // V1 does not allow disabling factors or independently
       // regenerating recovery credentials.
       const blockedPaths = new Set([
