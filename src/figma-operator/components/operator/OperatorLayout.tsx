@@ -39,12 +39,19 @@ const NAV: Item[] = [
     icon: <I.Plus />,
     active: (p) => p === "/operator/observations/new",
   },
+  {
+    href: "/operator/review",
+    label: "Antrean Review",
+    icon: <I.Inbox />,
+    active: (p) => p.startsWith("/operator/review"),
+  },
+  {
+    href: "/operator/handoffs",
+    label: "Pelacakan Handoff",
+    icon: <I.Route />,
+    active: (p) => p.startsWith("/operator/handoffs"),
+  },
 ];
-const LATER: { label: string; icon: ReactNode }[] = [
-  { label: "Antrean Review", icon: <I.Inbox /> },
-  { label: "Pelacakan Handoff", icon: <I.Route /> },
-];
-
 function Nav({ path, onNavigate }: { path: string; onNavigate?: () => void }) {
   const row =
     "relative flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium [&_svg]:size-4 [&_svg]:shrink-0";
@@ -70,28 +77,6 @@ function Nav({ path, onNavigate }: { path: string; onNavigate?: () => void }) {
             </li>
           );
         })}
-      </ul>
-      <p className="mt-6 mb-1 px-2.5 text-xs text-muted">
-        Belum tersedia · WC-012
-      </p>
-      <ul className="space-y-0.5">
-        {LATER.map((n) => (
-          <li key={n.label}>
-            <span
-              aria-disabled="true"
-              title="Belum tersedia sampai integrasi WC-012"
-              className={`${row} cursor-not-allowed text-muted [&_svg]:text-muted/60`}
-            >
-              {n.icon}
-              {n.label}
-              <span className="sr-only"> (belum tersedia)</span>
-              <I.Lock
-                aria-hidden="true"
-                className="ml-auto size-3.5! opacity-60"
-              />
-            </span>
-          </li>
-        ))}
       </ul>
     </nav>
   );

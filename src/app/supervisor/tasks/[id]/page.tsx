@@ -1,0 +1,116 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import {
+  dateTime,
+  Empty,
+  NavButton,
+  PageHeading,
+  Panel,
+  ReadOnlyNote,
+  StatusChip,
+  shortId,
+} from "@/components/supervisor/SupervisorElements";
+import { isUuid } from "@/server/workflow/approved-case-policy";
+import {
+  findWorkspaceAccess,
+  getWorkspaceTask,
+} from "@/server/workflow/workspace-queries";
+
+export const dynamic = "force-dynamic";
+export default async function SupervisorTaskDetail({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const a = await findWorkspaceAccess("supervisor");
+  if (!a.allowed) return null;
+  const { id } = await params;
+  if (!isUuid(id)) notFound();
+  const data = await getWorkspaceTask(a.organizationId, id);
+  if (!data) notFound();
+  const { task: t, findings } = data;
+  return (
+    <>
+      <div className="mb-4">
+        <Link
+          className="text-xs font-semibold text-brand"
+          href="/supervisor/tasks"
+        >
+          ← Kembali ke tugas
+        </Link>
+      </div>
+      <PageHeading
+        title={t.title}
+        desc={`Task ${shortId(t.id)} · versi ${t.version} · dibuat ${dateTime(t.createdAt)}`}
+        action={<StatusChip status={t.status} />}
+      />
+      <ReadOnlyNote>
+        Accept, Start, Blocked, Submit, Cancel, dan Complete belum aktif sampai
+        kebijakan Task disetujui. Ranger submission tidak sama dengan closure
+        Case.
+      </ReadOnlyNote>
+      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-5">
+          <Panel title="Instruksi & keselamatan">
+            <div className="space-y-5 p-4 text-sm">
+              <div>
+                <p className="text-xs font-semibold uppercase text-muted">
+                  Instruksi
+                </p>
+                <p className="mt-2 whitespace-pre-wrap leading-7">
+                  {t.instructions ?? "Tidak tersedia"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase text-muted">
+                  Catatan keselamatan
+                </p>
+                <p className="mt-2 whitespace-pre-wrap leading-7">
+                  {t.safetyNotes ?? "Tidak tersedia"}
+                </p>
+              </div>
+            </div>
+          </Panel>
+          <Panel title={`Temuan lapangan · ${findings.length}`}>
+            {!findings.length ? (
+              <Empty text="Belum ada temuan Ranger tersimpan." />
+            ) : (
+              <ol className="divide-y divide-line">
+                {findings.map((f) => (
+                  <li key={f.id} className="px-4 py-3">
+                    <p className="text-sm leading-6">{f.summary}</p>
+                    <p className="mt-1 text-xs text-muted">
+                      {dateTime(f.createdAt)}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Panel>
+        </div>
+        <aside>
+          <Panel title="Penugasan">
+            <div className="space-y-3 p-4 text-[13px]">
+              <p>
+                <span className="text-muted">Ranger:</span>{" "}
+                <strong className="text-ink">
+                  {t.rangerName ?? "Tidak ada assignment aktif"}
+                </strong>
+              </p>
+              <p>
+                <span className="text-muted">Diberikan:</span>{" "}
+                {dateTime(t.assignedAt)}
+              </p>
+              <p>
+                <span className="text-muted">Case:</span> {shortId(t.caseId)}
+              </p>
+              <NavButton muted href={`/supervisor/decisions/${t.caseId}`}>
+                Lihat Case →
+              </NavButton>
+            </div>
+          </Panel>
+        </aside>
+      </div>
+    </>
+  );
+}
