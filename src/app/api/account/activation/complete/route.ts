@@ -1,5 +1,6 @@
 import "server-only";
 import { and, eq, isNull } from "drizzle-orm";
+import { isVerifiedLocalBootstrapAdmin } from "@/server/account-activation/bootstrap-admin-policy";
 import {
   isLocalActivationRequest,
   jsonError,
@@ -15,7 +16,11 @@ import {
   twoFactor,
   user,
 } from "@/server/db/auth-schema";
-import { organizations, roleGrants } from "@/server/db/grants-schema";
+import {
+  adminCapabilityGrants,
+  organizations,
+  roleGrants,
+} from "@/server/db/grants-schema";
 
 export const runtime = "nodejs";
 export async function POST(request: Request) {
@@ -53,6 +58,7 @@ export async function POST(request: Request) {
               verifiedAt: accessApplications.emailVerifiedAt,
               reviewedAt: accessApplications.reviewedAt,
               reviewerId: accessApplications.reviewedById,
+              decisionReason: accessApplications.decisionReason,
             })
             .from(accessApplications)
             .where(eq(accessApplications.id, access.applicationId))
@@ -114,14 +120,12 @@ export async function POST(request: Request) {
           app.email.trim().toLowerCase() ||
         identity.email.trim().toLowerCase() !==
           current.user.email.trim().toLowerCase() ||
-        !invite ||
-        invite.userId !== current.user.id ||
-        !invite.usedAt ||
         !factor ||
         !credential ||
         !org
       )
         return "DENIED" as const;
+      // Ordinary users must consume a valid invite and hold an operational role.
       const [grant] = await tx
         .select({ id: roleGrants.id })
         .from(roleGrants)
@@ -133,7 +137,38 @@ export async function POST(request: Request) {
           ),
         )
         .limit(1);
-      if (!grant) return "DENIED" as const;
+      const ordinaryActivation =
+        !!invite &&
+        invite.userId === current.user.id &&
+        !!invite.usedAt &&
+        !!grant;
+
+      // A first-admin bootstrap creates a credential and admin capability grants,
+      // not an invitation or operational role. Verify its exact provenance.
+      let bootstrapActivation = false;
+      if (!ordinaryActivation && !invite) {
+        const grants = await tx
+          .select({ capability: adminCapabilityGrants.capability })
+          .from(adminCapabilityGrants)
+          .where(
+            and(
+              eq(adminCapabilityGrants.userId, current.user.id),
+              eq(adminCapabilityGrants.organizationId, org.id),
+              isNull(adminCapabilityGrants.revokedAt),
+            ),
+          );
+        const capabilities = new Set(grants.map((grant) => grant.capability));
+        bootstrapActivation = isVerifiedLocalBootstrapAdmin({
+          userId: current.user.id,
+          email: identity.email,
+          applicationEmail: app.email,
+          reviewerId: app.reviewerId,
+          decisionReason: app.decisionReason,
+          hasReviewApplications: capabilities.has("review_applications"),
+          hasManageAccess: capabilities.has("manage_access"),
+        });
+      }
+      if (!ordinaryActivation && !bootstrapActivation) return "DENIED" as const;
       const [updated] = await tx
         .update(userAccess)
         .set({
