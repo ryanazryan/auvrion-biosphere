@@ -30,6 +30,28 @@ export default async function HomePage() {
     if (adminAccess.allowed) redirect("/admin/access-applications");
   }
 
+  // WC-012: only an active, MFA-assured Supervisor may enter its workspace.
+  const [supervisorOrg] = await db
+    .select({ id: organizations.id })
+    .from(roleGrants)
+    .innerJoin(organizations, eq(roleGrants.organizationId, organizations.id))
+    .where(
+      and(
+        eq(roleGrants.userId, currentSession.user.id),
+        eq(roleGrants.role, "supervisor"),
+        isNull(roleGrants.revokedAt),
+      ),
+    )
+    .orderBy(asc(organizations.name))
+    .limit(1);
+  if (supervisorOrg) {
+    const supervisorAccess = await checkOperationalAccess(
+      supervisorOrg.id,
+      "supervisor",
+    );
+    if (supervisorAccess.allowed) redirect("/supervisor/overview");
+  }
+
   // Operator routing is decided server-side, using current grants and MFA assurance.
   const [operatorOrg] = await db
     .select({ id: organizations.id })
