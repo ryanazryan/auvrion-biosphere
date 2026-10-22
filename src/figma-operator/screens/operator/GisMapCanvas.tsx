@@ -81,6 +81,7 @@ export function GisMapCanvas({
         if (disposed || !containerRef.current) return;
         const validatedStyle = schematic?.style ?? STYLE_URL;
         if (!validatedStyle) throw new Error("BASEMAP_STYLE_UNAVAILABLE");
+        if (disposed || !containerRef.current) return;
 
         map = new lib.Map({
           container: containerRef.current,
@@ -209,10 +210,11 @@ export function GisMapCanvas({
   }
 
   return (
-    <div className="relative size-full overflow-hidden bg-[#eef1ec]">
+    <div className="absolute inset-0 overflow-hidden bg-[#eef1ec]">
       {ready && !error && (
         <section
           className="absolute inset-0"
+          style={{ position: "absolute", inset: 0 }}
           ref={containerRef}
           aria-label="Peta observasi"
         />

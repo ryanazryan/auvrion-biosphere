@@ -20,6 +20,7 @@ export function TotpEnrollment() {
   const [code, setCode] = useState("");
   const [verified, setVerified] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [finished, setFinished] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -231,14 +232,22 @@ export function TotpEnrollment() {
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(setup.codes.join("\n"));
+                    setCopied(true);
                     setError("");
                   } catch {
+                    setCopied(false);
                     setError("Gagal menyalin. Simpan kode secara manual.");
                   }
                 }}
               >
-                Salin kode pemulihan
+                {copied ? "✓ Kode berhasil disalin" : "Salin kode pemulihan"}
               </button>
+              {copied && (
+                <p role="status" className="text-xs text-brand">
+                  Kode tersalin ke clipboard. Simpan di tempat yang aman, jangan
+                  dibagikan.
+                </p>
+              )}
               <label className="flex items-start gap-2 text-sm">
                 <input
                   className="mt-1"

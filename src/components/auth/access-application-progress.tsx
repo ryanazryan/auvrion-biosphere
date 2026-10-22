@@ -14,6 +14,7 @@ type StepState =
 type Props = {
   status: ApplicationProgressStatus;
   activated?: boolean;
+  provisioned?: boolean;
 };
 
 const STEPS = [
@@ -34,6 +35,7 @@ function stepLabel(
   status: ApplicationProgressStatus,
   state: StepState,
   index: number,
+  provisioned: boolean,
 ): string {
   if (state === "complete") {
     if (index === 2 && status === "approved") {
@@ -59,7 +61,9 @@ function stepLabel(
   }
 
   if (index === 3 && status === "approved") {
-    return "Menunggu aktivasi";
+    return provisioned
+      ? "Periksa email dan lanjutkan aktivasi"
+      : "Menunggu penetapan peran";
   }
 
   return "Belum dimulai";
@@ -68,6 +72,7 @@ function stepLabel(
 export function AccessApplicationProgress({
   status,
   activated = false,
+  provisioned = false,
 }: Props) {
   const states: StepState[] =
     status === "approved" && activated
@@ -102,7 +107,7 @@ export function AccessApplicationProgress({
           const labelStyle =
             finished || current || rejected ? "text-fg" : "text-muted";
 
-          const progressLabel = stepLabel(status, state, index);
+          const progressLabel = stepLabel(status, state, index, provisioned);
 
           return (
             <li
@@ -138,9 +143,10 @@ export function AccessApplicationProgress({
       </ol>
 
       {status === "approved" && !activated && (
-        <p className="mt-3 text-xs leading-5 text-muted">
-          Permohonan Anda telah disetujui. Akun sedang disiapkan. Instruksi
-          aktivasi akan dikirim secara terpisah saat tersedia.
+        <p className="mt-3 text-xs leading-5 text-muted" role="status">
+          {provisioned
+            ? "Peran akun telah disiapkan. Jika undangan aktivasi sudah diterima, buka tautan dari email untuk membuat kata sandi lalu siapkan TOTP. Jika belum menerima email, cek spam atau hubungi administrator."
+            : "Permohonan lolos peninjauan. Administrator masih perlu menetapkan peran dan menyiapkan undangan aktivasi. Belum dapat masuk ke aplikasi."}
         </p>
       )}
 

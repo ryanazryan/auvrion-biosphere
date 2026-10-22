@@ -313,13 +313,6 @@ export function GisWorkspace() {
             <h1 className="truncate text-[16px] leading-6 font-semibold tracking-[-0.02em] text-ink md:text-[19px]">
               Peta Observasi
             </h1>
-            <p className="truncate text-[11px] leading-4 text-muted md:text-xs">
-              {operator.orgName}
-              <span className="max-md:hidden">
-                {" "}
-                · Lokasi hanya ditampilkan bila disetujui server
-              </span>
-            </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <fieldset
@@ -396,13 +389,13 @@ export function GisWorkspace() {
           </div>
           <form
             onSubmit={(event) => event.preventDefault()}
-            className="hidden min-h-12 items-center gap-2 px-4 py-2 min-[1280px]:flex"
+            className="hidden min-h-12 min-w-0 items-center gap-3 px-4 py-2 min-[1280px]:flex"
           >
             <GisFilterFields {...filterProps} />
             <button
               type="button"
               onClick={resetFilters}
-              className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-2 text-xs font-normal text-muted hover:text-brand"
+              className="ml-auto inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-xs font-normal text-muted hover:text-brand"
             >
               <I.X className="size-3.5" />
               Atur ulang
@@ -682,7 +675,7 @@ export function GisWorkspace() {
                 focusTarget={focusTarget}
               />
               {result.status === "success" && rows.length > shown && (
-                <div className="absolute top-16 left-4 z-10 inline-flex max-w-[calc(100%-5rem)] items-center gap-2 rounded-md border border-line bg-white/95 px-2.5 py-2 text-[11px] text-muted shadow-sm">
+                <div className="absolute top-16 left-4 z-10 hidden max-w-[calc(100%-5rem)] items-center gap-2 rounded-md border border-line bg-white/95 px-2.5 py-2 text-[11px] text-muted shadow-sm md:inline-flex">
                   <I.Lock className="size-3.5 shrink-0" />
                   <span>
                     {rows.length - shown} dari {rows.length} observasi tanpa
@@ -1087,21 +1080,21 @@ function GisFilterFields({
   return (
     <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2">
       <GisFilterDropdown
-        className="w-41.5 shrink-0"
+        className="w-41.5 min-w-0 shrink"
         label="Domain"
         value={filters.domain}
         onChange={(domain) => update({ domain })}
         options={domainOptions}
       />
       <GisFilterDropdown
-        className="w-67.5 shrink-0"
+        className="w-67.5 min-w-0 shrink"
         label="Sumber"
         value={filters.sourceId}
         onChange={(sourceId) => update({ sourceId })}
         options={sourceOptions(sources)}
       />
       <GisFilterDropdown
-        className="w-48 shrink-0"
+        className="w-48 min-w-0 shrink"
         label="Kualitas"
         value={filters.quality}
         onChange={(quality) => update({ quality })}
@@ -1114,7 +1107,7 @@ function GisFilterFields({
         onChange={update}
       />
       <GisFilterDropdown
-        className="w-39 shrink-0"
+        className="w-39 min-w-0 shrink"
         label="Zona"
         value={filters.zoneId}
         disabled={zoneStatus !== "success"}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { ListenMonitor } from "@/figma-operator/demo/ListenMonitor";
 import * as I from "../../components/icons";
 import { OperatorLayout } from "../../components/operator/OperatorLayout";
 import {
@@ -89,7 +90,7 @@ export function Overview() {
                   )}
                 >
                   <p className="text-xs text-muted">{label}</p>
-                  <p className="tnum mt-1 h-8 text-2xl font-semibold text-ink">
+                  <p className="tnum mt-1 h-8 text-2xl font-semibold tracking-[-0.02em] text-ink">
                     {n ?? (
                       <span className="inline-block h-6 w-8 animate-pulse rounded bg-line align-middle motion-reduce:animate-none" />
                     )}
@@ -101,6 +102,7 @@ export function Overview() {
               ))}
             </section>
 
+            <ListenMonitor />
             <Panel
               title="Observasi terakhir diterima"
               aside={

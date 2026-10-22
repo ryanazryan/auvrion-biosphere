@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import type { OperationalRole } from "@/server/account-activation/policy";
 
 type AccessStatus = "pending_activation" | "active" | "disabled" | null;
@@ -92,25 +93,27 @@ export function ApplicationProvisioningActions({
     >
       <h3 className="text-sm font-semibold">Provisioning & Aktivasi</h3>
       <p className="mt-2 text-xs leading-5 text-muted">
-        Approved tidak otomatis aktif. Admin menetapkan role dan mengirim
-        undangan aktivasi.
+        Permohonan telah lolos peninjauan. Pilih peran, lalu kirim undangan
+        aktivasi. Akun baru aktif setelah pengguna menyelesaikan pengaturan.
       </p>
       {accessStatus === null && (
         <div className="mt-4">
           <label htmlFor="provision-role" className="block text-sm font-medium">
             Role untuk {applicantName}
           </label>
-          <select
+          <SelectMenu
             id="provision-role"
+            label={`Role untuk ${applicantName}`}
             value={role}
             disabled={busy}
-            onChange={(e) => setRole(e.target.value as OperationalRole)}
-            className="mt-2 h-11 w-full rounded-md border border-line-strong bg-white px-3 text-sm"
-          >
-            <option value="operator">Operator</option>
-            <option value="supervisor">Supervisor</option>
-            <option value="ranger">Ranger</option>
-          </select>
+            onChange={setRole}
+            className="mt-2"
+            options={[
+              { value: "operator", label: "Operator" },
+              { value: "supervisor", label: "Supervisor" },
+              { value: "ranger", label: "Ranger" },
+            ]}
+          />
         </div>
       )}
       {accessStatus === "active" && (

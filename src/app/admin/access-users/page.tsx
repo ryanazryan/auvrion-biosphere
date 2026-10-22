@@ -54,6 +54,7 @@ export default async function AdminAccessUsersPage() {
       userId: user.id,
       name: user.name,
       email: user.email,
+      mfaEnabled: user.twoFactorEnabled,
       accessStatus: userAccess.status,
       applicationStatus: accessApplications.status,
       role: roleGrants.role,
@@ -77,6 +78,7 @@ export default async function AdminAccessUsersPage() {
       userId: string;
       name: string;
       email: string;
+      mfaEnabled: boolean;
       accessStatus: "pending_activation" | "active" | "disabled";
       activeRoles: Array<"operator" | "supervisor" | "ranger">;
     }
@@ -89,6 +91,7 @@ export default async function AdminAccessUsersPage() {
         userId: record.userId,
         name: record.name,
         email: record.email,
+        mfaEnabled: record.mfaEnabled,
         accessStatus: record.accessStatus,
         activeRoles: record.revokedAt ? [] : [record.role],
       });

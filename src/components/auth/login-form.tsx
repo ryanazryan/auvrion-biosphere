@@ -131,9 +131,22 @@ export function LoginForm() {
               }
               aria-pressed={visible}
               onClick={() => setVisible((current) => !current)}
-              className="absolute inset-y-1 right-1 rounded px-2 text-xs font-medium text-muted hover:bg-bg hover:text-fg"
+              className="absolute inset-y-1 right-1 grid w-10 place-items-center rounded text-muted hover:bg-bg hover:text-fg"
             >
-              {visible ? "Sembunyikan" : "Tampilkan"}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="size-[18px]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z" />
+                <circle cx="12" cy="12" r="3" />
+                {!visible && <path d="M3 3l18 18" />}
+              </svg>
             </button>
           </div>
         </div>
