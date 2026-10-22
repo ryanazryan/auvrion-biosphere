@@ -1,7 +1,8 @@
 "use client";
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { OperatorAssistControls } from "@/figma-operator/demo/OperatorAssistant";
 import { useOperator } from "../../operator-context";
 import * as I from "../icons";
 import { Wordmark } from "../ui";
@@ -100,18 +101,114 @@ function Identity() {
           </p>
         </div>
       </div>
-      <span
-        aria-disabled="true"
-        title="Halaman keamanan akun sedang disiapkan"
-        className="mt-1 flex h-8 items-center gap-2 rounded-md px-2.5 text-[13px] text-muted"
+      <a
+        href="/account/security"
+        className="mt-1 flex h-8 items-center gap-2 rounded-md px-2.5 text-[13px] text-muted hover:bg-bg hover:text-fg"
       >
         <I.Shield className="size-4" />
-        Keamanan akun · menyusul
-      </span>
+        Keamanan akun
+      </a>
       <LogoutButton
         variant="sidebar"
         icon={<I.LogOut className="size-4 text-muted" />}
       />
+    </div>
+  );
+}
+
+// AB-UI-OPERATOR-TIMEZONE-MAPLAYOUT-20261022
+const DISPLAY_ZONES = [
+  { id: "WIB", offset: "UTC+7", name: "Indonesia Barat" },
+  { id: "WITA", offset: "UTC+8", name: "Indonesia Tengah" },
+  { id: "WIT", offset: "UTC+9", name: "Indonesia Timur" },
+] as const;
+
+type DisplayZone = (typeof DISPLAY_ZONES)[number]["id"];
+
+/** Custom timezone control with the same visual language as Operator GIS filters. */
+function OperatorTimeZoneMenu({
+  timeZone,
+  setTimeZone,
+}: {
+  timeZone: DisplayZone;
+  setTimeZone: (zone: DisplayZone) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const listId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const pointer = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", pointer);
+    document.addEventListener("keydown", keyboard);
+    return () => {
+      document.removeEventListener("pointerdown", pointer);
+      document.removeEventListener("keydown", keyboard);
+    };
+  }, [open]);
+
+  return (
+    <div ref={root} className="relative shrink-0">
+      <button
+        ref={trigger}
+        type="button"
+        aria-label={`Zona waktu tampilan: ${timeZone}`}
+        aria-expanded={open}
+        aria-controls={listId}
+        title="Pilih zona waktu tampilan"
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-line-strong bg-white px-2.5 text-xs font-semibold text-fg transition-colors hover:border-brand/50 hover:bg-brand-50/30 focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        <I.Clock className="size-4 text-brand" />
+        <span>{timeZone}</span>
+        <I.Chevron
+          className={`size-3.5 text-muted transition-transform duration-150 ${open ? "-rotate-90" : "rotate-90"}`}
+        />
+      </button>
+      {open && (
+        <fieldset
+          id={listId}
+          aria-label="Pilihan zona waktu tampilan"
+          className="absolute top-full right-0 z-50 mt-2 w-68 max-w-[calc(100vw-1rem)] rounded-lg border border-line bg-white p-1.5 text-[13px] shadow-lg"
+        >
+          <p className="px-2.5 py-1.5 text-xs font-medium text-muted">
+            Zona waktu tampilan
+          </p>
+          {DISPLAY_ZONES.map((zone) => (
+            <button
+              key={zone.id}
+              data-zone-option
+              type="button"
+              aria-pressed={timeZone === zone.id}
+              onClick={() => {
+                setTimeZone(zone.id);
+                setOpen(false);
+                trigger.current?.focus();
+              }}
+              className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-brand ${timeZone === zone.id ? "bg-brand-50 font-semibold text-brand" : "text-fg hover:bg-bg"}`}
+            >
+              <span className="w-9 shrink-0">{zone.id}</span>
+              <span className="min-w-0 flex-1 whitespace-nowrap text-[11px] font-normal text-muted">
+                {zone.name} · {zone.offset}
+              </span>
+              {timeZone === zone.id && (
+                <I.Check className="size-4 shrink-0 text-brand" />
+              )}
+            </button>
+          ))}
+        </fieldset>
+      )}
     </div>
   );
 }
@@ -138,6 +235,8 @@ export function OperatorLayout({
 }) {
   const { operator: OPERATOR, timeZone, setTimeZone } = useOperator();
   const [drawer, setDrawer] = useState(false);
+  // AB-UI-SIDEBAR-SLIDE-20261022: hide the entire desktop sidebar, preserving all links.
+  const [sidebarHidden, setSidebarHidden] = useState(false);
   useEffect(() => {
     if (!drawer) return;
     const k = (e: KeyboardEvent) => {
@@ -148,7 +247,9 @@ export function OperatorLayout({
   }, [drawer]);
   return (
     <div className="min-h-dvh bg-bg">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-line bg-surface pt-(--safe-top) pl-(--safe-left) lg:flex">
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-line bg-surface pt-(--safe-top) pl-(--safe-left) transition-transform duration-300 ease-in-out motion-reduce:transition-none lg:flex ${sidebarHidden ? "-translate-x-full" : "translate-x-0"}`}
+      >
         <div className="border-b border-line">
           <Brand />
         </div>
@@ -189,8 +290,10 @@ export function OperatorLayout({
         </div>
       )}
 
-      <div className="lg:pl-60">
-        <header className="sticky top-0 z-20 border-b border-line bg-surface pt-(--safe-top) pr-(--safe-right) pl-(--safe-left) lg:pl-0">
+      <div
+        className={`transition-[padding] duration-300 ease-in-out motion-reduce:transition-none ${sidebarHidden ? "lg:pl-0" : "lg:pl-60"}`}
+      >
+        <header className="sticky top-0 z-50 border-b border-line bg-surface pt-(--safe-top) pr-(--safe-right) pl-(--safe-left) lg:pl-0">
           <div className="flex h-14 items-center gap-2 px-3 min-[360px]:px-4 sm:px-6">
             <button
               type="button"
@@ -198,6 +301,20 @@ export function OperatorLayout({
               aria-expanded={drawer}
               onClick={() => setDrawer(true)}
               className="grid size-9 place-items-center rounded-md text-muted hover:bg-bg lg:hidden"
+            >
+              <I.Menu className="size-5" />
+            </button>
+            <button
+              type="button"
+              aria-label={
+                sidebarHidden
+                  ? "Buka sidebar Operator"
+                  : "Tutup sidebar Operator"
+              }
+              aria-pressed={!sidebarHidden}
+              title={sidebarHidden ? "Buka sidebar" : "Tutup sidebar"}
+              onClick={() => setSidebarHidden((hidden) => !hidden)}
+              className="hidden size-9 shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-brand lg:grid"
             >
               <I.Menu className="size-5" />
             </button>
@@ -234,23 +351,18 @@ export function OperatorLayout({
                 })}
               </ol>
             </nav>
-            <label className="inline-flex shrink-0 items-center gap-1 text-xs text-muted">
-              <span className="sr-only">Zona waktu tampilan Operator</span>
-              <select
-                aria-label="Zona waktu tampilan Operator"
-                value={timeZone}
-                onChange={(e) => setTimeZone(e.target.value as typeof timeZone)}
-                className="h-8 rounded-md border border-line-strong bg-surface px-1.5 text-xs font-medium text-fg focus:border-brand focus:outline-2 focus:outline-offset-1 focus:outline-brand"
-              >
-                <option value="WIB">WIB</option>
-                <option value="WITA">WITA</option>
-                <option value="WIT">WIT</option>
-              </select>
-            </label>
-            <span className="inline-flex shrink-0 items-center gap-1 rounded border border-dashed border-warn/50 px-1.5 py-0.5 text-xs font-medium text-warn">
-              <I.Shield className="size-3" />
-              Akses terverifikasi
-            </span>
+
+            <OperatorTimeZoneMenu
+              timeZone={timeZone}
+              setTimeZone={setTimeZone}
+            />
+            {path === "/operator/observations/demo-listen-01" && (
+              <span className="hidden shrink-0 items-center gap-1 rounded border border-dashed border-warn/50 px-1.5 py-0.5 text-xs font-medium text-warn sm:inline-flex">
+                <I.Shield className="size-3" />
+                Data simulasi
+              </span>
+            )}
+            <OperatorAssistControls />
             <span className="hidden max-w-56 truncate border-l border-line pl-3 text-[13px] text-muted md:inline">
               <span className="sr-only">Organisasi: </span>
               {OPERATOR.orgName}
@@ -268,7 +380,7 @@ export function OperatorLayout({
           <main
             className={
               workspace
-                ? "flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-surface max-md:h-[calc(100dvh-3.5rem)] max-md:min-h-0"
+                ? "flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col overflow-hidden bg-surface"
                 : "mx-auto max-w-295 px-4 pt-6 min-[360px]:px-5 pb-[calc(7rem+var(--safe-bottom))] sm:px-6 sm:pt-7"
             }
           >

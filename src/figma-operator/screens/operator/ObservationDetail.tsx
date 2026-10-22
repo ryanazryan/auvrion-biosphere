@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback } from "react";
+import { EnvironmentalAdvisory } from "@/figma-operator/demo/EnvironmentalAdvisory";
+import { openOperatorAssistant } from "@/figma-operator/demo/OperatorAssistant";
 import * as I from "../../components/icons";
 import { OperatorLayout } from "../../components/operator/OperatorLayout";
 import {
@@ -89,6 +91,23 @@ function Body({ o }: { o: Observation }) {
             {o.id}
           </h1>
           <QualityBadge q={o.quality} />
+          <button
+            type="button"
+            onClick={() =>
+              openOperatorAssistant(
+                o.domain === "biodiversity" ? "observation" : "environment",
+                o.id,
+                [
+                  { label: "Sumber", value: o.sourceCode },
+                  { label: "Kualitas", value: QUALITY[o.quality].label },
+                ],
+                "Jelaskan observasi ini",
+              )
+            }
+            className="ml-auto rounded-md px-3 py-1.5 text-[13px] font-medium text-brand hover:bg-brand-50"
+          >
+            ✧ Tanya AI
+          </button>
           {o.ingestionMode === "historical" && (
             <span className="rounded border border-line px-1.5 py-px text-xs text-muted">
               Historis
@@ -148,6 +167,26 @@ function Body({ o }: { o: Observation }) {
               </KV>
             </dl>
           </Panel>
+
+          {o.domain === "biodiversity" && (
+            <Panel title="Analisis bioakustik">
+              <p className="text-[13px] text-muted">
+                Hasil analisis AI belum tersedia melalui API untuk observasi
+                ini. Periksa bukti audio dan provenans pada catatan yang sah.
+              </p>
+            </Panel>
+          )}
+
+          {o.domain === "environmental_risk" && (
+            <EnvironmentalAdvisory
+              observationId={o.id}
+              measurements={o.measurements.map((m) => ({
+                label: KINDS[m.kind as MeasurementKind]?.label ?? m.kind,
+                value: String(m.measuredValue),
+                unit: m.unit,
+              }))}
+            />
+          )}
 
           <Panel title="Provenans">
             <dl>

@@ -47,6 +47,8 @@ export function SupervisorShell({
 }) {
   const path = usePathname();
   const [drawer, setDrawer] = useState(false);
+  // AB-UI-SIDEBAR-SLIDE-20261022
+  const [sidebarHidden, setSidebarHidden] = useState(false);
   useEffect(() => {
     if (!drawer) return;
     const close = (event: KeyboardEvent) => {
@@ -57,19 +59,19 @@ export function SupervisorShell({
   }, [drawer]);
   const nav = (
     <>
-      <div className="border-b border-white/10 px-4 pb-4 pt-4">
-        <span className="text-white">
-          <Wordmark inverted />
+      <div className="border-b border-line px-4 pb-4 pt-4">
+        <span className="text-ink">
+          <Wordmark />
         </span>
-        <p className="mt-2 text-xs text-white/55">Ruang kerja supervisor</p>
+        <p className="mt-2 text-xs text-muted">Ruang kerja supervisor</p>
       </div>
       <nav
         aria-label="Navigasi supervisor"
-        className="flex-1 space-y-5 overflow-y-auto px-3 py-5"
+        className="flex-1 space-y-5 overflow-y-auto px-3 py-4"
       >
         {groups.map((group) => (
           <div key={group.title}>
-            <p className="mb-2 px-3 text-[11px] font-bold tracking-[0.09em] text-white/45">
+            <p className="mb-2 px-3 text-[11px] font-bold tracking-[0.09em] text-muted">
               {group.title}
             </p>
             <ul className="space-y-1">
@@ -81,10 +83,10 @@ export function SupervisorShell({
                       href={href}
                       aria-current={active ? "page" : undefined}
                       onClick={() => setDrawer(false)}
-                      className={`relative flex min-h-10 items-center gap-2.5 rounded-md px-3 text-[13px] font-medium transition-colors ${active ? "bg-white/10 text-white before:absolute before:inset-y-2 before:-left-3 before:w-[3px] before:bg-[#8fc9b2]" : "text-white/70 hover:bg-white/5 hover:text-white"}`}
+                      className={`relative flex min-h-9 items-center gap-2.5 rounded-md px-3 text-[13px] font-medium transition-colors ${active ? "bg-brand-50 text-ink before:absolute before:inset-y-2 before:-left-3 before:w-[3px] before:bg-[#8fc9b2]" : "text-muted hover:bg-bg hover:text-ink"}`}
                     >
                       <Icon
-                        className={`size-4 ${active ? "text-[#8fc9b2]" : "text-white/50"}`}
+                        className={`size-4 ${active ? "text-[#8fc9b2]" : "text-muted"}`}
                       />
                       {label}
                     </Link>
@@ -95,31 +97,43 @@ export function SupervisorShell({
           </div>
         ))}
       </nav>
-      <div className="border-t border-white/10 p-3">
-        <div className="rounded-md bg-white/5 px-3 py-2">
-          <p className="text-[11px] uppercase tracking-wider text-white/50">
+      <div className="border-t border-line p-3">
+        <div className="rounded-md bg-bg px-3 py-2">
+          <p className="text-[11px] uppercase tracking-wider text-muted">
             Organisasi
           </p>
-          <p className="truncate text-[13px] text-white">{orgName}</p>
+          <p className="truncate text-[13px] text-ink">{orgName}</p>
         </div>
-        <div className="mt-3 flex items-center gap-2 px-1 text-[13px] text-white">
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white/15 font-semibold">
+        <div className="mt-3 flex items-center gap-2 px-1 text-[13px] text-ink">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-50 font-semibold">
             {userName.slice(0, 1).toUpperCase()}
           </span>
           <span className="min-w-0">
             <span className="block truncate font-medium">{userName}</span>
-            <span className="text-xs text-white/55">Supervisor</span>
+            <span className="text-xs text-muted">Supervisor</span>
           </span>
         </div>
-        <div className="mt-3 rounded-md bg-white/5 p-1 [&_button]:w-full [&_button]:text-white/80">
-          <LogoutButton variant="sidebar" />
+        <Link
+          href="/account/security"
+          className="mt-2 flex h-9 items-center gap-2 rounded-md px-3 text-[13px] text-muted transition-colors hover:bg-white/8 hover:text-ink"
+          onClick={() => setDrawer(false)}
+        >
+          <I.Shield className="size-4" /> Profil & Keamanan
+        </Link>
+        <div className="mt-3 rounded-md bg-bg p-1 [&_button]:w-full ">
+          <LogoutButton
+            variant="sidebar"
+            icon={<I.LogOut className="size-4 text-muted" />}
+          />
         </div>
       </div>
     </>
   );
   return (
     <div className="min-h-dvh bg-bg">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col bg-ink lg:flex">
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col bg-surface transition-transform duration-300 ease-in-out motion-reduce:transition-none lg:flex ${sidebarHidden ? "-translate-x-full" : "translate-x-0"}`}
+      >
         {nav}
       </aside>
       {drawer && (
@@ -135,13 +149,13 @@ export function SupervisorShell({
             aria-label="Tutup navigasi"
             className="absolute inset-0 bg-ink/60"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col bg-ink">
-            <div className="flex h-12 shrink-0 items-center justify-end border-b border-white/10 px-3">
+          <aside className="absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col bg-surface">
+            <div className="flex h-12 shrink-0 items-center justify-end border-b border-line px-3">
               <button
                 type="button"
                 aria-label="Tutup navigasi Supervisor"
                 onClick={() => setDrawer(false)}
-                className="grid size-9 place-items-center rounded-md text-white/80 hover:bg-white/10 focus-visible:outline-offset-2"
+                className="grid size-9 place-items-center rounded-md text-fg/80 hover:bg-brand-50 focus-visible:outline-offset-2"
               >
                 <I.X className="size-5" />
               </button>
@@ -150,7 +164,9 @@ export function SupervisorShell({
           </aside>
         </div>
       )}
-      <div className="lg:pl-[248px]">
+      <div
+        className={`transition-[padding] duration-300 ease-in-out motion-reduce:transition-none ${sidebarHidden ? "lg:pl-0" : "lg:pl-[248px]"}`}
+      >
         <header className="sticky top-0 z-20 flex min-h-14 items-center gap-3 border-b border-line bg-surface px-4 sm:px-6">
           <button
             type="button"
@@ -158,6 +174,20 @@ export function SupervisorShell({
             aria-expanded={drawer}
             onClick={() => setDrawer(true)}
             className="rounded-md border border-line p-2 text-ink lg:hidden"
+          >
+            <I.Menu className="size-5" />
+          </button>
+          <button
+            type="button"
+            aria-label={
+              sidebarHidden
+                ? "Buka sidebar Supervisor"
+                : "Tutup sidebar Supervisor"
+            }
+            aria-pressed={!sidebarHidden}
+            title={sidebarHidden ? "Buka sidebar" : "Tutup sidebar"}
+            onClick={() => setSidebarHidden((hidden) => !hidden)}
+            className="hidden size-9 shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-brand lg:grid"
           >
             <I.Menu className="size-5" />
           </button>

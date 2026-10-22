@@ -21,58 +21,60 @@ export default async function HomePage() {
     .where(eq(organizations.code, "AUVRION-LOCAL"))
     .limit(1);
 
-  // Preserve the current development-only admin routing behavior.
-  if (devOrganization) {
-    const adminAccess = await checkAdminAccess(
+  // Admin pages currently exist only for local development and enabled access requests.
+  if (
+    devOrganization &&
+    process.env.NODE_ENV === "development" &&
+    process.env.ENABLE_LOCAL_ACCESS_REQUESTS === "YES"
+  ) {
+    const reviewAccess = await checkAdminAccess(
       devOrganization.id,
       "review_applications",
     );
-    if (adminAccess.allowed) redirect("/admin/access-applications");
+    if (reviewAccess.allowed) redirect("/admin/access-applications");
+
+    const manageAccess = await checkAdminAccess(
+      devOrganization.id,
+      "manage_access",
+    );
+    if (manageAccess.allowed) redirect("/admin/access-users");
   }
 
-  // WC-012: only an active, MFA-assured Supervisor may enter its workspace.
-  const [supervisorOrg] = await db
-    .select({ id: organizations.id })
+  // WC-013: resolve verified role-specific home without trusting the browser.
+  // An active role grant alone is insufficient: current-session MFA and account
+  // approval are still enforced by checkOperationalAccess.
+  const assignments = await db
+    .select({
+      role: roleGrants.role,
+      organizationId: organizations.id,
+    })
     .from(roleGrants)
     .innerJoin(organizations, eq(roleGrants.organizationId, organizations.id))
     .where(
       and(
         eq(roleGrants.userId, currentSession.user.id),
-        eq(roleGrants.role, "supervisor"),
         isNull(roleGrants.revokedAt),
       ),
     )
-    .orderBy(asc(organizations.name))
-    .limit(1);
-  if (supervisorOrg) {
-    const supervisorAccess = await checkOperationalAccess(
-      supervisorOrg.id,
-      "supervisor",
-    );
-    if (supervisorAccess.allowed) redirect("/supervisor/overview");
-  }
+    .orderBy(asc(organizations.name));
 
-  // Operator routing is decided server-side, using current grants and MFA assurance.
-  const [operatorOrg] = await db
-    .select({ id: organizations.id })
-    .from(roleGrants)
-    .innerJoin(organizations, eq(roleGrants.organizationId, organizations.id))
-    .where(
-      and(
-        eq(roleGrants.userId, currentSession.user.id),
-        eq(roleGrants.role, "operator"),
-        isNull(roleGrants.revokedAt),
-      ),
-    )
-    .orderBy(asc(organizations.name))
-    .limit(1);
+  // Consistent priority for a user holding more than one operational role.
+  const homeByRole = {
+    supervisor: "/supervisor/overview",
+    operator: "/operator/overview",
+    ranger: "/ranger",
+  } as const;
+  const priority = ["supervisor", "operator", "ranger"] as const;
 
-  if (operatorOrg) {
-    const operatorAccess = await checkOperationalAccess(
-      operatorOrg.id,
-      "operator",
-    );
-    if (operatorAccess.allowed) redirect("/operator/overview");
+  for (const role of priority) {
+    for (const assignment of assignments) {
+      if (assignment.role !== role) continue;
+      const access = await checkOperationalAccess(
+        assignment.organizationId,
+        role,
+      );
+      if (access.allowed) redirect(homeByRole[role]);
+    }
   }
 
   // Existing safe fallback for pending/unsupported roles. Do not grant broad access.
@@ -100,9 +102,9 @@ export default async function HomePage() {
             Workspace belum tersedia
           </p>
           <p className="mt-2 text-sm leading-6 text-muted">
-            Akses kerja didasarkan pada persetujuan akun, peran aktif, dan MFA
-            saat ini. Jika akun Operator sudah aktif tetapi belum masuk
-            workspace, verifikasi MFA atau hubungi administrator.
+            Workspace hanya tersedia bagi akun yang disetujui, memiliki izin
+            aktif, dan sudah memenuhi MFA pada sesi ini. Periksa akses Anda atau
+            hubungi administrator.
           </p>
         </div>
         <div className="mt-6 flex items-center justify-between gap-4">

@@ -30,7 +30,7 @@ const NAV_ITEMS = [
     icon: UsersIcon,
     href: "/admin/access-users",
   },
-  { label: "Keamanan", icon: ShieldIcon, soon: true },
+  { label: "Keamanan", icon: ShieldIcon, href: "/account/security" },
   { label: "Pengaturan", icon: GearIcon, soon: true },
 ] as const;
 
@@ -265,7 +265,8 @@ export function AdminShell({
       ? "Pengguna & Hak Akses"
       : "Permohonan Akses";
 
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+  // AB-UI-SIDEBAR-SLIDE-20261022: desktop sidebar translates as a whole.
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -290,22 +291,18 @@ export function AdminShell({
     <div className="min-h-dvh bg-bg font-sans text-fg antialiased">
       {/* Desktop sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden flex-col bg-ink transition-[width] duration-200 motion-reduce:transition-none lg:flex ${
-          collapsed ? "w-16" : "w-64"
+        className={`fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-ink transition-transform duration-300 ease-in-out motion-reduce:transition-none lg:flex ${
+          collapsed ? "-translate-x-full" : "translate-x-0"
         }`}
       >
-        <div
-          className={`flex h-14 items-center border-b border-white/10 ${
-            collapsed ? "justify-center" : "px-4"
-          }`}
-        >
-          <Brand collapsed={collapsed} />
+        <div className="flex h-14 items-center border-b border-white/10 px-4">
+          <Brand />
         </div>
 
-        <Navigation collapsed={collapsed} />
+        <Navigation collapsed={false} />
 
         <ProfileBlock
-          collapsed={collapsed}
+          collapsed={false}
           organizationName={organizationName}
           adminEmail={adminEmail}
         />
@@ -356,8 +353,8 @@ export function AdminShell({
 
       {/* Main application area */}
       <div
-        className={`transition-[padding] duration-200 motion-reduce:transition-none ${
-          collapsed ? "lg:pl-16" : "lg:pl-64"
+        className={`transition-[padding] duration-300 ease-in-out motion-reduce:transition-none ${
+          collapsed ? "lg:pl-0" : "lg:pl-64"
         }`}
       >
         {/* Top bar */}
