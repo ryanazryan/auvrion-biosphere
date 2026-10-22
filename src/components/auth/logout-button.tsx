@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
+import * as I from "@/figma-operator/components/icons";
 import { authClient } from "@/lib/auth-client";
 
 type LogoutButtonProps = {
@@ -51,7 +52,8 @@ export function LogoutButton({
             : "inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-surface px-5 text-sm font-medium text-fg transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
         }
       >
-        {variant === "sidebar" && icon}
+        {variant === "sidebar" &&
+          (icon ?? <I.LogOut className="size-4 shrink-0 text-muted" />)}
         {loading
           ? "Sedang keluar..."
           : variant === "sidebar"

@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 const LABELS = {
   submitted: "Menunggu verifikasi email",
   email_verified: "Menunggu persetujuan administrator",
-  approved: "Permohonan disetujui",
+  approved: "Lolos peninjauan administrator",
   rejected: "Permohonan ditolak",
 } as const;
 
@@ -100,17 +100,30 @@ export default async function ApplicantStatusPage() {
         ✓
       </div>
       <h1 className="text-2xl font-semibold text-fg">
-        {LABELS[record.status]}
+        {record.status === "approved" && accountState?.status === "active"
+          ? "Akun aktif"
+          : record.status === "approved" && accountState?.status === "disabled"
+            ? "Akun dinonaktifkan"
+            : record.status === "approved" &&
+                accountState?.status === "pending_activation"
+              ? "Periksa email aktivasi"
+              : LABELS[record.status]}
       </h1>
       <p className="mt-3 text-sm leading-6 text-muted">
         Halo, {record.applicantName}.{" "}
         {record.status === "approved" && accountState?.status === "active"
           ? "Akun sudah aktif. Masuk menggunakan kata sandi dan TOTP."
-          : MESSAGES[record.status]}
+          : record.status === "approved" && accountState?.status === "disabled"
+            ? "Akun sedang dinonaktifkan. Hubungi administrator organisasi sebelum mencoba aktivasi."
+            : record.status === "approved" &&
+                accountState?.status === "pending_activation"
+              ? "Akun dan peran Anda sudah disiapkan. Periksa inbox atau folder spam untuk undangan aktivasi. Jika sudah menerima tautan, buka untuk membuat kata sandi, lalu lanjutkan pengaturan autentikator. Jika belum ada email, hubungi administrator untuk memeriksa pengiriman undangan."
+              : MESSAGES[record.status]}
       </p>
       <AccessApplicationProgress
         status={record.status}
         activated={accountState?.status === "active"}
+        provisioned={accountState?.status === "pending_activation"}
       />
       <dl className="mt-6 space-y-3 rounded-lg border border-line bg-surface p-4 text-sm">
         <div>
