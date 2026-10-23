@@ -304,6 +304,7 @@ export const taskFindings = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
     summary: text("summary").notNull(),
+    requestId: uuid("request_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -315,6 +316,7 @@ export const taskFindings = pgTable(
       foreignColumns: [domainTasks.id, domainTasks.organizationId],
     }),
     unique("task_findings_id_org_uq").on(t.id, t.organizationId),
+    unique("task_findings_request_uk").on(t.taskId, t.requestId),
     check("task_findings_summary_ck", sql`length(btrim(${t.summary})) > 0`),
   ],
 );
@@ -521,6 +523,61 @@ export const evidenceUploadRequests = pgTable(
           AND ${t.leaseExpiresAt} IS NULL
         )
       )`,
+    ),
+  ],
+);
+/** AB-WC-013 — immutable Task state transitions; generated migration required. */
+export const taskTransitionEvents = pgTable(
+  "task_transition_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    taskId: uuid("task_id").notNull(),
+    transitionId: text("transition_id").notNull(),
+    fromStatus: taskWorkflowStatus("from_status").notNull(),
+    toStatus: taskWorkflowStatus("to_status").notNull(),
+    fromVersion: integer("from_version").notNull(),
+    toVersion: integer("to_version").notNull(),
+    requestId: uuid("request_id").notNull(),
+    actorUserId: text("actor_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "task_transition_events_task_org_fk",
+      columns: [t.taskId, t.organizationId],
+      foreignColumns: [domainTasks.id, domainTasks.organizationId],
+    }),
+    unique("task_transition_events_id_org_uq").on(t.id, t.organizationId),
+    unique("task_transition_events_task_version_uk").on(t.taskId, t.toVersion),
+    unique("task_transition_events_task_request_uk").on(t.taskId, t.requestId),
+    check(
+      "task_transition_events_version_ck",
+      sql`${t.fromVersion} > 0 AND ${t.toVersion} = ${t.fromVersion} + 1`,
+    ),
+    check(
+      "task_transition_events_reason_ck",
+      sql`length(btrim(${t.reason})) >= 10 AND length(${t.reason}) <= 2000`,
+    ),
+    check(
+      "task_transition_events_approved_edge_ck",
+      sql`(
+      (${t.transitionId} = 'AB-TR-024' AND ${t.fromStatus} = 'assigned' AND ${t.toStatus} = 'accepted') OR
+      (${t.transitionId} = 'AB-TR-025' AND ${t.fromStatus} = 'accepted' AND ${t.toStatus} = 'in_progress') OR
+      (${t.transitionId} = 'AB-TR-026' AND ${t.fromStatus} = 'in_progress' AND ${t.toStatus} = 'blocked') OR
+      (${t.transitionId} = 'AB-TR-027' AND ${t.fromStatus} = 'blocked' AND ${t.toStatus} = 'in_progress') OR
+      (${t.transitionId} = 'AB-TR-028' AND ${t.fromStatus} = 'in_progress' AND ${t.toStatus} = 'submitted') OR
+      (${t.transitionId} = 'AB-TR-029' AND ${t.fromStatus} = 'submitted' AND ${t.toStatus} = 'completed') OR
+      (${t.transitionId} = 'AB-TR-030' AND ${t.fromStatus} = 'submitted' AND ${t.toStatus} = 'in_progress') OR
+      (${t.transitionId} = 'AB-TR-031' AND ${t.fromStatus} = 'assigned' AND ${t.toStatus} = 'cancelled') OR
+      (${t.transitionId} = 'AB-TR-032' AND ${t.fromStatus} = 'in_progress' AND ${t.toStatus} = 'cancelled') OR
+      (${t.transitionId} = 'AB-TR-033' AND ${t.fromStatus} = 'blocked' AND ${t.toStatus} = 'cancelled')
+    )`,
     ),
   ],
 );
