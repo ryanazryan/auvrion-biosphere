@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import type { OperationalRole } from "@/server/account-activation/policy";
 
 type ManagedUser = {
@@ -13,6 +14,7 @@ type ManagedUser = {
   activeRoles: OperationalRole[];
   lastLifecycleAuditId: string | null;
   protectedAdmin: boolean;
+  mfaEnabled: boolean;
 };
 type AuditEvent = {
   id: string;
@@ -128,19 +130,19 @@ function UserActions({ user }: { user: ManagedUser }) {
           >
             Role operasional
           </label>
-          <select
+          <SelectMenu
             id={`role-${user.userId}`}
+            label="Role operasional"
             value={role}
             disabled={busy}
-            onChange={(event) => setRole(event.target.value as OperationalRole)}
-            className="h-10 w-full rounded border border-line-strong bg-white px-3 text-sm"
-          >
-            {(Object.keys(LABELS) as OperationalRole[]).map((value) => (
-              <option key={value} value={value}>
-                {LABELS[value]}
-              </option>
-            ))}
-          </select>
+            onChange={setRole}
+            options={(Object.keys(LABELS) as OperationalRole[]).map(
+              (value) => ({
+                value,
+                label: LABELS[value],
+              }),
+            )}
+          />
           <label
             className="block text-sm font-medium"
             htmlFor={`reason-${user.userId}`}
@@ -210,97 +212,218 @@ export function AccessUsersWorkspace({
   audit: AuditEvent[];
 }) {
   const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = users.find((record) => record.userId === selectedId);
   const term = query.trim().toLowerCase();
-  const filtered = users.filter((record) =>
-    `${record.name} ${record.email}`.toLowerCase().includes(term),
+  const filtered = users.filter(
+    (record) =>
+      `${record.name} ${record.email}`.toLowerCase().includes(term) &&
+      (status === "all" || record.accessStatus === status),
+  );
+
+  const toggle = (id: string) =>
+    setSelectedId((current) => (current === id ? null : id));
+  const accessBadge = (user: ManagedUser) => (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium ${user.accessStatus === "active" ? "bg-brand-50 text-brand" : user.accessStatus === "disabled" ? "bg-danger-50 text-danger" : "bg-warn-50 text-warn"}`}
+    >
+      <span className="size-1.5 rounded-full bg-current" />
+      {user.accessStatus === "active"
+        ? "Aktif"
+        : user.accessStatus === "disabled"
+          ? "Nonaktif"
+          : "Menunggu aktivasi"}
+    </span>
+  );
+  const mfaBadge = (user: ManagedUser) => (
+    <span
+      className={`inline-flex rounded px-2 py-1 text-[11px] font-medium ${user.mfaEnabled ? "bg-brand-50 text-brand" : "bg-bg text-muted"}`}
+    >
+      {user.mfaEnabled ? "TOTP terdaftar" : "Belum terdaftar"}
+    </span>
+  );
+  const roles = (user: ManagedUser) =>
+    user.activeRoles.length
+      ? user.activeRoles.map((role) => LABELS[role]).join(", ")
+      : "—";
+  const actions = (user: ManagedUser) => (
+    <UserActions
+      key={`${user.userId}-${user.accessStatus}-${user.activeRoles.join("-")}-${user.lastLifecycleAuditId ?? "initial"}`}
+      user={user}
+    />
   );
 
   return (
     <AdminShell adminEmail={adminEmail} organizationName={organizationName}>
-      <h1 className="text-2xl font-semibold">Pengguna & Hak Akses</h1>
-      <p className="mt-2 text-sm text-muted">
-        Modul development: perubahan role, pencabutan grant, dan disable akun
-        dengan audit.
-      </p>
-      <label
-        htmlFor="access-user-search"
-        className="mt-6 block text-sm font-medium"
-      >
-        Cari pengguna
-      </label>
-      <input
-        id="access-user-search"
-        type="search"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        className="mt-2 h-10 w-full rounded border border-line-strong bg-white px-3 text-sm"
-        placeholder="Nama atau email"
-      />
-      <div className="mt-4 space-y-3">
-        {filtered.map((record) => (
+      <div className="mb-5">
+        <h1 className="text-[25px] font-semibold tracking-tight text-ink">
+          Pengguna
+        </h1>
+        <p className="mt-1 text-[13px] text-muted">
+          Status akun dan hak akses.
+        </p>
+      </div>
+      <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+        <label className="min-w-0">
+          <span className="sr-only">Cari pengguna</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Cari nama atau email"
+            className="h-10 w-full min-w-0 rounded-md border border-line-strong bg-white px-3 text-[13px] outline-none focus:border-brand"
+          />
+        </label>
+        <label className="min-w-0">
+          <span className="sr-only">Status akun</span>
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+            className="h-10 w-full rounded-md border border-line-strong bg-white px-3 text-[13px]"
+          >
+            <option value="all">Semua status akun</option>
+            <option value="active">Aktif</option>
+            <option value="pending_activation">Menunggu aktivasi</option>
+            <option value="disabled">Nonaktif</option>
+          </select>
+        </label>
+      </div>
+      <div className="hidden overflow-hidden rounded-lg border border-line bg-white lg:block">
+        <table className="w-full table-fixed text-left text-[13px]">
+          <caption className="sr-only">
+            Akun yang berada dalam organisasi ini
+          </caption>
+          <colgroup>
+            <col className="w-[16%]" />
+            <col className="w-[24%]" />
+            <col className="w-[15%]" />
+            <col className="w-[14%]" />
+            <col className="w-[17%]" />
+            <col className="w-[14%]" />
+          </colgroup>
+          <thead className="bg-bg text-[12px] text-muted">
+            <tr>
+              <th scope="col" className="px-3 py-3 font-medium">
+                Nama
+              </th>
+              <th scope="col" className="px-3 py-3 font-medium">
+                Email
+              </th>
+              <th scope="col" className="px-3 py-3 font-medium">
+                Status akun
+              </th>
+              <th scope="col" className="px-3 py-3 font-medium">
+                MFA
+              </th>
+              <th scope="col" className="px-3 py-3 font-medium">
+                Peran
+              </th>
+              <th scope="col" className="px-3 py-3 font-medium">
+                Tindakan
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {filtered.map((user) => (
+              <Fragment key={user.userId}>
+                <tr className="hover:bg-bg/60">
+                  <th scope="row" className="break-words px-3 py-3 font-medium">
+                    {user.name}
+                  </th>
+                  <td className="break-all px-3 py-3 text-muted">
+                    {user.email}
+                  </td>
+                  <td className="px-3 py-3">{accessBadge(user)}</td>
+                  <td className="px-3 py-3">{mfaBadge(user)}</td>
+                  <td className="break-words px-3 py-3 text-muted">
+                    {roles(user)}
+                    {user.protectedAdmin && (
+                      <span className="mt-1 block text-[11px] text-warn">
+                        Admin terlindungi
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3">
+                    <button
+                      type="button"
+                      aria-expanded={selectedId === user.userId}
+                      onClick={() => toggle(user.userId)}
+                      className="font-semibold text-brand hover:underline"
+                    >
+                      {selectedId === user.userId ? "Tutup" : "Lihat detail"}
+                    </button>
+                  </td>
+                </tr>
+                {selectedId === user.userId && (
+                  <tr>
+                    <td colSpan={6} className="bg-bg px-4 pb-5">
+                      {actions(user)}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="space-y-3 lg:hidden">
+        {filtered.map((user) => (
           <article
-            key={record.userId}
-            className="rounded-xl border border-line bg-white p-4"
+            key={user.userId}
+            className="rounded-lg border border-line bg-white p-4"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="font-semibold">{record.name}</h2>
-                <p className="break-all text-sm text-muted">{record.email}</p>
-                <p className="mt-2 text-xs text-muted">
-                  Status: {record.accessStatus} · Role aktif:{" "}
-                  {record.activeRoles.join(", ") || "Tidak ada"}
-                </p>
+                <h2 className="text-sm font-semibold">{user.name}</h2>
+                <p className="break-all text-xs text-muted">{user.email}</p>
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedId(
-                    selectedId === record.userId ? null : record.userId,
-                  )
-                }
-                aria-expanded={selectedId === record.userId}
-                className="rounded border border-line-strong px-3 py-2 text-sm font-medium text-brand"
-              >
-                {selectedId === record.userId ? "Tutup" : "Kelola akses"}
-              </button>
+              {accessBadge(user)}
             </div>
-            {selected?.userId === record.userId && (
-              <UserActions
-                key={`${record.userId}-${record.accessStatus}-${record.activeRoles.join("-")}-${record.lastLifecycleAuditId ?? "initial"}`}
-                user={record}
-              />
-            )}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted">{roles(user)}</span>
+              {mfaBadge(user)}
+            </div>
+            <button
+              type="button"
+              aria-expanded={selectedId === user.userId}
+              onClick={() => toggle(user.userId)}
+              className="mt-3 rounded-md border border-line px-3 py-2 text-xs font-medium text-brand"
+            >
+              {selectedId === user.userId ? "Tutup detail" : "Kelola akses"}
+            </button>
+            {selectedId === user.userId && actions(user)}
           </article>
         ))}
-        {filtered.length === 0 && (
-          <p className="p-6 text-sm text-muted">
-            Tidak ada akun dalam cakupan ini.
-          </p>
-        )}
       </div>
-      <section className="mt-8 rounded-xl border border-line bg-white p-5">
-        <h2 className="text-lg font-semibold">Audit terakhir</h2>
-        <p className="mt-1 text-xs text-muted">
-          Metadata terbatas, 20 kejadian terakhir.
-        </p>
-        <ul className="mt-4 space-y-3">
+      {!filtered.length && (
+        <div className="rounded-lg border border-line bg-white p-8 text-center text-[13px] text-muted">
+          Tidak ada akun yang cocok.
+        </div>
+      )}
+      <p className="mt-4 text-xs text-muted">
+        Menampilkan {filtered.length} akun dalam cakupan organisasi.
+      </p>
+      <section className="mt-7 rounded-lg border border-line bg-white p-4 sm:p-5">
+        <h2 className="text-sm font-semibold">Audit terakhir</h2>
+        <ol className="mt-3 divide-y divide-line">
           {audit.map((entry) => (
-            <li key={entry.id} className="border-b border-line pb-3 text-sm">
-              <strong>{entry.action}</strong> · {entry.targetUserId}
-              <p className="text-xs text-muted">
+            <li key={entry.id} className="py-3 text-[13px]">
+              <strong className="font-medium">{entry.action}</strong>
+              <span className="ml-2 text-xs text-muted">
                 {new Date(entry.createdAt).toLocaleString("id-ID", {
                   timeZone: "Asia/Makassar",
-                })}
-              </p>
-              <p className="mt-1 whitespace-pre-wrap">{entry.reason}</p>
+                })}{" "}
+                WITA
+              </span>
+              <p className="mt-1 text-xs text-muted">{entry.reason}</p>
             </li>
           ))}
           {audit.length === 0 && (
-            <li className="text-sm text-muted">Belum ada audit lifecycle.</li>
+            <li className="py-3 text-xs text-muted">
+              Belum ada audit lifecycle.
+            </li>
           )}
-        </ul>
+        </ol>
       </section>
     </AdminShell>
   );

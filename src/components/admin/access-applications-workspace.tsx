@@ -6,6 +6,7 @@ import { SearchIcon } from "@/components/admin/admin-icons";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { ApplicationDecisionActions } from "@/components/admin/application-decision-actions";
 import { ApplicationProvisioningActions } from "@/components/admin/application-provisioning-actions";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 
 type Status = "submitted" | "email_verified" | "approved" | "rejected";
 
@@ -32,7 +33,7 @@ const STATUS: Record<Status, { label: string; cls: string }> = {
     cls: "bg-warn-50 text-warn",
   },
   approved: {
-    label: "Disetujui",
+    label: "Lolos tinjauan",
     cls: "bg-brand-50 text-brand",
   },
   rejected: {
@@ -118,7 +119,7 @@ export function AccessApplicationsWorkspace({
 
   const stats = [
     ["Menunggu Peninjauan", total("email_verified")],
-    ["Disetujui", total("approved")],
+    ["Lolos tinjauan", total("approved")],
     ["Ditolak", total("rejected")],
     ["Total Permohonan", records.length],
   ] as const;
@@ -170,55 +171,55 @@ export function AccessApplicationsWorkspace({
           />
         </div>
 
-        <select
+        <SelectMenu
+          label="Filter status"
           value={status}
-          aria-label="Filter status"
-          onChange={(event) => {
-            setStatus(event.target.value as Status | "all");
+          onChange={(value) => {
+            setStatus(value);
             setPage(1);
           }}
-          className="h-10 rounded-md border border-line-strong bg-white px-3 text-sm lg:w-52"
-        >
-          <option value="all">Semua status</option>
+          className="lg:w-52"
+          options={[
+            { value: "all", label: "Semua status" },
+            ...(Object.keys(STATUS) as Status[]).map((key) => ({
+              value: key,
+              label: STATUS[key].label,
+            })),
+          ]}
+        />
 
-          {(Object.keys(STATUS) as Status[]).map((key) => (
-            <option key={key} value={key}>
-              {STATUS[key].label}
-            </option>
-          ))}
-        </select>
-
-        <select
+        <SelectMenu
+          label="Urutan tanggal"
           value={sort}
-          aria-label="Urutan tanggal"
-          onChange={(event) => {
-            setSort(event.target.value as "new" | "old");
+          onChange={(value) => {
+            setSort(value);
             setPage(1);
           }}
-          className="h-10 rounded-md border border-line-strong bg-white px-3 text-sm lg:w-48"
-        >
-          <option value="new">Terbaru dulu</option>
-          <option value="old">Terlama dulu</option>
-        </select>
+          className="lg:w-48"
+          options={[
+            { value: "new", label: "Terbaru dulu" },
+            { value: "old", label: "Terlama dulu" },
+          ]}
+        />
       </div>
 
       {/* Desktop applications table */}
       <section
-        className="hidden overflow-x-auto rounded-lg border border-line bg-white md:block"
+        className="hidden overflow-hidden rounded-lg border border-line bg-white lg:block"
         aria-label="Tabel permohonan akses"
       >
-        <table className="w-full min-w-305 table-fixed text-left text-sm">
+        <table className="w-full table-fixed text-left text-[13px]">
           <caption className="sr-only">
             Permohonan akses dari database development
           </caption>
 
           <colgroup>
-            <col className="w-[20%]" />
-            <col className="w-[29%]" />
-            <col className="w-[14%]" />
-            <col className="w-[14%]" />
+            <col className="w-[18%]" />
+            <col className="w-[26%]" />
             <col className="w-[15%]" />
-            <col className="w-[8%]" />
+            <col className="w-[14%]" />
+            <col className="w-[16%]" />
+            <col className="w-[11%]" />
           </colgroup>
 
           <thead className="border-b border-line bg-bg text-xs text-muted">
@@ -231,11 +232,7 @@ export function AccessApplicationsWorkspace({
                 "Status",
                 "Tindakan",
               ].map((heading) => (
-                <th
-                  key={heading}
-                  scope="col"
-                  className="whitespace-nowrap px-4 py-3 font-medium"
-                >
+                <th key={heading} scope="col" className="px-3 py-3 font-medium">
                   {heading}
                 </th>
               ))}
@@ -257,11 +254,11 @@ export function AccessApplicationsWorkspace({
                   </span>
                 </td>
 
-                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted">
+                <td className="break-words px-3 py-3 tabular-nums text-muted">
                   {formatted(record.createdAt)}
                 </td>
 
-                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted">
+                <td className="break-words px-3 py-3 tabular-nums text-muted">
                   {record.emailVerifiedAt
                     ? formatted(record.emailVerifiedAt)
                     : "Belum"}
@@ -298,7 +295,7 @@ export function AccessApplicationsWorkspace({
       </section>
 
       {/* Mobile applications cards */}
-      <ul className="space-y-3 md:hidden">
+      <ul className="space-y-3 lg:hidden">
         {current.map((record) => (
           <li
             key={record.id}

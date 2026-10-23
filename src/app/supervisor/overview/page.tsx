@@ -33,7 +33,7 @@ export default async function SupervisorOverview() {
     <>
       <PageHeading
         title="Ringkasan operasi"
-        desc="Apa yang menunggu keputusan, penugasan aktif, serta pekerjaan lapangan yang memerlukan perhatian."
+        desc=""
         action={
           <NavButton href="/supervisor/decisions">
             Buka antrean keputusan →
@@ -175,22 +175,6 @@ export default async function SupervisorOverview() {
                   {tasks.filter((t) => t.status === "blocked").length}
                 </strong>{" "}
                 tugas terblokir.
-              </p>
-              <p>
-                Indikator bersifat baca-saja; tidak memicu eskalasi otomatis.
-              </p>
-            </div>
-          </Panel>
-          <Panel title="Aturan keputusan V1">
-            <div className="space-y-2 p-4 text-[13px] leading-6 text-muted">
-              <p>AB-TR-012: Monitoring dengan alasan.</p>
-              <p>
-                AB-TR-013: Assign Ranger yang aktif dengan instruksi dan
-                keselamatan.
-              </p>
-              <p>
-                Closure, escalation, dan Task review belum memperoleh izin
-                transisi.
               </p>
             </div>
           </Panel>

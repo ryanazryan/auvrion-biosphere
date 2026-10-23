@@ -93,3 +93,101 @@ dialog::backdrop {
   outline: 3px solid #142d25;
   outline-offset: 3px;
 }
+
+/* WC-013: unobtrusive Ranger account menu motion. */
+@keyframes ranger-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* AB-WC-013: subtle operator-panel motion; disabled by global reduced-motion rule. */
+@keyframes auvrion-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes auvrion-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* FIGMA MAKE 20261022-071333 parity: overlay behavior + motion. */
+/* Native modal sheet: keyboard focus/escape are managed by HTMLDialogElement. */
+.auvrion-ai-dialog[open] {
+  display: block;
+  animation: ab-sheet-open 220ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+.auvrion-ai-dialog[open]::backdrop {
+  animation: ab-backdrop-open 220ms ease-out both;
+}
+.auvrion-ai-dialog[open][data-closing="true"] {
+  animation: ab-sheet-close 180ms ease-in both;
+}
+.auvrion-ai-dialog[open][data-closing="true"]::backdrop {
+  animation: ab-backdrop-close 180ms ease-in both;
+}
+.auvrion-ai-dialog:not([open]) {
+  display: none;
+}
+@keyframes ab-sheet-open {
+  from {
+    transform: translateX(100%);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes ab-backdrop-open {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ab-sheet-close {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0.85;
+  }
+}
+@keyframes ab-backdrop-close {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* Preserve flexible page columns when a long observation ID is rendered. */
+.auvrion-ai-dialog [role="group"] {
+  scrollbar-width: none;
+}
+.auvrion-ai-dialog [role="group"]::-webkit-scrollbar {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auvrion-ai-dialog[open],
+  .auvrion-ai-dialog[open]::backdrop {
+    animation: none;
+  }
+}

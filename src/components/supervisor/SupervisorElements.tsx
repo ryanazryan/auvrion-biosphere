@@ -60,7 +60,7 @@ export function PageHeading({
   action,
 }: {
   title: string;
-  desc: string;
+  desc?: string;
   action?: ReactNode;
 }) {
   return (
@@ -69,9 +69,11 @@ export function PageHeading({
         <h1 className="text-[25px] font-semibold tracking-tight text-ink">
           {title}
         </h1>
-        <p className="mt-1.5 max-w-3xl text-[13px] leading-6 text-muted">
-          {desc}
-        </p>
+        {desc && (
+          <p className="mt-1.5 max-w-3xl text-[13px] leading-6 text-muted">
+            {desc}
+          </p>
+        )}
       </div>
       {action}
     </div>
