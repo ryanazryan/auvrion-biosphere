@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import type { ReactNode } from "react";
 import { AssuranceExpiryMonitor } from "@/components/auth/AssuranceExpiryMonitor";
+import { StatusAutoRefresh } from "@/components/shared/StatusAutoRefresh";
 
 // One typography system for Authentication, Admin and Operator.
 const montserrat = Montserrat({
@@ -25,6 +26,7 @@ export default function RootLayout({
     <html lang="id">
       <body className={montserrat.variable}>
         <AssuranceExpiryMonitor />
+        <StatusAutoRefresh />
         {children}
       </body>
     </html>
