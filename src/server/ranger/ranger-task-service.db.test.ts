@@ -7,7 +7,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { loadEnvFile } from "node:process";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -361,16 +361,91 @@ describe.skipIf(!ENABLED)(
       });
     });
 
-    it("withholds cancelled and completed tasks from active assignment view", async () => {
+    it("preserves completed Tasks for authorized Ranger history", async () => {
       await isolated(async (f) => {
         await f.tx
           .update(domainTasks)
           .set({ status: "completed" })
           .where(eq(domainTasks.id, f.taskA));
-        expect((await listMyRangerTasks(f.orgA, f.rangerA, 25)).items).toEqual(
+        const completed = await listMyRangerTasks(f.orgA, f.rangerA, 25);
+        expect(completed.items).toEqual([
+          expect.objectContaining({
+            id: f.taskA,
+            status: "completed",
+          }),
+        ]);
+        expect(await getMyRangerTask(f.orgA, f.rangerA, f.taskA)).toMatchObject(
+          {
+            id: f.taskA,
+            status: "completed",
+          },
+        );
+      });
+    });
+
+    it("isolates Ranger grant revocation to its organization", async () => {
+      await isolated(async (f) => {
+        expect((await getMyRangerTask(f.orgA, f.rangerB, f.taskB))?.id).toBe(
+          f.taskB,
+        );
+
+        expect(
+          (await getMyRangerTask(f.orgB, f.rangerB, f.taskOtherOrg))?.id,
+        ).toBe(f.taskOtherOrg);
+
+        await f.tx
+          .update(roleGrants)
+          .set({
+            revokedAt: new Date(),
+            revokedById: f.supervisor,
+          })
+          .where(
+            and(
+              eq(roleGrants.userId, f.rangerB),
+              eq(roleGrants.organizationId, f.orgB),
+            ),
+          );
+
+        expect(
+          await getMyRangerTask(f.orgB, f.rangerB, f.taskOtherOrg),
+        ).toBeNull();
+
+        expect((await listMyRangerTasks(f.orgB, f.rangerB, 25)).items).toEqual(
           [],
         );
-        expect(await getMyRangerTask(f.orgA, f.rangerA, f.taskA)).toBeNull();
+
+        expect((await getMyRangerTask(f.orgA, f.rangerB, f.taskB))?.id).toBe(
+          f.taskB,
+        );
+      });
+    });
+
+    it("preserves cancelled Tasks for authorized Ranger history", async () => {
+      await isolated(async (f) => {
+        expect((await getMyRangerTask(f.orgA, f.rangerA, f.taskA))?.id).toBe(
+          f.taskA,
+        );
+
+        await f.tx
+          .update(domainTasks)
+          .set({ status: "cancelled" })
+          .where(eq(domainTasks.id, f.taskA));
+
+        const cancelled = await listMyRangerTasks(f.orgA, f.rangerA, 25);
+
+        expect(cancelled.items).toEqual([
+          expect.objectContaining({
+            id: f.taskA,
+            status: "cancelled",
+          }),
+        ]);
+
+        expect(await getMyRangerTask(f.orgA, f.rangerA, f.taskA)).toMatchObject(
+          {
+            id: f.taskA,
+            status: "cancelled",
+          },
+        );
       });
     });
 
