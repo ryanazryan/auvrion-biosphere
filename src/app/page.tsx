@@ -7,6 +7,7 @@ import { checkAdminAccess } from "@/server/authorization/admin-access";
 import { checkOperationalAccess } from "@/server/authorization/operational-access";
 import { getDb } from "@/server/db";
 import { organizations, roleGrants } from "@/server/db/grants-schema";
+import { getRoleHomeCandidates } from "@/server/navigation/role-home";
 
 export const dynamic = "force-dynamic";
 
@@ -58,23 +59,13 @@ export default async function HomePage() {
     )
     .orderBy(asc(organizations.name));
 
-  // Consistent priority for a user holding more than one operational role.
-  const homeByRole = {
-    supervisor: "/supervisor/overview",
-    operator: "/operator/overview",
-    ranger: "/ranger",
-  } as const;
-  const priority = ["supervisor", "operator", "ranger"] as const;
-
-  for (const role of priority) {
-    for (const assignment of assignments) {
-      if (assignment.role !== role) continue;
-      const access = await checkOperationalAccess(
-        assignment.organizationId,
-        role,
-      );
-      if (access.allowed) redirect(homeByRole[role]);
-    }
+  // Prefer higher-priority roles, but authorize each candidate on the server.
+  for (const candidate of getRoleHomeCandidates(assignments)) {
+    const access = await checkOperationalAccess(
+      candidate.organizationId,
+      candidate.role,
+    );
+    if (access.allowed) redirect(candidate.href);
   }
 
   // Existing safe fallback for pending/unsupported roles. Do not grant broad access.
