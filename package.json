@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.9",
+    "@better-auth/passkey": "1.7.9",
     "better-auth": "1.7.9",
     "drizzle-orm": "0.45.4",
     "maplibre-gl": "6.15.0",
@@ -39,5 +40,9 @@
     "tailwindcss": "4.3.3",
     "typescript": "6.0.2",
     "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "@better-auth/core": "1.7.9",
+    "better-call": "1.4.2"
   }
 }
