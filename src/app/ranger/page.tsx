@@ -25,6 +25,9 @@ export default async function RangerHome() {
   const needs = items.filter((task) => ACTIONABLE.includes(task.status));
   const blocked = items.filter((task) => task.status === "blocked");
   const waiting = items.filter((task) => task.status === "submitted");
+  const done = items.filter((task) =>
+    ["completed", "cancelled"].includes(task.status),
+  );
   const now = new Intl.DateTimeFormat("id-ID", {
     weekday: "long",
     day: "numeric",
@@ -85,8 +88,8 @@ export default async function RangerHome() {
             <dt className="text-[11px] text-muted sm:text-xs">
               Selesai & dibatalkan
             </dt>
-            <dd className="mt-1 text-xl font-semibold text-muted">
-              Belum tersedia
+            <dd className="mt-1 text-xl font-semibold tabular-nums text-ink">
+              {done.length}
             </dd>
           </div>
         </dl>

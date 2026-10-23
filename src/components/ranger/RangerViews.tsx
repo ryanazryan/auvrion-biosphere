@@ -203,8 +203,9 @@ export function SafetyPanel({ safety }: { safety: string | null }) {
             Jangan lanjutkan verifikasi jika kondisi lapangan tidak aman.
           </p>
           <p className="mt-1 text-xs leading-5 text-muted">
-            Jika ada bahaya langsung, hubungi pos atau Supervisor melalui
-            prosedur resmi.
+            Jika berbahaya, hentikan pekerjaan dan hubungi Supervisor/pos atau
+            kanal darurat yang disepakati. Setelah aman, catat kejadian dan
+            tindak lanjutnya di Auvrion.
           </p>
         </div>
       </div>
