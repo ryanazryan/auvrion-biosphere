@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 
 type Choice = {
   id: string;
@@ -79,21 +80,20 @@ export function CaseIntakeForm({
         Pencatatan manual untuk review manusia. Case dimulai berstatus Received,
         bukan laporan kejadian terkonfirmasi; AI/IoT tidak digunakan.
       </p>
-      <label className="block text-[13px] font-medium text-fg">
-        Observasi yang belum terkait Case
-        <select
-          required
+      <div className="block text-[13px] font-medium text-fg">
+        <span className="mb-1.5 block">Observasi yang belum terkait Case</span>
+        <SelectMenu
+          label="Observasi yang belum terkait Case"
           value={observationId}
-          onChange={(e) => setObservationId(e.target.value)}
-          className="mt-1.5 block w-full rounded-md border border-line-strong bg-white p-2.5 text-sm"
-        >
-          {observations.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.sourceCode} · {o.domain} · {o.quality} · {o.id.slice(0, 8)}
-            </option>
-          ))}
-        </select>
-      </label>
+          onChange={setObservationId}
+          disabled={pending}
+          options={observations.map((o) => ({
+            value: o.id,
+            label: `${o.sourceCode} · ${o.domain} · ${o.quality} · ${o.id.slice(0, 8)}`,
+            description: `ID: ${o.id}`,
+          }))}
+        />
+      </div>
       <label className="block text-[13px] font-medium text-fg">
         Judul Case
         <input
