@@ -56,6 +56,74 @@ export async function recordMfaSessionAssurance({
     });
 }
 
+export type MfaAssuranceState = "valid" | "expired" | "missing";
+
+/** Pure classifier used by both the UI status check and tests. */
+export function classifyMfaExpiry(
+  expiresAt: Date | null,
+  nowMs: number,
+): MfaAssuranceState {
+  if (!expiresAt) return "missing";
+  return expiresAt.getTime() > nowMs ? "valid" : "expired";
+}
+
+/** Active TOTP users with missing/expired assurance need a new full login. */
+export function mustReauthenticate(
+  state: MfaAssuranceState,
+  status: string | null,
+  totpEnabled: boolean,
+): boolean {
+  return (
+    state === "expired" ||
+    (state === "missing" && status === "active" && totpEnabled)
+  );
+}
+
+/** Missing != expired: new enrollment sessions must NOT be signed out. */
+export async function getMfaAssuranceState({
+  sessionId,
+  userId,
+}: CheckAssuranceInput): Promise<MfaAssuranceState> {
+  if (!sessionId || !userId) return "missing";
+  const [record] = await getDb()
+    .select({ expiresAt: mfaSessionAssurance.expiresAt })
+    .from(mfaSessionAssurance)
+    .where(
+      and(
+        eq(mfaSessionAssurance.sessionId, sessionId),
+        eq(mfaSessionAssurance.userId, userId),
+      ),
+    )
+    .limit(1);
+  if (!record) return "missing";
+  return classifyMfaExpiry(record.expiresAt, Date.now());
+}
+
+/** Recent authentication is required when binding/removing hardware credentials. */
+export async function hasRecentMfaAssurance({
+  sessionId,
+  userId,
+}: CheckAssuranceInput): Promise<boolean> {
+  if (!sessionId || !userId) return false;
+  const now = new Date();
+  const [record] = await getDb()
+    .select({ sessionId: mfaSessionAssurance.sessionId })
+    .from(mfaSessionAssurance)
+    .where(
+      and(
+        eq(mfaSessionAssurance.sessionId, sessionId),
+        eq(mfaSessionAssurance.userId, userId),
+        gt(mfaSessionAssurance.expiresAt, now),
+        gt(
+          mfaSessionAssurance.verifiedAt,
+          new Date(now.getTime() - 5 * 60_000),
+        ),
+      ),
+    )
+    .limit(1);
+  return Boolean(record);
+}
+
 export async function hasMfaSessionAssurance({
   sessionId,
   userId,
