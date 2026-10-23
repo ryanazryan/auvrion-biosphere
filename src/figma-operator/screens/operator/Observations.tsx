@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import * as I from "../../components/icons";
 import { OperatorLayout } from "../../components/operator/OperatorLayout";
 import {
@@ -168,7 +169,11 @@ export function Observations() {
   useEffect(() => {
     if (data && page > pages) setPage(pages);
   }, [data, page, pages]);
-  const dt = cx(opSelect, "mt-1 text-[13px]", rangeErr && "border-danger");
+  const dt = cx(
+    opSelect,
+    "mt-1 h-11 bg-white px-3 text-sm transition-colors hover:border-brand/50 focus-visible:outline-2 focus-visible:outline-brand",
+    rangeErr && "border-danger",
+  );
 
   return (
     <OperatorLayout
@@ -177,7 +182,6 @@ export function Observations() {
     >
       <PageTitle
         title="Observasi"
-        sub="Rekaman keanekaragaman hayati dan risiko lingkungan dalam organisasi Anda. Domain adalah kategori data; kualitas adalah hasil peninjauan."
         actions={
           <a
             href="/operator/observations/new"
@@ -195,52 +199,51 @@ export function Observations() {
         className="mb-4 rounded-md border border-line bg-surface p-3"
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 xl:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.2fr)_minmax(0,1.2fr)]">
-          <label className="text-xs font-medium text-muted lg:col-span-2 xl:col-span-1">
-            Domain
-            <select
+          <div className="text-xs font-medium text-muted lg:col-span-2 xl:col-span-1">
+            <SelectMenu
+              label="Domain"
               value={f.domain}
-              onChange={(e) => upd({ domain: e.target.value as F["domain"] })}
-              className={`${opSelect} mt-1`}
-            >
-              <option value="">Semua domain</option>
-              {(Object.keys(DOMAIN) as Domain[]).map((d) => (
-                <option key={d} value={d}>
-                  {DOMAIN[d].label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs font-medium text-muted lg:col-span-2 xl:col-span-1">
-            Sumber
-            <select
+              onChange={(value) => upd({ domain: value as F["domain"] })}
+              className="mt-1"
+              options={[
+                { value: "", label: "Semua domain" },
+                ...(Object.keys(DOMAIN) as Domain[]).map((domain) => ({
+                  value: domain,
+                  label: DOMAIN[domain].label,
+                })),
+              ]}
+            />
+          </div>
+          <div className="text-xs font-medium text-muted lg:col-span-2 xl:col-span-1">
+            <SelectMenu
+              label="Sumber"
               value={f.sourceId}
-              onChange={(e) => upd({ sourceId: e.target.value })}
-              className={`${opSelect} mt-1`}
-            >
-              <option value="">Semua sumber</option>
-              {SOURCES.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.code}
-                  {s.active ? "" : " (nonaktif)"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs font-medium text-muted lg:col-span-2 xl:col-span-1">
-            Kualitas
-            <select
+              onChange={(value) => upd({ sourceId: value })}
+              className="mt-1"
+              options={[
+                { value: "", label: "Semua sumber" },
+                ...SOURCES.map((source) => ({
+                  value: source.id,
+                  label: `${source.code}${source.active ? "" : " (nonaktif)"}`,
+                })),
+              ]}
+            />
+          </div>
+          <div className="text-xs font-medium text-muted lg:col-span-2 xl:col-span-1">
+            <SelectMenu
+              label="Kualitas"
               value={f.quality}
-              onChange={(e) => upd({ quality: e.target.value as F["quality"] })}
-              className={`${opSelect} mt-1`}
-            >
-              <option value="">Semua kualitas</option>
-              {(Object.keys(QUALITY) as Quality[]).map((k) => (
-                <option key={k} value={k}>
-                  {QUALITY[k].label}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={(value) => upd({ quality: value as F["quality"] })}
+              className="mt-1"
+              options={[
+                { value: "", label: "Semua kualitas" },
+                ...(Object.keys(QUALITY) as Quality[]).map((quality) => ({
+                  value: quality,
+                  label: QUALITY[quality].label,
+                })),
+              ]}
+            />
+          </div>
           <label className="text-xs font-medium text-muted lg:col-span-3 xl:col-span-1">
             Diterima dari ({timeZone})
             <input

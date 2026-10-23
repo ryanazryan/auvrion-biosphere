@@ -187,10 +187,13 @@ export function Overview() {
                   </dd>
                 </div>
               </dl>
-              <p className="mt-3 border-t border-line pt-2.5 text-xs text-muted">
-                Waktu mengikuti pilihan zona Operator: {timeZone} (UTC+
-                {timeZone === "WIB" ? "7" : timeZone === "WITA" ? "8" : "9"}).
-              </p>
+              <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5 text-xs text-muted">
+                <span className="shrink-0">Zona waktu</span>
+                <span className="shrink-0 whitespace-nowrap rounded-md border border-line bg-bg px-2 py-1 font-medium text-fg">
+                  {timeZone} (UTC+
+                  {timeZone === "WIB" ? "7" : timeZone === "WITA" ? "8" : "9"})
+                </span>
+              </div>
             </Panel>
             <Panel
               title="Kesehatan sumber"

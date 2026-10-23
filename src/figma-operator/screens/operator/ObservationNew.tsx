@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import * as I from "../../components/icons";
 import { OperatorLayout } from "../../components/operator/OperatorLayout";
 import {
@@ -33,7 +34,6 @@ import {
   nowInZone,
   zoneLocalToIso,
 } from "../../time";
-import { opSelect } from "./Observations";
 
 type M = {
   key: number;
@@ -174,7 +174,7 @@ const toInput = (
 
 const input = (err?: string) =>
   cx(
-    "h-9 w-full rounded-md border bg-surface px-2.5 text-[13px] text-fg placeholder:text-muted/70 focus:ring-3 focus:outline-none",
+    "h-11 w-full rounded-md border bg-white px-3.5 text-sm text-fg placeholder:text-muted/70 transition-colors hover:border-brand/50 focus-visible:outline-2 focus-visible:outline-brand",
     err
       ? "border-danger focus:ring-danger/15"
       : "border-line-strong focus:border-brand focus:ring-brand/15",
@@ -580,20 +580,19 @@ export function ObservationNew() {
                 err={errs.sourceId}
                 hint={src && !src.active ? undefined : src?.acquisitionMethod}
               >
-                <select
-                  {...aria(fid("sourceId"), errs.sourceId, !!src)}
+                <SelectMenu
+                  id={fid("sourceId")}
+                  label="Sumber manual"
                   value={f.sourceId}
-                  onChange={(e) => upd({ sourceId: e.target.value })}
-                  className={cx(opSelect, errs.sourceId && "border-danger")}
-                >
-                  <option value="">Pilih sumber…</option>
-                  {SOURCES.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.code} — {s.name}
-                      {s.active ? "" : " (nonaktif)"}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => upd({ sourceId: value })}
+                  options={[
+                    { value: "", label: "Pilih sumber…" },
+                    ...SOURCES.map((source) => ({
+                      value: source.id,
+                      label: `${source.code} — ${source.name}${source.active ? "" : " (nonaktif)"}`,
+                    })),
+                  ]}
+                />
                 <p className="mt-1 text-xs text-muted">
                   Sumber manual diambil dari organisasi yang dapat diakses.
                   Sumber nonaktif tidak dapat menerima rekaman baru.
@@ -610,20 +609,18 @@ export function ObservationNew() {
                 label="Mode ingesti"
                 hint="Terkini (live) untuk kejadian saat ini; Historis untuk arsip lama. Simulasi hanya untuk data uji."
               >
-                <select
-                  {...aria(fid("ingestionMode"), undefined, true)}
+                <SelectMenu
+                  id={fid("ingestionMode")}
+                  label="Mode ingesti"
                   value={f.ingestionMode}
-                  onChange={(e) =>
-                    upd({ ingestionMode: e.target.value as IngestionMode })
-                  }
-                  className={opSelect}
-                >
-                  {(Object.keys(MODE) as IngestionMode[]).map((m) => (
-                    <option key={m} value={m}>
-                      {MODE[m]}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => upd({ ingestionMode: value })}
+                  options={(Object.keys(MODE) as IngestionMode[]).map(
+                    (mode) => ({
+                      value: mode,
+                      label: MODE[mode],
+                    }),
+                  )}
+                />
               </Field>
             </div>
             <Field
@@ -856,28 +853,26 @@ export function ObservationNew() {
                       label="Jenis"
                       err={errs[`m${i}.kind`]}
                     >
-                      <select
-                        {...aria(fid(`m${i}.kind`), errs[`m${i}.kind`])}
+                      <SelectMenu
+                        id={fid(`m${i}.kind`)}
+                        label="Jenis pengukuran"
                         value={m.kind}
-                        onChange={(e) => {
-                          const k = e.target.value as MeasurementKind;
+                        onChange={(kind) =>
                           updM(i, {
-                            kind: k,
-                            unit: k ? KINDS[k].units[0] : "",
-                          });
-                        }}
-                        className={cx(
-                          opSelect,
-                          errs[`m${i}.kind`] && "border-danger",
-                        )}
-                      >
-                        <option value="">Pilih…</option>
-                        {(Object.keys(KINDS) as MeasurementKind[]).map((k) => (
-                          <option key={k} value={k}>
-                            {KINDS[k].label}
-                          </option>
-                        ))}
-                      </select>
+                            kind,
+                            unit: kind ? KINDS[kind].units[0] : "",
+                          })
+                        }
+                        options={[
+                          { value: "", label: "Pilih…" },
+                          ...(Object.keys(KINDS) as MeasurementKind[]).map(
+                            (kind) => ({
+                              value: kind,
+                              label: KINDS[kind].label,
+                            }),
+                          ),
+                        ]}
+                      />
                     </Field>
                     <Field
                       id={fid(`m${i}.value`)}
@@ -893,24 +888,21 @@ export function ObservationNew() {
                       />
                     </Field>
                     <Field id={fid(`m${i}.unit`)} label="Satuan">
-                      <select
-                        {...aria(fid(`m${i}.unit`))}
+                      <SelectMenu
+                        id={fid(`m${i}.unit`)}
+                        label="Satuan"
                         value={m.unit}
                         disabled={!m.kind}
-                        onChange={(e) => updM(i, { unit: e.target.value })}
-                        className={cx(
-                          opSelect,
-                          "disabled:bg-bg disabled:text-muted",
-                        )}
-                      >
-                        {m.kind ? (
-                          KINDS[m.kind].units.map((u) => (
-                            <option key={u}>{u}</option>
-                          ))
-                        ) : (
-                          <option value="">—</option>
-                        )}
-                      </select>
+                        onChange={(unit) => updM(i, { unit })}
+                        options={
+                          m.kind
+                            ? KINDS[m.kind].units.map((unit) => ({
+                                value: unit,
+                                label: unit,
+                              }))
+                            : [{ value: "", label: "Pilih jenis dahulu" }]
+                        }
+                      />
                     </Field>
                     <Field
                       id={fid(`m${i}.measuredAt`)}
