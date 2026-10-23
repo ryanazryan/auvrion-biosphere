@@ -3,6 +3,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import type { ReactNode } from "react";
+import { AssuranceExpiryMonitor } from "@/components/auth/AssuranceExpiryMonitor";
 
 // One typography system for Authentication, Admin and Operator.
 const montserrat = Montserrat({
@@ -22,7 +23,10 @@ export default function RootLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="id">
-      <body className={montserrat.variable}>{children}</body>
+      <body className={montserrat.variable}>
+        <AssuranceExpiryMonitor />
+        {children}
+      </body>
     </html>
   );
 }
