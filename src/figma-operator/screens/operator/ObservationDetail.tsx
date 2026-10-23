@@ -29,6 +29,7 @@ import {
 } from "../../observations";
 import { useOperator } from "../../operator-context";
 import { lastListHref } from "./Observations";
+import { resolveObservationSourceCode } from "./observation-source";
 
 export function ObservationDetail({ id }: { id: string }) {
   const { operator: OPERATOR } = useOperator();
@@ -117,7 +118,10 @@ function Body({ o }: { o: Observation }) {
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted">
           <DomainLabel d={o.domain} />
           <span>
-            Sumber <Mono className="text-fg">{src?.code}</Mono>
+            Sumber{" "}
+            <Mono className="text-fg">
+              {resolveObservationSourceCode(src?.code, o.sourceCode)}
+            </Mono>
           </span>
           <span>
             Rekaman sumber <Mono className="text-fg">{o.sourceRecordId}</Mono>
