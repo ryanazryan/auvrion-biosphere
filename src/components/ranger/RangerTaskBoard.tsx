@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import { RangerIcon } from "./RangerIcons";
 import {
   ACTIONABLE,
@@ -81,15 +82,13 @@ export function RangerTaskBoard({ tasks }: { tasks: RangerTaskItem[] }) {
           >
             {v.label}
             <span className="ml-1.5 tabular-nums text-brand">
-              {v.key === "done"
-                ? "—"
-                : base.filter((t) => inView(v.key, t)).length}
+              {base.filter((t) => inView(v.key, t)).length}
             </span>
           </button>
         ))}
       </fieldset>
       <div className="mb-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(130px,190px)_minmax(130px,160px)]">
-        <label className="block min-w-0 text-xs text-muted">
+        <div className="block min-w-0 text-xs text-muted">
           Cari tugas
           <span className="relative mt-1 block">
             <RangerIcon
@@ -104,33 +103,33 @@ export function RangerTaskBoard({ tasks }: { tasks: RangerTaskItem[] }) {
               className="h-10 w-full min-w-0 rounded-md border border-line-strong bg-white pr-3 pl-9 text-[13px] text-fg outline-none focus:border-brand"
             />
           </span>
-        </label>
-        <label className="block min-w-0 text-xs text-muted">
+        </div>
+        <div className="block min-w-0 text-xs text-muted">
           Zona
-          <select
+          <SelectMenu
+            label="Filter zona"
             value={zone}
-            onChange={(e) => setZone(e.target.value)}
-            className="mt-1 h-10 w-full min-w-0 rounded-md border border-line-strong bg-white px-2.5 text-[13px] text-fg"
-          >
-            <option value="">Semua zona saya</option>
-            {zones.map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block min-w-0 text-xs text-muted">
+            className="mt-1"
+            options={[
+              { value: "", label: "Semua zona saya" },
+              ...zones.map((z) => ({ value: z, label: z })),
+            ]}
+            onChange={setZone}
+          />
+        </div>
+        <div className="block min-w-0 text-xs text-muted">
           Urutkan
-          <select
+          <SelectMenu
+            label="Urutan tugas"
             value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="mt-1 h-10 w-full min-w-0 rounded-md border border-line-strong bg-white px-2.5 text-[13px] text-fg"
-          >
-            <option value="field">Urutan lapangan</option>
-            <option value="recent">Terbaru</option>
-          </select>
-        </label>
+            className="mt-1"
+            options={[
+              { value: "field", label: "Urutan lapangan" },
+              { value: "recent", label: "Terbaru" },
+            ]}
+            onChange={setSort}
+          />
+        </div>
       </div>
       <p role="status" className="sr-only">
         {filtered.length} tugas ditampilkan
@@ -139,11 +138,9 @@ export function RangerTaskBoard({ tasks }: { tasks: RangerTaskItem[] }) {
         <TaskList tasks={filtered} />
       ) : (
         <div className="rounded-lg border border-line bg-white p-8 text-center text-[13px] text-muted">
-          {view === "done"
-            ? "Riwayat tugas selesai belum tersedia pada API Ranger."
-            : tasks.length
-              ? "Tidak ada tugas yang cocok."
-              : "Belum ada tugas untuk Anda."}
+          {tasks.length
+            ? "Tidak ada tugas yang cocok."
+            : "Belum ada tugas untuk Anda."}
         </div>
       )}
     </div>

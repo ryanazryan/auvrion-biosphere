@@ -102,7 +102,7 @@ function Navigation({
             className={
               mobile
                 ? `relative flex h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] font-medium transition-colors ${active ? "text-brand" : "text-muted hover:text-fg"}`
-                : `relative mb-1 flex h-10 items-center gap-3 rounded-md px-3 text-[13px] font-medium transition-colors ${active ? "bg-white/12 text-ink before:absolute before:inset-y-2 before:-left-2.5 before:w-[3px] before:rounded-r before:bg-[#85cbb2]" : "text-muted hover:bg-white/8 hover:text-ink"}`
+                : `relative mb-1 flex h-10 items-center gap-3 rounded-md px-3 text-[13px] font-medium transition-colors ${active ? "bg-white/12 text-ink before:absolute before:inset-y-2 before:-left-2.5 before:w-0.75 before:rounded-r before:bg-[#85cbb2]" : "text-muted hover:bg-white/8 hover:text-ink"}`
             }
           >
             {mobile && active && (
@@ -149,7 +149,7 @@ export function RangerShell({
   return (
     <div className="min-h-dvh bg-bg text-fg">
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col bg-surface text-ink lg:flex transition-transform duration-300 ease-in-out motion-reduce:transition-none ${sidebarHidden ? "-translate-x-full" : "translate-x-0"}`}
+        className={`fixed inset-y-0 left-0 z-30 hidden w-62 flex-col bg-surface text-ink lg:flex transition-transform duration-300 ease-in-out motion-reduce:transition-none ${sidebarHidden ? "-translate-x-full" : "translate-x-0"}`}
       >
         <Link
           href="/ranger"
@@ -199,7 +199,7 @@ export function RangerShell({
       </aside>
 
       <div
-        className={` transition-[padding] duration-300 ease-in-out motion-reduce:transition-none ${sidebarHidden ? "lg:pl-0" : "lg:pl-[248px]"}`}
+        className={` transition-[padding] duration-300 ease-in-out motion-reduce:transition-none ${sidebarHidden ? "lg:pl-0" : "lg:pl-62"}`}
       >
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-2 border-b border-line bg-white/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
           <button
@@ -221,7 +221,7 @@ export function RangerShell({
 
           <nav
             aria-label="Jejak navigasi"
-            className="flex min-w-0 items-center gap-2 text-[13px]"
+            className="flex min-w-0 flex-1 items-center gap-2 text-[13px]"
           >
             <Link href="/ranger" className="text-muted hover:text-brand">
               Ranger
@@ -268,7 +268,7 @@ export function RangerShell({
             {org}
           </span>
         </header>
-        <main className="mx-auto max-w-[1080px] px-4 py-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-8 lg:pb-12">
+        <main className="mx-auto max-w-270 px-4 py-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-8 lg:pb-12">
           {children}
         </main>
       </div>

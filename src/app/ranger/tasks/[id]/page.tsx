@@ -6,11 +6,11 @@ import {
   Heading,
   InfoCard,
   RangerStatus,
-  ReadOnlyAction,
   SafetyPanel,
   taskCode,
   taskZone,
 } from "@/components/ranger/RangerViews";
+import { TaskActionPanel } from "@/components/ranger/TaskActionPanel";
 import { isTaskUuid } from "@/server/ranger/ranger-task-query";
 import { getMyRangerTask } from "@/server/ranger/ranger-task-service";
 import { findRangerWorkspaceAccess } from "@/server/ranger/ranger-workspace";
@@ -149,7 +149,30 @@ export default async function RangerTaskDetail({
             </InfoCard>
           </div>
           <aside>
-            <ReadOnlyAction status={task.status} />
+            <div className="space-y-3">
+              {task.status === "in_progress" && (
+                <Link
+                  href={`/ranger/tasks/${task.id}/findings/new`}
+                  className="block rounded-md bg-brand-50 px-4 py-3 text-center text-sm font-semibold text-brand"
+                >
+                  Catat temuan lapangan →
+                </Link>
+              )}
+              <TaskActionPanel
+                key={`${task.id}:${task.version}`}
+                taskId={task.id}
+                organizationId={access.organizationId}
+                status={task.status}
+                version={task.version}
+                actor="ranger"
+              />
+              <Link
+                href={`/ranger/tasks/${task.id}/history`}
+                className="block rounded-md border border-line bg-white px-4 py-3 text-center text-sm font-semibold text-brand"
+              >
+                Lihat audit & temuan →
+              </Link>
+            </div>
           </aside>
         </div>
       </div>
