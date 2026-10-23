@@ -146,7 +146,7 @@ export function GisFilterDropdown<T extends string>({
         disabled={!open}
         aria-hidden={!open}
         onKeyDown={onOptionsKey}
-        className={`${modal ? "relative mt-2 w-full transition-[max-height,opacity,transform]" : `absolute top-full z-50 mt-1.5 w-[max(100%,15rem)] max-w-[min(19rem,calc(100vw-2rem))] transition-[opacity,transform,visibility] ${alignEnd ? "right-0" : "left-0"}`} rounded-lg border border-line bg-white p-1 text-[13px] shadow-lg duration-150 ease-out motion-reduce:transition-none ${open ? `visible translate-y-0 opacity-100 ${modal ? "max-h-72 overflow-y-auto" : "max-h-80 overflow-y-auto"}` : `invisible -translate-y-1 opacity-0 ${modal ? "max-h-0 overflow-hidden !border-0 !p-0 !mt-0" : "pointer-events-none"}`}`}
+        className={`${modal ? "relative mt-2 w-full transition-[max-height,opacity,transform]" : `absolute top-full z-50 mt-1.5 w-[max(100%,15rem)] max-w-[min(19rem,calc(100vw-2rem))] transition-[opacity,transform,visibility] ${alignEnd ? "right-0" : "left-0"}`} rounded-lg border border-line bg-white p-1 text-[13px] shadow-lg duration-150 ease-out motion-reduce:transition-none ${open ? `visible translate-y-0 opacity-100 ${modal ? "max-h-72 overflow-y-auto" : "max-h-80 overflow-y-auto"}` : `invisible -translate-y-1 opacity-0 ${modal ? "max-h-0 overflow-hidden border-0! p-0! mt-0!" : "pointer-events-none"}`}`}
       >
         <legend className="sr-only">Pilih {label.toLowerCase()}</legend>
         {options.map((option, index) => {
