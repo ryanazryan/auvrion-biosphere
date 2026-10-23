@@ -23,6 +23,8 @@ const visibleStatuses: (typeof domainTasks.$inferSelect.status)[] = [
   "in_progress",
   "blocked",
   "submitted",
+  "completed",
+  "cancelled",
 ];
 
 function scopedQuery(
