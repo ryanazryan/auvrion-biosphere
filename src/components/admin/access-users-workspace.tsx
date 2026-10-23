@@ -5,6 +5,7 @@ import { Fragment, useRef, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import type { OperationalRole } from "@/server/account-activation/policy";
+import { filterAccessUsers } from "./access-users-filter";
 
 type ManagedUser = {
   userId: string;
@@ -214,12 +215,7 @@ export function AccessUsersWorkspace({
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const term = query.trim().toLowerCase();
-  const filtered = users.filter(
-    (record) =>
-      `${record.name} ${record.email}`.toLowerCase().includes(term) &&
-      (status === "all" || record.accessStatus === status),
-  );
+  const filtered = filterAccessUsers(users, query, status);
 
   const toggle = (id: string) =>
     setSelectedId((current) => (current === id ? null : id));
@@ -288,6 +284,24 @@ export function AccessUsersWorkspace({
           </select>
         </label>
       </div>
+      {(query !== "" || status !== "all") && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <p role="status" className="text-xs text-muted">
+            {filtered.length} dari {users.length} akun cocok dengan filter.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setStatus("all");
+              setSelectedId(null);
+            }}
+            className="rounded-md border border-line-strong px-3 py-2 text-xs font-medium text-brand hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            Reset filter
+          </button>
+        </div>
+      )}
       <div className="hidden overflow-hidden rounded-lg border border-line bg-white lg:block">
         <table className="w-full table-fixed text-left text-[13px]">
           <caption className="sr-only">
