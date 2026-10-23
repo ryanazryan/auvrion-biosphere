@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { TaskActionPanel } from "@/components/ranger/TaskActionPanel";
+import { TaskPhotoGallery } from "@/components/shared/TaskPhotoGallery";
 import {
   dateTime,
   Empty,
   NavButton,
   PageHeading,
   Panel,
-  ReadOnlyNote,
   StatusChip,
   shortId,
 } from "@/components/supervisor/SupervisorElements";
@@ -44,11 +45,6 @@ export default async function SupervisorTaskDetail({
         desc={`Task ${shortId(t.id)} · versi ${t.version} · dibuat ${dateTime(t.createdAt)}`}
         action={<StatusChip status={t.status} />}
       />
-      <ReadOnlyNote>
-        Accept, Start, Blocked, Submit, Cancel, dan Complete belum aktif sampai
-        kebijakan Task disetujui. Ranger submission tidak sama dengan closure
-        Case.
-      </ReadOnlyNote>
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">
           <Panel title="Instruksi & keselamatan">
@@ -78,7 +74,9 @@ export default async function SupervisorTaskDetail({
               <ol className="divide-y divide-line">
                 {findings.map((f) => (
                   <li key={f.id} className="px-4 py-3">
-                    <p className="text-sm leading-6">{f.summary}</p>
+                    <p className="whitespace-pre-wrap text-sm leading-6">
+                      {f.summary}
+                    </p>
                     <p className="mt-1 text-xs text-muted">
                       {dateTime(f.createdAt)}
                     </p>
@@ -87,8 +85,9 @@ export default async function SupervisorTaskDetail({
               </ol>
             )}
           </Panel>
+          <TaskPhotoGallery taskId={t.id} organizationId={a.organizationId} />
         </div>
-        <aside>
+        <aside className="space-y-4">
           <Panel title="Penugasan">
             <div className="space-y-3 p-4 text-[13px]">
               <p>
@@ -109,6 +108,14 @@ export default async function SupervisorTaskDetail({
               </NavButton>
             </div>
           </Panel>
+          <TaskActionPanel
+            key={`${t.id}:${t.version}`}
+            taskId={t.id}
+            organizationId={a.organizationId}
+            status={t.status}
+            version={t.version}
+            actor="supervisor"
+          />
         </aside>
       </div>
     </>

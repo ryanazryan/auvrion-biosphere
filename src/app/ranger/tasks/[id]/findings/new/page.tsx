@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
+import { RangerFindingForm } from "@/components/ranger/RangerFindingForm";
 import { Heading } from "@/components/ranger/RangerViews";
 import { isTaskUuid } from "@/server/ranger/ranger-task-query";
 import { getMyRangerTask } from "@/server/ranger/ranger-task-service";
 import { findRangerWorkspaceAccess } from "@/server/ranger/ranger-workspace";
+
 export const dynamic = "force-dynamic";
 export default async function NewRangerFinding({
   params,
@@ -17,11 +19,17 @@ export default async function NewRangerFinding({
   if (!task) notFound();
   return (
     <>
-      <Heading title="Catat Temuan" />
-      <div className="rounded-xl border border-warn/30 bg-warn-50 p-5 text-sm">
-        Pencatatan temuan belum dibuka. Akses pribadi dan bukti perlu
-        diverifikasi pada tahap berikutnya. Tidak ada data yang disimpan.
-      </div>
+      <Heading title="Catat Temuan" note={task.title} />
+      {task.status === "in_progress" ? (
+        <RangerFindingForm
+          taskId={task.id}
+          organizationId={access.organizationId}
+        />
+      ) : (
+        <p className="rounded-lg border border-line bg-white p-5 text-sm text-muted">
+          Temuan hanya dapat dicatat saat tugas berada pada status Di lapangan.
+        </p>
+      )}
     </>
   );
 }

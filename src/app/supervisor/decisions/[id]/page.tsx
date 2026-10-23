@@ -112,7 +112,7 @@ export default async function SupervisorCaseDetail({
                     key={t.id}
                     className="flex items-center justify-between gap-3 px-4 py-3"
                   >
-                    <div className="min-w-0">
+                    <div className="flex min-w-0 flex-col items-start gap-2">
                       <p className="truncate text-[13px] font-semibold">
                         {t.title}
                       </p>

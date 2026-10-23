@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 
 type Ranger = { id: string; name: string };
 type Zone = { id: string; code: string; name: string };
@@ -177,34 +178,38 @@ export function CaseActionForm({
   }
   return (
     <form onSubmit={submit} className="space-y-4">
-      <label className="block text-[13px] font-medium text-fg">
+      <div className="block text-[13px] font-medium text-fg">
         Tindakan yang disetujui
-        <select
+        <SelectMenu
+          label="Tindakan yang disetujui"
           value={transitionId}
-          onChange={(event) => {
-            setSupervisorTransitionId(event.target.value);
+          className="mt-1.5"
+          options={
+            actorRole === "operator"
+              ? [
+                  {
+                    value: allowed ?? "",
+                    label:
+                      currentCase.status === "received"
+                        ? "AB-TR-010 · Mulai review"
+                        : "AB-TR-011 · Kirim ke Supervisor",
+                  },
+                ]
+              : [
+                  {
+                    value: "AB-TR-012",
+                    label: "AB-TR-012 · Pantau tanpa penugasan",
+                  },
+                  { value: "AB-TR-013", label: "AB-TR-013 · Tugaskan Ranger" },
+                ]
+          }
+          onChange={(value) => {
+            setSupervisorTransitionId(value);
             change();
           }}
-          className="mt-1.5 block w-full rounded-md border border-line-strong bg-white px-3 py-2.5"
-          required
-        >
-          {actorRole === "operator" ? (
-            <option value={allowed ?? ""}>
-              {currentCase.status === "received"
-                ? "AB-TR-010 · Mulai review"
-                : "AB-TR-011 · Kirim ke Supervisor"}
-            </option>
-          ) : (
-            <>
-              <option value="AB-TR-012">
-                AB-TR-012 · Pantau tanpa penugasan
-              </option>
-              <option value="AB-TR-013">AB-TR-013 · Tugaskan Ranger</option>
-            </>
-          )}
-        </select>
-      </label>
-      <label className="block text-[13px] font-medium text-fg">
+        />
+      </div>
+      <div className="block text-[13px] font-medium text-fg">
         Alasan keputusan (wajib)
         <textarea
           required
@@ -219,7 +224,7 @@ export function CaseActionForm({
           placeholder="Jelaskan sumber, ketidakpastian, dan pertimbangan operasional."
           className="mt-1.5 block w-full rounded-md border border-line-strong bg-white p-3 text-sm"
         />
-      </label>
+      </div>
       {isAssign && (
         <div className="space-y-4 rounded-md border border-line bg-bg p-4">
           <p className="text-sm font-semibold text-ink">
@@ -236,45 +241,44 @@ export function CaseActionForm({
               Zona operasional belum tersedia. Penugasan dinonaktifkan.
             </p>
           )}
-          <label className="block text-xs font-medium text-fg">
+          <div className="block text-xs font-medium text-fg">
             Ranger aktif
-            <select
-              required
+            <SelectMenu
+              label="Ranger aktif"
               value={rangerUserId}
-              onChange={(e) => {
-                setRangerUserId(e.target.value);
+              className="mt-1"
+              disabled={!rangers.length}
+              options={[
+                { value: "", label: "Pilih Ranger" },
+                ...rangers.map((r) => ({ value: r.id, label: r.name })),
+              ]}
+              onChange={(value) => {
+                setRangerUserId(value);
                 change();
               }}
-              className="mt-1 block w-full rounded-md border border-line-strong bg-white px-3 py-2.5"
-            >
-              <option value="">Pilih Ranger</option>
-              {rangers.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-xs font-medium text-fg">
+            />
+          </div>
+          <div className="block text-xs font-medium text-fg">
             Zona operasi (bukan titik kejadian terverifikasi)
-            <select
-              required
+            <SelectMenu
+              label="Zona operasi"
               value={zoneId}
-              onChange={(e) => {
-                setZoneId(e.target.value);
+              className="mt-1"
+              disabled={!zones.length}
+              options={[
+                { value: "", label: "Pilih zona" },
+                ...zones.map((z) => ({
+                  value: z.id,
+                  label: `${z.code} · ${z.name}`,
+                })),
+              ]}
+              onChange={(value) => {
+                setZoneId(value);
                 change();
               }}
-              className="mt-1 block w-full rounded-md border border-line-strong bg-white px-3 py-2.5"
-            >
-              <option value="">Pilih zona</option>
-              {zones.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {z.code} · {z.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-xs font-medium text-fg">
+            />
+          </div>
+          <div className="block text-xs font-medium text-fg">
             Judul tugas
             <input
               required
@@ -287,8 +291,8 @@ export function CaseActionForm({
               }}
               className="mt-1 block w-full rounded-md border border-line-strong bg-white px-3 py-2.5"
             />
-          </label>
-          <label className="block text-xs font-medium text-fg">
+          </div>
+          <div className="block text-xs font-medium text-fg">
             Instruksi lapangan
             <textarea
               required
@@ -302,8 +306,8 @@ export function CaseActionForm({
               }}
               className="mt-1 block w-full rounded-md border border-line-strong bg-white px-3 py-2.5"
             />
-          </label>
-          <label className="block text-xs font-medium text-fg">
+          </div>
+          <div className="block text-xs font-medium text-fg">
             Catatan keselamatan
             <textarea
               required
@@ -317,7 +321,7 @@ export function CaseActionForm({
               }}
               className="mt-1 block w-full rounded-md border border-line-strong bg-white px-3 py-2.5"
             />
-          </label>
+          </div>
         </div>
       )}
       {error && (
