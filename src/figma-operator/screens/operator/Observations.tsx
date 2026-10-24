@@ -199,7 +199,9 @@ export function Observations() {
         className="mb-4 rounded-md border border-line bg-surface p-3"
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 xl:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.2fr)_minmax(0,1.2fr)]">
+          {/* Domain */}
           <div className="text-xs font-medium text-muted lg:col-span-2 xl:col-span-1">
+            <span className="block">Domain</span>
             <SelectMenu
               label="Domain"
               value={f.domain}
@@ -214,7 +216,10 @@ export function Observations() {
               ]}
             />
           </div>
+
+          {/* Sumber */}
           <div className="text-xs font-medium text-muted lg:col-span-2 xl:col-span-1">
+            <span className="block">Sumber</span>
             <SelectMenu
               label="Sumber"
               value={f.sourceId}
@@ -229,7 +234,10 @@ export function Observations() {
               ]}
             />
           </div>
+
+          {/* Kualitas */}
           <div className="text-xs font-medium text-muted lg:col-span-2 xl:col-span-1">
+            <span className="block">Kualitas</span>
             <SelectMenu
               label="Kualitas"
               value={f.quality}
@@ -244,8 +252,10 @@ export function Observations() {
               ]}
             />
           </div>
+
+          {/* Diterima dari */}
           <label className="text-xs font-medium text-muted lg:col-span-3 xl:col-span-1">
-            Diterima dari ({timeZone})
+            <span className="block">Diterima dari ({timeZone})</span>
             <input
               type="datetime-local"
               value={f.from}
@@ -255,8 +265,10 @@ export function Observations() {
               className={dt}
             />
           </label>
+
+          {/* Diterima sampai */}
           <label className="text-xs font-medium text-muted lg:col-span-3 xl:col-span-1">
-            Diterima sampai ({timeZone})
+            <span className="block">Diterima sampai ({timeZone})</span>
             <input
               type="datetime-local"
               value={f.to}
@@ -267,6 +279,7 @@ export function Observations() {
             />
           </label>
         </div>
+
         {rangeErr && <FieldError id="range-err">{rangeErr}</FieldError>}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5 text-[13px]">
           <p className="text-muted" aria-live="polite">
