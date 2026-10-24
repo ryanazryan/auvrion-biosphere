@@ -28,6 +28,7 @@ import {
   sourceById,
 } from "../../observations";
 import { useOperator } from "../../operator-context";
+import { BioacousticAnalysisPanel } from "./BioacousticAnalysisPanel";
 import { lastListHref } from "./Observations";
 import { resolveObservationSourceCode } from "./observation-source";
 
@@ -73,7 +74,7 @@ function Body({ o }: { o: Observation }) {
     );
   if (o.domain === "biodiversity")
     unknowns.push(
-      "Tidak ada identifikasi spesies terverifikasi maupun rekaman audio.",
+      "Identifikasi spesies belum diverifikasi; status audio tercatat pada panel Analisis Bioakustik.",
     );
   if (o.domain === "environmental_risk")
     unknowns.push(
@@ -174,10 +175,7 @@ function Body({ o }: { o: Observation }) {
 
           {o.domain === "biodiversity" && (
             <Panel title="Analisis bioakustik">
-              <p className="text-[13px] text-muted">
-                Hasil analisis AI belum tersedia melalui API untuk observasi
-                ini. Periksa bukti audio dan provenans pada catatan yang sah.
-              </p>
+              <BioacousticAnalysisPanel observationId={o.id} />
             </Panel>
           )}
 
