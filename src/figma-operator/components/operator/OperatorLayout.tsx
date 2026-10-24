@@ -1,8 +1,16 @@
 "use client";
 
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { OperatorAssistControls } from "@/figma-operator/demo/OperatorAssistant";
+import { useModalDrawerFocus } from "@/hooks/use-modal-drawer-focus";
 import { useOperator } from "../../operator-context";
 import * as I from "../icons";
 import { Wordmark } from "../ui";
@@ -237,14 +245,8 @@ export function OperatorLayout({
   const [drawer, setDrawer] = useState(false);
   // AB-UI-SIDEBAR-SLIDE-20261022: hide the entire desktop sidebar, preserving all links.
   const [sidebarHidden, setSidebarHidden] = useState(false);
-  useEffect(() => {
-    if (!drawer) return;
-    const k = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDrawer(false);
-    };
-    document.addEventListener("keydown", k);
-    return () => document.removeEventListener("keydown", k);
-  }, [drawer]);
+  const closeDrawer = useCallback(() => setDrawer(false), []);
+  const { triggerRef, dialogRef } = useModalDrawerFocus(drawer, closeDrawer);
   return (
     <div className="min-h-dvh bg-bg">
       <aside
@@ -259,6 +261,8 @@ export function OperatorLayout({
 
       {drawer && (
         <div
+          ref={dialogRef}
+          tabIndex={-1}
           className="fixed inset-0 z-50 lg:hidden"
           role="dialog"
           aria-modal="true"
@@ -267,7 +271,8 @@ export function OperatorLayout({
           <button
             type="button"
             aria-label="Tutup navigasi"
-            onClick={() => setDrawer(false)}
+            tabIndex={-1}
+            onClick={closeDrawer}
             className="absolute inset-0 bg-ink/40"
           />
           <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-line bg-surface pt-(--safe-top) pl-(--safe-left)">
@@ -278,7 +283,8 @@ export function OperatorLayout({
               <button
                 type="button"
                 aria-label="Tutup navigasi"
-                onClick={() => setDrawer(false)}
+                data-wc014-dialog-close
+                onClick={closeDrawer}
                 className="grid size-9 place-items-center rounded-md text-muted hover:bg-bg"
               >
                 <I.X className="size-5" />
@@ -297,6 +303,7 @@ export function OperatorLayout({
           <div className="flex h-14 items-center gap-2 px-3 min-[360px]:px-4 sm:px-6">
             <button
               type="button"
+              ref={triggerRef}
               aria-label="Buka navigasi"
               aria-expanded={drawer}
               onClick={() => setDrawer(true)}

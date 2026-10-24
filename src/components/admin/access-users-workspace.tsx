@@ -361,6 +361,11 @@ export function AccessUsersWorkspace({
                     <button
                       type="button"
                       aria-expanded={selectedId === user.userId}
+                      aria-controls={
+                        selectedId === user.userId
+                          ? `admin-access-desktop-${user.userId}`
+                          : undefined
+                      }
                       onClick={() => toggle(user.userId)}
                       className="font-semibold text-brand hover:underline"
                     >
@@ -369,7 +374,7 @@ export function AccessUsersWorkspace({
                   </td>
                 </tr>
                 {selectedId === user.userId && (
-                  <tr>
+                  <tr id={`admin-access-desktop-${user.userId}`}>
                     <td colSpan={6} className="bg-bg px-4 pb-5">
                       {actions(user)}
                     </td>
@@ -400,12 +405,21 @@ export function AccessUsersWorkspace({
             <button
               type="button"
               aria-expanded={selectedId === user.userId}
+              aria-controls={
+                selectedId === user.userId
+                  ? `admin-access-mobile-${user.userId}`
+                  : undefined
+              }
               onClick={() => toggle(user.userId)}
               className="mt-3 rounded-md border border-line px-3 py-2 text-xs font-medium text-brand"
             >
               {selectedId === user.userId ? "Tutup detail" : "Kelola akses"}
             </button>
-            {selectedId === user.userId && actions(user)}
+            {selectedId === user.userId && (
+              <div id={`admin-access-mobile-${user.userId}`}>
+                {actions(user)}
+              </div>
+            )}
           </article>
         ))}
       </div>
