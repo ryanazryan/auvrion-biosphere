@@ -551,7 +551,7 @@ export function BioacousticAnalysisPanel({
                         key={candidate.label}
                         className="border-b border-line"
                       >
-                        <td className="py-2 pr-2 wrap-break-wordbreak-words">
+                        <td className="py-2 pr-2 break-words">
                           {candidate.label}
                         </td>
                         <td className="py-2 text-right font-mono">
