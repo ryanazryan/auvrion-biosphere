@@ -86,8 +86,8 @@ export default async function SupervisorOverview() {
           note="Belum closing"
         />
       </section>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-5">
+      <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-5">
           <Panel
             title="Antrean keputusan"
             aside={
@@ -163,7 +163,7 @@ export default async function SupervisorOverview() {
             )}
           </Panel>
         </div>
-        <aside className="space-y-5">
+        <aside className="min-w-0 space-y-5">
           <Panel title="Perlu perhatian">
             <div className="space-y-3 p-4 text-[13px] text-muted">
               <p>
