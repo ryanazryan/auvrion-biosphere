@@ -29,6 +29,7 @@ export default defineConfig({
     "./src/server/db/observation-domain-schema.ts",
     "./src/server/db/operations-domain-schema.ts",
     "./src/server/db/report-domain-schema.ts",
+    "./src/server/db/wc017-device-persistence-schema.ts",
   ],
   out: "./drizzle",
   dbCredentials: { url: target.toString() },

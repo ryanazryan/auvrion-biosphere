@@ -127,6 +127,13 @@
       "when": 1792765095077,
       "tag": "0017_wc013_task_workflow",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792812167848,
+      "tag": "0018_wc017_device_identity",
+      "breakpoints": true
     }
   ]
 }
