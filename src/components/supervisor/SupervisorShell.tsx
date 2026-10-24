@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import * as I from "@/figma-operator/components/icons";
 import { Wordmark } from "@/figma-operator/components/ui";
+import { useModalDrawerFocus } from "@/hooks/use-modal-drawer-focus";
 
 const groups = [
   {
@@ -49,14 +50,8 @@ export function SupervisorShell({
   const [drawer, setDrawer] = useState(false);
   // AB-UI-SIDEBAR-SLIDE-20261022
   const [sidebarHidden, setSidebarHidden] = useState(false);
-  useEffect(() => {
-    if (!drawer) return;
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setDrawer(false);
-    };
-    document.addEventListener("keydown", close);
-    return () => document.removeEventListener("keydown", close);
-  }, [drawer]);
+  const closeDrawer = useCallback(() => setDrawer(false), []);
+  const { triggerRef, dialogRef } = useModalDrawerFocus(drawer, closeDrawer);
   const nav = (
     <>
       <div className="border-b border-line px-4 pb-4 pt-4">
@@ -138,6 +133,8 @@ export function SupervisorShell({
       </aside>
       {drawer && (
         <div
+          ref={dialogRef}
+          tabIndex={-1}
           className="fixed inset-0 z-50 lg:hidden"
           role="dialog"
           aria-modal="true"
@@ -147,6 +144,7 @@ export function SupervisorShell({
             type="button"
             onClick={() => setDrawer(false)}
             aria-label="Tutup navigasi"
+            tabIndex={-1}
             className="absolute inset-0 bg-ink/60"
           />
           <aside className="absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col bg-surface">
@@ -154,7 +152,8 @@ export function SupervisorShell({
               <button
                 type="button"
                 aria-label="Tutup navigasi Supervisor"
-                onClick={() => setDrawer(false)}
+                data-wc014-dialog-close
+                onClick={closeDrawer}
                 className="grid size-9 place-items-center rounded-md text-fg/80 hover:bg-brand-50 focus-visible:outline-offset-2"
               >
                 <I.X className="size-5" />
@@ -170,6 +169,7 @@ export function SupervisorShell({
         <header className="sticky top-0 z-20 flex min-h-14 items-center gap-3 border-b border-line bg-surface px-4 sm:px-6">
           <button
             type="button"
+            ref={triggerRef}
             aria-label="Buka navigasi Supervisor"
             aria-expanded={drawer}
             onClick={() => setDrawer(true)}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { RangerIcon } from "./RangerIcons";
 
@@ -134,6 +134,33 @@ export function RangerShell({
 }) {
   const path = usePathname();
   const [accountOpen, setAccountOpen] = useState(false);
+  const accountTrigger = useRef<HTMLButtonElement>(null);
+  const accountPanel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!accountOpen) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setAccountOpen(false);
+        accountTrigger.current?.focus();
+      }
+    };
+    const handlePointer = (event: PointerEvent) => {
+      if (!(event.target instanceof Node)) return;
+      if (
+        !accountTrigger.current?.contains(event.target) &&
+        !accountPanel.current?.contains(event.target)
+      ) {
+        setAccountOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    document.addEventListener("pointerdown", handlePointer);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("pointerdown", handlePointer);
+    };
+  }, [accountOpen]);
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -236,6 +263,7 @@ export function RangerShell({
               type="button"
               aria-expanded={accountOpen}
               aria-label="Menu akun"
+              ref={accountTrigger}
               aria-controls="ranger-account-menu"
               onClick={() => setAccountOpen((v) => !v)}
               className="grid size-9 place-items-center rounded-full bg-brand-50 text-xs font-semibold text-brand ring-1 ring-brand/10"
@@ -244,6 +272,7 @@ export function RangerShell({
             </button>
             {accountOpen && (
               <div
+                ref={accountPanel}
                 id="ranger-account-menu"
                 className="absolute right-0 z-30 mt-2 w-64 origin-top-right rounded-lg border border-line bg-white p-3 shadow-xl motion-safe:animate-[ranger-pop_160ms_ease-out]"
               >
