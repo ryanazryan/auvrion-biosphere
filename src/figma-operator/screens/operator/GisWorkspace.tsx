@@ -21,6 +21,7 @@ import {
   listGisObservations,
   listGisZones,
 } from "@/figma-operator/gis/client";
+import type { HotspotPoint } from "@/figma-operator/gis/hotspots";
 import {
   DOMAIN,
   type Domain,
@@ -37,6 +38,7 @@ import {
   GisReceivedTimeDropdown,
 } from "./GisFilterDropdown";
 import { GisMapCanvas } from "./GisMapCanvas";
+import { WebGisIntelPanel } from "./WebGisIntelPanel";
 
 const LIMIT = 50;
 const EMPTY_ROWS: GisRecord[] = [];
@@ -134,6 +136,10 @@ export function GisWorkspace() {
   } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hotspots, setHotspots] = useState<HotspotPoint[]>([]);
+  const [hotspotBounds, setHotspotBounds] = useState<
+    [number, number, number, number] | null
+  >(null);
   const [refresh, setRefresh] = useState(0);
   const [result, setResult] = useState<QueryState<GisResult>>({
     status: "loading",
@@ -673,6 +679,14 @@ export function GisWorkspace() {
                 selected={selectedId}
                 onSelect={onSelect}
                 focusTarget={focusTarget}
+                hotspots={hotspots}
+                hotspotBounds={hotspotBounds}
+              />
+              <WebGisIntelPanel
+                organizationId={operator.organizationId}
+                enabled={hasApprovedBasemap}
+                onFeatures={setHotspots}
+                onBounds={setHotspotBounds}
               />
               {result.status === "success" && rows.length > shown && (
                 <div className="absolute top-16 left-4 z-10 hidden max-w-[calc(100%-5rem)] items-center gap-2 rounded-md border border-line bg-white/95 px-2.5 py-2 text-[11px] text-muted shadow-sm md:inline-flex">

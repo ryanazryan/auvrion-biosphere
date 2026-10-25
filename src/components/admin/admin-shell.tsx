@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode, useEffect, useState } from "react";
-
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import {
   AuvrionMark,
   BellIcon,
@@ -12,10 +11,12 @@ import {
   GridIcon,
   InboxIcon,
   LogoutIcon,
-  MenuIcon,
   ShieldIcon,
   UsersIcon,
 } from "@/components/admin/admin-icons";
+import { SidebarToggleIcon } from "@/components/ui/SidebarToggleIcon";
+import { useModalDrawerFocus } from "@/hooks/use-modal-drawer-focus";
+import { useSidebarSwipeClose } from "@/hooks/use-sidebar-swipe-close";
 import { authClient } from "@/lib/auth-client";
 
 const NAV_ITEMS = [
@@ -268,6 +269,12 @@ export function AdminShell({
   const [collapsed, setCollapsed] = useState(false);
   // AB-UI-SIDEBAR-SLIDE-20261022: desktop sidebar translates as a whole.
   const [mobileOpen, setMobileOpen] = useState(false);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
+  const { triggerRef, dialogRef } = useModalDrawerFocus(
+    mobileOpen,
+    closeMobile,
+  );
+  const mobileSwipe = useSidebarSwipeClose(() => setMobileOpen(false));
   const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
@@ -309,47 +316,54 @@ export function AdminShell({
       </aside>
 
       {/* Mobile navigation */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 lg:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Navigasi administrasi"
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        data-wc024-mobile-navigation="true"
+        inert={!mobileOpen}
+        aria-hidden={!mobileOpen}
+        className={`fixed inset-0 z-60 lg:hidden transition-[visibility] duration-300 ease-in-out motion-reduce:transition-none ${mobileOpen ? "visible" : "invisible pointer-events-none"}`}
+        role="dialog"
+        aria-modal={mobileOpen ? "true" : undefined}
+        aria-label="Navigasi administrasi"
+      >
+        <button
+          type="button"
+          aria-label="Tutup navigasi"
+          onClick={() => setMobileOpen(false)}
+          className={`absolute inset-0 bg-ink/50 transition-opacity duration-300 ease-in-out motion-reduce:transition-none ${mobileOpen ? "opacity-100" : "opacity-0"}`}
+        />
+
+        <aside
+          {...mobileSwipe}
+          className={`absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-ink transition-transform duration-300 ease-in-out motion-reduce:transition-none ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
-          <button
-            type="button"
-            aria-label="Tutup navigasi"
-            onClick={() => setMobileOpen(false)}
-            className="absolute inset-0 bg-ink/50"
+          <div className="relative flex h-14 items-center justify-between border-b border-white/10 px-4 pr-14">
+            <Brand />
+
+            <button
+              type="button"
+              aria-label="Tutup navigasi"
+              onClick={() => setMobileOpen(false)}
+              data-wc014-dialog-close
+              className="absolute top-2 right-3 z-10 grid size-9 place-items-center rounded-md border border-white/10 bg-ink text-white/80 transition-colors hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-white"
+            >
+              <CloseIcon className="size-5" />
+            </button>
+          </div>
+
+          <Navigation
+            collapsed={false}
+            onNavigate={() => setMobileOpen(false)}
           />
 
-          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-ink">
-            <div className="flex h-14 items-center justify-between border-b border-white/10 px-4">
-              <Brand />
-
-              <button
-                type="button"
-                aria-label="Tutup navigasi"
-                onClick={() => setMobileOpen(false)}
-                className="grid size-9 place-items-center rounded-md text-white/80 hover:bg-white/8"
-              >
-                <CloseIcon className="size-5" />
-              </button>
-            </div>
-
-            <Navigation
-              collapsed={false}
-              onNavigate={() => setMobileOpen(false)}
-            />
-
-            <ProfileBlock
-              collapsed={false}
-              organizationName={organizationName}
-              adminEmail={adminEmail}
-            />
-          </aside>
-        </div>
-      )}
+          <ProfileBlock
+            collapsed={false}
+            organizationName={organizationName}
+            adminEmail={adminEmail}
+          />
+        </aside>
+      </div>
 
       {/* Main application area */}
       <div
@@ -363,11 +377,13 @@ export function AdminShell({
             {/* Mobile menu toggle */}
             <button
               type="button"
-              aria-label="Buka navigasi"
-              onClick={() => setMobileOpen(true)}
-              className="grid size-9 place-items-center rounded-md text-muted hover:bg-bg lg:hidden"
+              ref={triggerRef}
+              aria-label={mobileOpen ? "Tutup navigasi" : "Buka navigasi"}
+              aria-expanded={mobileOpen}
+              onClick={() => setMobileOpen((open) => !open)}
+              className="grid size-9 place-items-center rounded-md text-muted/70 hover:bg-bg lg:hidden"
             >
-              <MenuIcon className="size-5" />
+              <SidebarToggleIcon open={mobileOpen} />
             </button>
 
             {/* Desktop sidebar toggle */}
@@ -378,7 +394,7 @@ export function AdminShell({
               onClick={() => setCollapsed((v) => !v)}
               className="hidden size-9 place-items-center rounded-md text-muted hover:bg-bg lg:grid"
             >
-              <MenuIcon className="size-5" />
+              <SidebarToggleIcon open={!collapsed} />
             </button>
 
             {/* Breadcrumb */}
@@ -466,8 +482,8 @@ export function AdminShell({
         {/* Development environment notice */}
         <div className="border-b border-warn/30 bg-warn-50">
           <p className="px-4 py-2 text-xs leading-5 text-warn min-[360px]:px-5 sm:px-6">
-            Workspace development dengan data PostgreSQL lokal. Tindakan
-            administratif memerlukan izin server dan sesi MFA yang sah.
+            Lingkungan development · PostgreSQL lokal. Aksi admin memerlukan
+            izin dan MFA.
           </p>
         </div>
 

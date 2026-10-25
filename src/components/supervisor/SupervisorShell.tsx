@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useCallback, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { SidebarToggleIcon } from "@/components/ui/SidebarToggleIcon";
 import * as I from "@/figma-operator/components/icons";
 import { Wordmark } from "@/figma-operator/components/ui";
 import { useModalDrawerFocus } from "@/hooks/use-modal-drawer-focus";
+import { useSidebarSwipeClose } from "@/hooks/use-sidebar-swipe-close";
 
 const groups = [
   {
@@ -52,13 +54,13 @@ export function SupervisorShell({
   const [sidebarHidden, setSidebarHidden] = useState(false);
   const closeDrawer = useCallback(() => setDrawer(false), []);
   const { triggerRef, dialogRef } = useModalDrawerFocus(drawer, closeDrawer);
+  const mobileSwipe = useSidebarSwipeClose(closeDrawer);
   const nav = (
     <>
       <div className="border-b border-line px-4 pb-4 pt-4">
         <span className="text-ink">
           <Wordmark />
         </span>
-        <p className="mt-2 text-xs text-muted">Ruang kerja supervisor</p>
       </div>
       <nav
         aria-label="Navigasi supervisor"
@@ -131,38 +133,42 @@ export function SupervisorShell({
       >
         {nav}
       </aside>
-      {drawer && (
-        <div
-          ref={dialogRef}
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        data-wc024-mobile-navigation="true"
+        inert={!drawer}
+        aria-hidden={!drawer}
+        className={`fixed inset-0 z-[60] lg:hidden transition-[visibility] duration-300 ease-in-out motion-reduce:transition-none ${drawer ? "visible" : "invisible pointer-events-none"}`}
+        role="dialog"
+        aria-modal={drawer ? "true" : undefined}
+        aria-label="Navigasi Supervisor"
+      >
+        <button
+          type="button"
+          onClick={() => setDrawer(false)}
+          aria-label="Tutup navigasi"
           tabIndex={-1}
-          className="fixed inset-0 z-50 lg:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Navigasi Supervisor"
+          className={`absolute inset-0 bg-ink/60 transition-opacity duration-300 ease-in-out motion-reduce:transition-none ${drawer ? "opacity-100" : "opacity-0"}`}
+        />
+        <aside
+          {...mobileSwipe}
+          className={`absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col bg-surface transition-transform duration-300 ease-in-out motion-reduce:transition-none ${drawer ? "translate-x-0" : "-translate-x-full"}`}
         >
-          <button
-            type="button"
-            onClick={() => setDrawer(false)}
-            aria-label="Tutup navigasi"
-            tabIndex={-1}
-            className="absolute inset-0 bg-ink/60"
-          />
-          <aside className="absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col bg-surface">
-            <div className="flex h-12 shrink-0 items-center justify-end border-b border-line px-3">
-              <button
-                type="button"
-                aria-label="Tutup navigasi Supervisor"
-                data-wc014-dialog-close
-                onClick={closeDrawer}
-                className="grid size-9 place-items-center rounded-md text-fg/80 hover:bg-brand-50 focus-visible:outline-offset-2"
-              >
-                <I.X className="size-5" />
-              </button>
-            </div>
-            {nav}
-          </aside>
-        </div>
-      )}
+          <div className="flex h-12 shrink-0 items-center justify-end border-b border-line px-3">
+            <button
+              type="button"
+              aria-label="Tutup navigasi Supervisor"
+              data-wc014-dialog-close
+              onClick={closeDrawer}
+              className="grid size-9 place-items-center rounded-md border border-line bg-surface text-fg/80 transition-colors hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand"
+            >
+              <I.X className="size-5" />
+            </button>
+          </div>
+          {nav}
+        </aside>
+      </div>
       <div
         className={`transition-[padding] duration-300 ease-in-out motion-reduce:transition-none ${sidebarHidden ? "lg:pl-0" : "lg:pl-[248px]"}`}
       >
@@ -170,12 +176,14 @@ export function SupervisorShell({
           <button
             type="button"
             ref={triggerRef}
-            aria-label="Buka navigasi Supervisor"
+            aria-label={
+              drawer ? "Tutup navigasi Supervisor" : "Buka navigasi Supervisor"
+            }
             aria-expanded={drawer}
-            onClick={() => setDrawer(true)}
+            onClick={() => setDrawer((open) => !open)}
             className="rounded-md border border-line p-2 text-ink lg:hidden"
           >
-            <I.Menu className="size-5" />
+            <SidebarToggleIcon open={drawer} />
           </button>
           <button
             type="button"
@@ -189,7 +197,7 @@ export function SupervisorShell({
             onClick={() => setSidebarHidden((hidden) => !hidden)}
             className="hidden size-9 shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-brand lg:grid"
           >
-            <I.Menu className="size-5" />
+            <SidebarToggleIcon open={!sidebarHidden} />
           </button>
           <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-fg">
             Supervisor /{" "}

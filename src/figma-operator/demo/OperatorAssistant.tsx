@@ -2,8 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import ReactMarkdown from "react-markdown";
 import * as I from "@/figma-operator/components/icons";
+import {
+  CopilotVisual,
+  type CopilotVisualData,
+} from "@/figma-operator/components/operator/CopilotVisual";
+import { useOperator } from "@/figma-operator/operator-context";
 import {
   LISTEN_DEMO_ROUTE,
   markListenRead,
@@ -76,6 +88,7 @@ function formatWita(value?: string) {
 
 /** Header actions rendered before the organization name. Preview data stays isolated in listen-store. */
 export function OperatorAssistControls() {
+  const { operator: OPERATOR } = useOperator();
   const path = usePathname();
   const listen = useListenPreview();
   const [visible, setVisible] = useState(false);
@@ -87,6 +100,10 @@ export function OperatorAssistControls() {
       query: string;
       context: AIContext;
       facts?: OpenDetail["facts"];
+      answer?: string;
+      state?: "loading" | "ready" | "error";
+      sources?: { name: string; url: string }[];
+      visual?: CopilotVisualData | null;
     }[]
   >([]);
   const [query, setQuery] = useState("");
@@ -121,6 +138,112 @@ export function OperatorAssistControls() {
       closingTimer.current = null;
     }, 180);
   }
+  // WC-024: Auvrion Luna environmental service. Other contexts remain honest preview states.
+  const askQuestion = useCallback(
+    (
+      value: string,
+      context: AIContext,
+      facts?: OpenDetail["facts"],
+      observationId?: string,
+    ) => {
+      const identityQuestion =
+        /^(?:siapa (?:kamu|anda)|(?:apa|siapa) nama(?:mu| kamu| anda)|nama kamu siapa|perkenalkan diri(?:mu| anda)?|who are you|what is your name)\??[!.\s]*$/i.test(
+          value.trim(),
+        );
+      const id = Date.now() + Math.random();
+      setMessages((prev) => [
+        ...prev,
+        {
+          id,
+          query: value,
+          context,
+          facts,
+          state: identityQuestion ? "ready" : "loading",
+          answer: identityQuestion
+            ? "Saya Auvrion AI, asisten analisis lingkungan Auvrion Biosphere. Saya membantu menjelaskan data yang tersedia; keputusan operasional tetap berada pada manusia."
+            : undefined,
+        },
+      ]);
+      if (identityQuestion) return;
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/operator/copilot/analyze?organizationId=${encodeURIComponent(OPERATOR.organizationId)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ question: value, context, observationId }),
+            },
+          );
+          if (!response.ok) {
+            const messages: Record<number, string> = {
+              403: "Akses atau MFA tidak berlaku. Silakan login/verifikasi ulang.",
+              404: "Observasi tidak ditemukan dalam organisasi Anda.",
+              422: "Wilayah belum dikonfigurasi. Minta administrator memvalidasi ADM4 dan area FIRMS.",
+              429: "Batas analisis tercapai. Silakan coba nanti.",
+              503: "Sumber data atau layanan AI sedang tidak tersedia.",
+            };
+            throw new Error(
+              messages[response.status] ?? "Analisis belum dapat dilakukan.",
+            );
+          }
+          const data: unknown = await response.json();
+          if (
+            !data ||
+            typeof data !== "object" ||
+            !("answer" in data) ||
+            typeof data.answer !== "string"
+          )
+            throw new Error("INVALID_ANSWER");
+          const answer = data.answer;
+          const visual =
+            "visual" in data &&
+            data.visual &&
+            typeof data.visual === "object" &&
+            "kind" in data.visual &&
+            typeof data.visual.kind === "string" &&
+            ["environment", "observation", "overview", "species"].includes(
+              data.visual.kind,
+            )
+              ? (data.visual as CopilotVisualData)
+              : null;
+          const sources =
+            "sources" in data && Array.isArray(data.sources)
+              ? (data.sources as { name: string; url: string }[]).filter(
+                  (s) =>
+                    s &&
+                    typeof s.name === "string" &&
+                    typeof s.url === "string" &&
+                    (s.url === "https://data.bmkg.go.id/prakiraan-cuaca/" ||
+                      s.url ===
+                        "https://firms.modaps.eosdis.nasa.gov/api/area" ||
+                      s.url === "https://www.gbif.org/" ||
+                      s.url === "https://www.inaturalist.org/"),
+                )
+              : [];
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === id
+                ? { ...m, answer, state: "ready", sources, visual }
+                : m,
+            ),
+          );
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Analisis belum dapat dilakukan.";
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === id ? { ...m, state: "error", answer: message } : m,
+            ),
+          );
+        }
+      })();
+    },
+    [OPERATOR.organizationId],
+  );
+
   useEffect(
     () => () => {
       if (closingTimer.current) clearTimeout(closingTimer.current);
@@ -134,20 +257,17 @@ export function OperatorAssistControls() {
       setDetail(value ?? { context: "overview" });
       setVisible(true);
       if (value?.autoPrompt) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: prev.length + 1,
-            query: value.autoPrompt ?? "",
-            context: value.context,
-            facts: value.facts,
-          },
-        ]);
+        askQuestion(
+          value.autoPrompt,
+          value.context,
+          value.facts,
+          value.observationId,
+        );
       }
     };
     window.addEventListener(EVENT, onOpen);
     return () => window.removeEventListener(EVENT, onOpen);
-  }, []);
+  }, [askQuestion]);
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -180,23 +300,12 @@ export function OperatorAssistControls() {
     event.preventDefault();
     const value = query.trim();
     if (!value) return;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: prev.length + 1,
-        query: value,
-        context: detail.context,
-        facts: detail.facts,
-      },
-    ]);
+    askQuestion(value, detail.context, detail.facts, detail.observationId);
     setQuery("");
   }
   function suggested(label: string, context: AIContext) {
     setDetail((old) => ({ ...old, context }));
-    setMessages((prev) => [
-      ...prev,
-      { id: prev.length + 1, query: label, context, facts: detail.facts },
-    ]);
+    askQuestion(label, context, detail.facts, detail.observationId);
   }
   const currentContext = detail.observationId
     ? `Observasi ${detail.observationId}`
@@ -233,7 +342,7 @@ export function OperatorAssistControls() {
             markListenRead();
           }}
         >
-          <Bell className="size-[18px]" />
+          <Bell className="size-4.5" />
           {listen.unread > 0 && (
             <span className="absolute right-0 top-0 grid size-4 place-items-center rounded-full bg-brand text-[10px] text-white">
               {listen.unread}
@@ -301,7 +410,7 @@ export function OperatorAssistControls() {
         }}
         onClose={() => setVisible(false)}
         aria-label="Auvrion AI"
-        className="auvrion-ai-dialog fixed inset-y-0 right-0 left-auto m-0 ml-auto h-dvh max-h-dvh w-full max-w-[440px] flex-col border-l border-line bg-white p-0 text-fg shadow-xl backdrop:bg-ink/30 sm:w-[420px]"
+        className="auvrion-ai-dialog fixed inset-y-0 right-0 left-auto m-0 ml-auto h-dvh max-h-dvh w-full max-w-110 flex-col border-l border-line bg-white p-0 text-fg shadow-xl backdrop:bg-ink/30 sm:w-105"
       >
         <div className="flex h-full min-h-0 flex-col">
           <header className="flex items-start gap-3 border-b border-line px-4 py-3">
@@ -309,7 +418,7 @@ export function OperatorAssistControls() {
               aria-hidden="true"
               className="grid size-10 shrink-0 place-items-center rounded-md bg-ink text-white"
             >
-              <Sparkles className="size-[18px]" />
+              <Sparkles className="size-4.5" />
             </span>
             <div className="min-w-0 flex-1">
               <h2 className="text-base font-semibold">Auvrion AI</h2>
@@ -359,11 +468,70 @@ export function OperatorAssistControls() {
                       </span>
                       <div className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-2.5 text-[13px] leading-5">
                         <p className="mb-2 font-semibold">
-                          {msg.context === "listen" && isListenReady
-                            ? "Pola suara perlu ditinjau"
-                            : "Analisis belum tersedia"}
+                          {msg.state === "loading"
+                            ? "Menyiapkan analisis data yang diizinkan…"
+                            : msg.state === "ready"
+                              ? "Auvrion AI"
+                              : msg.state === "error"
+                                ? "Analisis belum tersedia"
+                                : msg.context === "listen" && isListenReady
+                                  ? "Pola suara perlu ditinjau"
+                                  : "Analisis belum tersedia"}
                         </p>
-                        {msg.facts && msg.facts.length > 0 ? (
+                        {msg.answer ? (
+                          <div className="min-w-0 wrap-break-word">
+                            {msg.visual && <CopilotVisual data={msg.visual} />}
+                            <ReactMarkdown
+                              components={{
+                                p: ({ children }) => (
+                                  <p className="mb-2 last:mb-0">{children}</p>
+                                ),
+                                strong: ({ children }) => (
+                                  <strong className="font-semibold">
+                                    {children}
+                                  </strong>
+                                ),
+                                ul: ({ children }) => (
+                                  <ul className="mb-2 list-disc space-y-1 pl-5">
+                                    {children}
+                                  </ul>
+                                ),
+                                ol: ({ children }) => (
+                                  <ol className="mb-2 list-decimal space-y-1 pl-5">
+                                    {children}
+                                  </ol>
+                                ),
+                                a: ({ href, children }) =>
+                                  href ===
+                                    "https://data.bmkg.go.id/prakiraan-cuaca/" ||
+                                  href ===
+                                    "https://firms.modaps.eosdis.nasa.gov/api/area" ? (
+                                    <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="font-medium text-brand underline"
+                                    >
+                                      {children}
+                                    </a>
+                                  ) : (
+                                    <span>{children}</span>
+                                  ),
+                              }}
+                            >
+                              {msg.answer}
+                            </ReactMarkdown>
+                          </div>
+                        ) : msg.state === "loading" ? (
+                          <p className="text-muted">
+                            Menganalisis sumber yang tersedia…
+                          </p>
+                        ) : msg.state === "error" ? (
+                          <p className="text-muted">
+                            Data atau layanan AI belum tersedia. Coba lagi
+                            setelah konfigurasi sumber dan API key diperiksa.
+                          </p>
+                        ) : msg.facts && msg.facts.length > 0 ? (
                           <dl className="divide-y divide-line rounded border border-line bg-white">
                             {msg.facts.map((fact) => (
                               <div
@@ -371,7 +539,7 @@ export function OperatorAssistControls() {
                                 className="grid grid-cols-[7rem_minmax(0,1fr)] gap-2 p-2"
                               >
                                 <dt className="text-muted">{fact.label}</dt>
-                                <dd className="min-w-0 break-words">
+                                <dd className="min-w-0 wrap-break-word">
                                   {fact.value}
                                 </dd>
                               </div>
@@ -383,6 +551,22 @@ export function OperatorAssistControls() {
                               ? "Kandidat demo: vokalisasi burung. Skor 0,62 bukan probabilitas terkalibrasi; belum diverifikasi manusia."
                               : "Layanan AI belum terhubung. Informasi belum dapat disimpulkan otomatis."}
                           </p>
+                        )}
+                        {msg.sources && msg.sources.length > 0 && (
+                          <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                            {msg.sources.map((source) => (
+                              <li key={source.url}>
+                                <a
+                                  href={source.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-medium text-brand underline"
+                                >
+                                  {source.name}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
                         )}
                         <p className="mt-2 text-xs text-muted">
                           {msg.context === "environment"
@@ -397,7 +581,7 @@ export function OperatorAssistControls() {
             )}
           </div>
           <footer className="border-t border-line px-4 pb-[calc(0.75rem+var(--safe-bottom))] pt-3">
-            <fieldset className="-mx-4 mb-2 flex min-w-0 gap-1.5 overflow-x-auto border-0 px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <fieldset className="-mx-4 mb-2 flex min-w-0 gap-1.5 overflow-x-auto border-0 px-4 pb-1 scrollbar-none [&::-webkit-scrollbar]:hidden">
               <legend className="sr-only">Pertanyaan yang disarankan</legend>
               {SUGGESTIONS.map((s) => (
                 <button
@@ -432,8 +616,9 @@ export function OperatorAssistControls() {
               </button>
             </form>
             <p className="mt-2 text-[11px] leading-4 text-muted">
-              AI belum terhubung. Skenario LISTEN adalah data simulasi, bukan
-              model analisis produksi.
+              Analisis lingkungan memakai data resmi BMKG/NASA FIRMS bila
+              tersedia. Konteks LISTEN lain masih preview; keputusan manusia
+              tetap wajib.
             </p>
           </footer>
         </div>

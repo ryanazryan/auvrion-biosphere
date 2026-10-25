@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { OperatorIntelligence } from "@/figma-operator/components/operator/OperatorIntelligence";
 import { ListenMonitor } from "@/figma-operator/demo/ListenMonitor";
 import * as I from "../../components/icons";
 import { OperatorLayout } from "../../components/operator/OperatorLayout";
@@ -51,13 +52,6 @@ export function Overview() {
     <OperatorLayout path="/operator/overview" crumbs={[{ label: "Ringkasan" }]}>
       <PageTitle
         title="Ringkasan observasi"
-        sub={
-          <>
-            Rekaman tersimpan untuk{" "}
-            <span className="text-fg">{OPERATOR.orgName}</span>. Angka dihitung
-            dari observasi tersimpan dalam organisasi yang Anda akses.
-          </>
-        }
         actions={
           <a
             href="/operator/observations/new"
@@ -102,6 +96,7 @@ export function Overview() {
               ))}
             </section>
 
+            <OperatorIntelligence />
             <ListenMonitor />
             <Panel
               title="Observasi terakhir diterima"
@@ -124,7 +119,7 @@ export function Overview() {
                     Belum ada observasi untuk organisasi ini
                   </p>
                   <p className="mt-1 text-muted">
-                    Rekaman akan muncul setelah dicatat manual atau diimpor.
+                    Catat observasi untuk mulai memantau.
                   </p>
                 </div>
               ) : (
@@ -138,10 +133,10 @@ export function Overview() {
                         <Mono className="min-w-0 shrink-0 font-medium text-ink">
                           <span title={o.id}>{o.id.slice(0, 8)}…</span>
                         </Mono>
-                        <span className="order-2 basis-full sm:order-none sm:basis-auto sm:w-44">
+                        <span className="order-2 basis-full sm:order-0sm:basis-auto sm:w-44">
                           <DomainLabel d={o.domain} />
                         </span>
-                        <span className="order-last min-w-0 basis-full truncate text-xs text-muted md:order-none md:basis-0 md:flex-1">
+                        <span className="order-last min-w-0 basis-full truncate text-xs text-muted md:order-0 md:basis-0 md:flex-1">
                           <Mono className="text-xs">
                             {sourceById(o.sourceId, SOURCES)?.code ??
                               o.sourceCode}
@@ -168,22 +163,19 @@ export function Overview() {
                 <div>
                   <dt className="font-medium">Waktu observasi</dt>
                   <dd className="text-muted">
-                    Kapan kejadian diamati menurut sumber. Bisa tidak diketahui;
-                    alasannya ikut disimpan.
+                    Waktu kejadian menurut sumber; bisa tidak diketahui.
                   </dd>
                 </div>
                 <div>
                   <dt className="font-medium">Waktu diterima</dt>
                   <dd className="text-muted">
-                    Kapan rekaman masuk ke Auvrion. Filter rentang waktu memakai
-                    waktu ini.
+                    Saat data diterima Auvrion; digunakan untuk filter.
                   </dd>
                 </div>
                 <div>
                   <dt className="font-medium">Impor historis</dt>
                   <dd className="text-muted">
-                    Arsip lama yang baru didigitalkan; selisih kedua waktu bisa
-                    bertahun-tahun.
+                    Arsip lama yang baru dimasukkan.
                   </dd>
                 </div>
               </dl>
@@ -204,10 +196,8 @@ export function Overview() {
               }
             >
               <p className="text-[13px] leading-5 text-muted">
-                Kontrak API saat ini tidak menyediakan status koneksi maupun
-                kesegaran sumber, jadi tidak ada indikator
-                &ldquo;langsung&rdquo;. Angka di sini hanya mencerminkan rekaman
-                yang sudah tersimpan.
+                Status koneksi langsung belum tersedia. Hanya rekaman tersimpan
+                yang dihitung.
               </p>
             </Panel>
             <Panel title="Lingkup peran operator">

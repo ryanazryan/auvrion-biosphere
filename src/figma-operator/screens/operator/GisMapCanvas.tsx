@@ -5,6 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GisRecord } from "@/figma-operator/gis/client";
 import { approvedPoint } from "@/figma-operator/gis/client";
+import type { HotspotPoint } from "@/figma-operator/gis/hotspots";
 
 const STYLE_URL = process.env.NEXT_PUBLIC_AUVRION_BASEMAP_STYLE_URL?.trim();
 const ATTRIBUTION = process.env.NEXT_PUBLIC_AUVRION_BASEMAP_ATTRIBUTION?.trim();
@@ -20,10 +21,14 @@ export function GisMapCanvas({
   selected,
   onSelect,
   focusTarget = null,
+  hotspots = [],
+  hotspotBounds = null,
 }: {
   rows: GisRecord[];
   selected: string | null;
   onSelect: (id: string) => void;
+  hotspots?: HotspotPoint[];
+  hotspotBounds?: [number, number, number, number] | null;
   /** Explicit, approved pan action; never inferred from normal list selection. */
   focusTarget?: { id: string; request: number } | null;
 }) {
@@ -32,6 +37,7 @@ export function GisMapCanvas({
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const markerButtons = useRef(new Map<string, HTMLButtonElement>());
+  const [hotspotLayerReady, setHotspotLayerReady] = useState(false);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [legendOpen, setLegendOpen] = useState(false);
@@ -57,6 +63,7 @@ export function GisMapCanvas({
     // Explicit retry trigger: keep this dependency to reinitialize MapLibre.
     void retryKey;
     setMapLoaded(false);
+    setHotspotLayerReady(false);
     setBearing(0);
     if (
       (!HAS_APPROVED_BASEMAP && !LOCAL_SCHEMATIC_PREVIEW) ||
@@ -105,6 +112,83 @@ export function GisMapCanvas({
           const activeMap = map;
           setMapLoaded(true);
           setBearing(activeMap.getBearing());
+          if (!schematic) {
+            activeMap.addSource("auvrion-nasa-hotspots", {
+              type: "geojson",
+              data: { type: "FeatureCollection", features: [] },
+              cluster: true,
+              clusterRadius: 42,
+              clusterMaxZoom: 10,
+            });
+            activeMap.addLayer({
+              id: "auvrion-hotspot-clusters",
+              type: "circle",
+              source: "auvrion-nasa-hotspots",
+              filter: ["has", "point_count"],
+              paint: {
+                "circle-radius": 14,
+                "circle-color": "#b91c1c",
+                "circle-opacity": 0.8,
+                "circle-stroke-color": "#fff",
+                "circle-stroke-width": 1.5,
+              },
+            });
+            activeMap.addLayer({
+              id: "auvrion-hotspot-counts",
+              type: "symbol",
+              source: "auvrion-nasa-hotspots",
+              filter: ["has", "point_count"],
+              layout: {
+                "text-field": ["get", "point_count_abbreviated"],
+                "text-size": 11,
+              },
+              paint: { "text-color": "#fff" },
+            });
+            activeMap.addLayer({
+              id: "auvrion-hotspot-points",
+              type: "circle",
+              source: "auvrion-nasa-hotspots",
+              filter: ["!", ["has", "point_count"]],
+              paint: {
+                "circle-radius": 5.5,
+                "circle-color": "#dc2626",
+                "circle-opacity": 0.78,
+                "circle-stroke-color": "#fff",
+                "circle-stroke-width": 1.1,
+              },
+            });
+            activeMap.on("click", "auvrion-hotspot-points", (event) => {
+              const feature = event.features?.[0];
+              if (feature?.geometry.type !== "Point") return;
+              const coords = feature.geometry.coordinates;
+              if (coords.length < 2) return;
+              const properties = feature.properties ?? {};
+              const content = document.createElement("div");
+              content.className = "text-sm";
+              const title = document.createElement("strong");
+              title.textContent = "Deteksi termal NASA FIRMS";
+              const details = document.createElement("p");
+              details.textContent = `${String(properties.acquiredAtUtc ?? "Waktu tidak tersedia")} · ${String(properties.satellite ?? "VIIRS")}`;
+              const caveat = document.createElement("p");
+              caveat.textContent = "Bukan konfirmasi kebakaran.";
+              content.append(title, details, caveat);
+              new lib.Popup({ maxWidth: "260px", closeButton: true })
+                .setLngLat([Number(coords[0]), Number(coords[1])])
+                .setDOMContent(content)
+                .addTo(activeMap);
+            });
+            activeMap.on("click", "auvrion-hotspot-clusters", (event) => {
+              const feature = event.features?.[0];
+              if (feature?.geometry.type !== "Point") return;
+              const coords = feature.geometry.coordinates;
+              activeMap.easeTo({
+                center: [Number(coords[0]), Number(coords[1])],
+                zoom: Math.min(14, activeMap.getZoom() + 2),
+                duration: 350,
+              });
+            });
+            setHotspotLayerReady(true);
+          }
           // Do not place actual observations on invented local cartography.
           for (const point of schematic ? [] : points) {
             const button = document.createElement("button");
@@ -159,6 +243,26 @@ export function GisMapCanvas({
       map?.remove();
     };
   }, [points, retryKey]);
+
+  // Refresh satellite GeoJSON without re-creating the map or observation markers.
+  useEffect(() => {
+    if (!hotspotLayerReady || !HAS_APPROVED_BASEMAP) return;
+    const source = mapRef.current?.getSource("auvrion-nasa-hotspots") as
+      | import("maplibre-gl").GeoJSONSource
+      | undefined;
+    source?.setData({ type: "FeatureCollection", features: hotspots });
+  }, [hotspots, hotspotLayerReady]);
+
+  useEffect(() => {
+    if (!hotspotLayerReady || !HAS_APPROVED_BASEMAP || !hotspotBounds) return;
+    mapRef.current?.fitBounds(
+      [
+        [hotspotBounds[0], hotspotBounds[1]],
+        [hotspotBounds[2], hotspotBounds[3]],
+      ],
+      { padding: 50, duration: 500, maxZoom: 9 },
+    );
+  }, [hotspotBounds, hotspotLayerReady]);
 
   // Resize the WebGL viewport whenever mobile list/panel geometry changes.
   useEffect(() => {
