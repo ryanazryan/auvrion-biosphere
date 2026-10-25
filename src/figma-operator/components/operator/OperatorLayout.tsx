@@ -9,8 +9,10 @@ import {
   useState,
 } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { SidebarToggleIcon } from "@/components/ui/SidebarToggleIcon";
 import { OperatorAssistControls } from "@/figma-operator/demo/OperatorAssistant";
 import { useModalDrawerFocus } from "@/hooks/use-modal-drawer-focus";
+import { useSidebarSwipeClose } from "@/hooks/use-sidebar-swipe-close";
 import { useOperator } from "../../operator-context";
 import * as I from "../icons";
 import { Wordmark } from "../ui";
@@ -247,6 +249,7 @@ export function OperatorLayout({
   const [sidebarHidden, setSidebarHidden] = useState(false);
   const closeDrawer = useCallback(() => setDrawer(false), []);
   const { triggerRef, dialogRef } = useModalDrawerFocus(drawer, closeDrawer);
+  const mobileSwipe = useSidebarSwipeClose(closeDrawer);
   return (
     <div className="min-h-dvh bg-bg">
       <aside
@@ -259,42 +262,46 @@ export function OperatorLayout({
         <Identity />
       </aside>
 
-      {drawer && (
-        <div
-          ref={dialogRef}
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        data-wc024-mobile-navigation="true"
+        inert={!drawer}
+        aria-hidden={!drawer}
+        className={`fixed inset-0 z-[60] lg:hidden transition-[visibility] duration-300 ease-in-out motion-reduce:transition-none ${drawer ? "visible" : "invisible pointer-events-none"}`}
+        role="dialog"
+        aria-modal={drawer ? "true" : undefined}
+        aria-label="Navigasi operator"
+      >
+        <button
+          type="button"
+          aria-label="Tutup navigasi"
           tabIndex={-1}
-          className="fixed inset-0 z-50 lg:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Navigasi operator"
+          onClick={closeDrawer}
+          className={`absolute inset-0 bg-ink/40 transition-opacity duration-300 ease-in-out motion-reduce:transition-none ${drawer ? "opacity-100" : "opacity-0"}`}
+        />
+        <div
+          {...mobileSwipe}
+          className={`absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-line bg-surface pt-(--safe-top) pl-(--safe-left) transition-transform duration-300 ease-in-out motion-reduce:transition-none ${drawer ? "translate-x-0" : "-translate-x-full"}`}
         >
-          <button
-            type="button"
-            aria-label="Tutup navigasi"
-            tabIndex={-1}
-            onClick={closeDrawer}
-            className="absolute inset-0 bg-ink/40"
-          />
-          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-line bg-surface pt-(--safe-top) pl-(--safe-left)">
-            <div className="flex items-center border-b border-line pr-2">
-              <div className="min-w-0 flex-1">
-                <Brand />
-              </div>
-              <button
-                type="button"
-                aria-label="Tutup navigasi"
-                data-wc014-dialog-close
-                onClick={closeDrawer}
-                className="grid size-9 place-items-center rounded-md text-muted hover:bg-bg"
-              >
-                <I.X className="size-5" />
-              </button>
+          <div className="relative flex items-center border-b border-line pr-12">
+            <div className="min-w-0 flex-1">
+              <Brand />
             </div>
-            <Nav path={path} onNavigate={() => setDrawer(false)} />
-            <Identity />
+            <button
+              type="button"
+              aria-label="Tutup navigasi"
+              data-wc014-dialog-close
+              onClick={closeDrawer}
+              className="absolute top-2 right-2 z-10 grid size-9 place-items-center rounded-md border border-line bg-surface text-muted transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-brand"
+            >
+              <I.X className="size-5" />
+            </button>
           </div>
+          <Nav path={path} onNavigate={() => setDrawer(false)} />
+          <Identity />
         </div>
-      )}
+      </div>
 
       <div
         className={`transition-[padding] duration-300 ease-in-out motion-reduce:transition-none ${sidebarHidden ? "lg:pl-0" : "lg:pl-60"}`}
@@ -304,12 +311,12 @@ export function OperatorLayout({
             <button
               type="button"
               ref={triggerRef}
-              aria-label="Buka navigasi"
+              aria-label={drawer ? "Tutup navigasi" : "Buka navigasi"}
               aria-expanded={drawer}
-              onClick={() => setDrawer(true)}
-              className="grid size-9 place-items-center rounded-md text-muted hover:bg-bg lg:hidden"
+              onClick={() => setDrawer((open) => !open)}
+              className="grid size-9 place-items-center rounded-md text-muted/70 hover:bg-bg lg:hidden"
             >
-              <I.Menu className="size-5" />
+              <SidebarToggleIcon open={drawer} />
             </button>
             <button
               type="button"
@@ -323,7 +330,7 @@ export function OperatorLayout({
               onClick={() => setSidebarHidden((hidden) => !hidden)}
               className="hidden size-9 shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-brand lg:grid"
             >
-              <I.Menu className="size-5" />
+              <SidebarToggleIcon open={!sidebarHidden} />
             </button>
             <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
               <ol className="flex min-w-0 items-center gap-1.5 text-[13px] text-muted">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { SidebarToggleIcon } from "@/components/ui/SidebarToggleIcon";
 import { authClient } from "@/lib/auth-client";
 import { RangerIcon } from "./RangerIcons";
 
@@ -188,9 +189,6 @@ export function RangerShell({
             Auvrion <span className="font-normal text-ink/65">Biosphere</span>
           </span>
         </Link>
-        <p className="px-4 pt-2 text-xs text-muted">
-          Ruang kerja lapangan · ranger
-        </p>
         <Navigation path={path} />
         <div className="border-t border-line px-3 py-3">
           <div className="rounded-md bg-bg px-3 py-2">
@@ -239,11 +237,7 @@ export function RangerShell({
             onClick={() => setSidebarHidden((hidden) => !hidden)}
             className="hidden size-9 shrink-0 items-center justify-center rounded-md text-muted hover:bg-bg focus-visible:outline-2 focus-visible:outline-brand lg:inline-flex"
           >
-            <span aria-hidden="true" className="flex flex-col gap-1">
-              <span className="block h-px w-4 bg-current" />
-              <span className="block h-px w-4 bg-current" />
-              <span className="block h-px w-4 bg-current" />
-            </span>
+            <SidebarToggleIcon open={!sidebarHidden} />
           </button>
 
           <nav

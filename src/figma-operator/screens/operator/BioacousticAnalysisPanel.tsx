@@ -465,14 +465,6 @@ export function BioacousticAnalysisPanel({
 
   return (
     <div className="space-y-4 text-[13px] text-fg">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="rounded border border-line bg-bg px-2 py-1 text-xs text-muted">
-          LISTEN Simulator · audio pengujian
-        </span>
-        <span className="text-xs text-muted">
-          Perch 2.0 · inferensi sungguhan
-        </span>
-      </div>
       <p className="text-xs leading-5 text-muted">
         Upload dari laptop atau rekam mikrofon. WAV akan disimpan melalui
         evidence privat WC-010, lalu dianalisis oleh worker Perch lokal. Ini
