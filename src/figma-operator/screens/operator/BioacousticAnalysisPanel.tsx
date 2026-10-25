@@ -2,6 +2,10 @@
 
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useOperator } from "../../operator-context";
+import { MicrophonePicker } from "./bioacoustic-v2/MicrophonePicker";
+import { startMicrophoneMeter } from "./bioacoustic-v2/microphone";
+import { BioacousticResultView } from "./bioacoustic-v2/ResultView";
+import { BioacousticSignalViewer } from "./bioacoustic-v2/SignalViewer";
 
 /** WC-023 Slice 03A — Figma-aligned UI with REAL WC-010 persistence and Perch inference. */
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -161,12 +165,41 @@ export function BioacousticAnalysisPanel({
   const [result, setResult] = useState<Inference | null>(null);
   const [savedMediaId, setSavedMediaId] = useState<string | null>(null);
   const [stored, setStored] = useState(false);
+  const [microphones, setMicrophones] = useState<
+    { id: string; label: string }[]
+  >([]);
+  const [selectedMic, setSelectedMic] = useState("default");
+  const [micLevel, setMicLevel] = useState(0);
+  const meterStop = useRef<(() => void) | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const mediaStream = useRef<MediaStream | null>(null);
   const microphoneChunks = useRef<Blob[]>([]);
   const micTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const busyRef = useRef(false);
   const uploadKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const refresh = async () => {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      try {
+        const list = await navigator.mediaDevices.enumerateDevices();
+        setMicrophones(
+          list
+            .filter((item) => item.kind === "audioinput")
+            .map((item, index) => ({
+              id: item.deviceId,
+              label: item.label || `Mikrofon ${index + 1}`,
+            })),
+        );
+      } catch {
+        /* A permission error must not break the analysis panel. */
+      }
+    };
+    void refresh();
+    navigator.mediaDevices?.addEventListener?.("devicechange", refresh);
+    return () =>
+      navigator.mediaDevices?.removeEventListener?.("devicechange", refresh);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -211,6 +244,8 @@ export function BioacousticAnalysisPanel({
         mediaRecorder.current.onstop = null;
         mediaRecorder.current.stop();
       }
+      meterStop.current?.();
+      meterStop.current = null;
       mediaStream.current?.getTracks().forEach((track) => {
         track.stop();
       });
@@ -277,8 +312,33 @@ export function BioacousticAnalysisPanel({
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          ...(selectedMic !== "default"
+            ? { deviceId: { exact: selectedMic } }
+            : {}),
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 1,
+        },
+      });
       mediaStream.current = stream;
+      meterStop.current?.();
+      meterStop.current = startMicrophoneMeter(stream, setMicLevel);
+      void navigator.mediaDevices
+        .enumerateDevices()
+        .then((list) => {
+          setMicrophones(
+            list
+              .filter((item) => item.kind === "audioinput")
+              .map((item, index) => ({
+                id: item.deviceId,
+                label: item.label || `Mikrofon ${index + 1}`,
+              })),
+          );
+        })
+        .catch(() => {});
       const mime = [
         "audio/webm;codecs=opus",
         "audio/webm",
@@ -294,6 +354,8 @@ export function BioacousticAnalysisPanel({
         if (event.data.size) microphoneChunks.current.push(event.data);
       };
       recorder.onstop = () => {
+        meterStop.current?.();
+        meterStop.current = null;
         if (micTimeout.current) clearTimeout(micTimeout.current);
         micTimeout.current = null;
         mediaStream.current?.getTracks().forEach((track) => {
@@ -316,6 +378,8 @@ export function BioacousticAnalysisPanel({
       setRecording(true);
       micTimeout.current = setTimeout(stopMicrophone, MIC_LIMIT_SECONDS * 1000);
     } catch {
+      meterStop.current?.();
+      meterStop.current = null;
       mediaStream.current?.getTracks().forEach((track) => {
         track.stop();
       });
@@ -432,6 +496,36 @@ export function BioacousticAnalysisPanel({
             className="mt-2 block w-full text-xs text-muted file:rounded file:border file:border-line file:bg-surface file:px-2 file:py-1"
           />
         </label>
+        <div className="grid gap-2 rounded-md border border-line bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,.7fr)]">
+          <MicrophonePicker
+            devices={microphones}
+            selected={selectedMic}
+            disabled={recording || !!busy}
+            onSelect={setSelectedMic}
+          />
+          <fieldset
+            className="min-w-0 space-y-1"
+            aria-label="Level mikrofon saat merekam"
+          >
+            <p className="text-xs text-muted">Level input mikrofon (RMS)</p>
+            <div className="h-2.5 overflow-hidden rounded-full bg-bg">
+              <div
+                className="h-full rounded-full bg-brand transition-[width]"
+                style={{ width: `${Math.min(100, micLevel * 500)}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted">
+              {recording
+                ? `Sinyal: ${micLevel.toFixed(5)}`
+                : "Mulai merekam untuk melihat sinyal"}
+            </p>
+            {recording && micLevel < 0.001 && (
+              <p className="text-xs text-warn">
+                Input hampir senyap. Cek pilihan perangkat.
+              </p>
+            )}
+          </fieldset>
+        </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -465,18 +559,22 @@ export function BioacousticAnalysisPanel({
               {` ${audio.seconds.toFixed(2)} dtk · ${(audio.blob.size / 1024).toFixed(1)} KiB · PCM16 mono 16 kHz`}
             </p>
             {previewUrl && (
-              // biome-ignore lint/a11y/useMediaCaption: This is non-speech wildlife evidence without an available accurate caption track.
-              <audio
-                aria-label="Preview rekaman suara satwa (tanpa transkrip)"
-                src={previewUrl}
-                controls
-                preload="metadata"
-                className="w-full"
-              />
+              <span className="text-xs text-muted">
+                Gunakan pemutar waveform di bawah untuk mendengar dan meninjau
+                rekaman.
+              </span>
             )}
           </div>
         )}
       </div>
+      {audio && previewUrl && (
+        <BioacousticSignalViewer
+          blob={audio.blob}
+          previewUrl={previewUrl}
+          filename={audio.filename}
+          candidates={result?.candidates ?? []}
+        />
+      )}
       <div className="border-t border-line pt-4 space-y-2">
         <h3 className="font-semibold text-ink">Kontrol analisis</h3>
         <button
@@ -510,78 +608,13 @@ export function BioacousticAnalysisPanel({
           </p>
         )}
       </div>
-      <section
-        aria-label="Hasil analisis bioakustik"
-        className="border-t border-line pt-4 space-y-3"
-      >
-        <h3 className="font-semibold text-ink">Hasil Analisis Bioakustik</h3>
-        {!result && (
-          <p aria-live="polite" className="text-muted">
-            {busy === "analyzing"
-              ? "Model sedang memproses rekaman..."
-              : "Belum ada hasil inferensi nyata pada sesi ini."}
-          </p>
-        )}
-        {result && (
-          <>
-            <div className="flex flex-wrap justify-between gap-2 text-xs text-muted">
-              <span>Google Perch 2.0 · {result.modelVersion}</span>
-              <span className="rounded border border-line px-2 py-0.5">
-                Belum diverifikasi manusia
-              </span>
-            </div>
-            {result.candidates.length === 0 ? (
-              <p>Tidak ada kandidat yang dihasilkan model.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-line">
-                      <th scope="col" className="py-2">
-                        Kandidat
-                      </th>
-                      <th scope="col" className="py-2 text-right">
-                        Skor mentah
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.candidates.map((candidate) => (
-                      <tr
-                        key={candidate.label}
-                        className="border-b border-line"
-                      >
-                        <td className="py-2 pr-2 break-words">
-                          {candidate.label}
-                        </td>
-                        <td className="py-2 text-right font-mono">
-                          {candidate.modelScore.toFixed(6)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <p className="break-all text-xs text-muted">
-              SHA-256 WAV tersimpan: {result.audioSha256}
-            </p>
-            <p className="text-xs text-muted">
-              Skor bukan persentase atau probabilitas keberadaan spesies. Hasil
-              hanya kandidat sementara, belum terverifikasi dan tidak mengubah
-              kualitas observasi.
-            </p>
-          </>
-        )}
-      </section>
-      <section className="border-t border-line pt-3 space-y-1">
-        <h3 className="font-semibold text-ink">Peninjauan manusia</h3>
-        <p className="text-xs text-muted">
-          Operator/peninjau wajib mendengarkan audio dan mengecek konteks
-          ekologis sebelum menyimpulkan identitas satwa. Belum ada aksi
-          verifikasi atau penyimpanan hasil AI otomatis.
-        </p>
-      </section>
+      <BioacousticResultView
+        result={result}
+        analyzing={busy === "analyzing"}
+        error={error}
+        stored={stored}
+        filename={audio?.filename ?? null}
+      />
       <section className="border-t border-line pt-3 text-xs text-muted">
         {!discovery && !discoveryError
           ? "Memuat rekaman tersimpan..."
