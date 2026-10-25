@@ -72,3 +72,8 @@ Desktop.ini
 
 # WC-014 local browser QA secrets and output
 e2e/.auth/
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
