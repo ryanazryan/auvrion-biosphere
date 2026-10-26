@@ -16,19 +16,24 @@ import {
 } from "@/server/workflow/workspace-queries";
 
 export const dynamic = "force-dynamic";
+
 export default async function SupervisorOverview() {
   const a = await findWorkspaceAccess("supervisor");
   if (!a.allowed) return null;
+
   const [cases, tasks] = await Promise.all([
     listWorkspaceCases(a.organizationId),
     listWorkspaceTasks(a.organizationId),
   ]);
+
   const waiting = cases.filter((c) => c.status === "awaiting_decision");
+
   const active = tasks.filter((t) =>
     ["assigned", "accepted", "in_progress", "blocked", "submitted"].includes(
       t.status,
     ),
   );
+
   return (
     <>
       <PageHeading
@@ -40,40 +45,36 @@ export default async function SupervisorOverview() {
           </NavButton>
         }
       />
+
       <section
         aria-label="Postur operasi"
-        className="mb-6 grid grid-cols-2 overflow-hidden rounded-lg border border-line bg-line gap-px sm:grid-cols-3 xl:grid-cols-6"
+        className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3 xl:grid-cols-6"
       >
         <Metric
           lead
           label="Menunggu keputusan"
           value={waiting.length}
           href="/supervisor/decisions"
-          note="Dari Operator"
         />
         <Metric
           label="Dipantau"
           value={cases.filter((c) => c.status === "monitoring").length}
           href="/supervisor/decisions?view=monitoring"
-          note="Tanpa Ranger"
         />
         <Metric
           label="Tugas aktif"
           value={active.length}
           href="/supervisor/tasks"
-          note="Sedang ditugaskan"
         />
         <Metric
           label="Terblokir"
           value={tasks.filter((t) => t.status === "blocked").length}
           href="/supervisor/tasks?status=blocked"
-          note="Butuh evaluasi"
         />
         <Metric
           label="Laporan masuk"
           value={tasks.filter((t) => t.status === "submitted").length}
           href="/supervisor/tasks?status=submitted"
-          note="Read-only"
         />
         <Metric
           label="Hasil perlu ditinjau"
@@ -83,9 +84,9 @@ export default async function SupervisorOverview() {
             ).length
           }
           href="/supervisor/outcomes"
-          note="Belum closing"
         />
       </section>
+
       <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
           <Panel
@@ -125,6 +126,7 @@ export default async function SupervisorOverview() {
               </ul>
             )}
           </Panel>
+
           <Panel
             title="Aktivitas Ranger"
             aside={
@@ -163,6 +165,7 @@ export default async function SupervisorOverview() {
             )}
           </Panel>
         </div>
+
         <aside className="min-w-0 space-y-5">
           <Panel title="Perlu perhatian">
             <div className="space-y-3 p-4 text-[13px] text-muted">
@@ -180,10 +183,6 @@ export default async function SupervisorOverview() {
           </Panel>
         </aside>
       </div>
-      <p className="mt-4 text-xs text-muted">
-        Daftar dibatasi 100 Case dan 100 Task terbaru per organisasi. Angka
-        merupakan ringkasan data yang dimuat, bukan agregat seluruh histori.
-      </p>
     </>
   );
 }

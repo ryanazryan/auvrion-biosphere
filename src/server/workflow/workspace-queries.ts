@@ -21,6 +21,7 @@ import {
   taskAssignments,
   taskFindings,
 } from "@/server/db/operations-domain-schema";
+import { getCaseObservationEvidence } from "@/server/workflow/observation-evidence";
 
 /** Server-only role scope. An organization selector from the browser is never trusted. */
 export async function findWorkspaceAccess(role: "operator" | "supervisor") {
@@ -204,7 +205,21 @@ export async function getWorkspaceCase(organizationId: string, caseId: string) {
       .orderBy(desc(domainTasks.createdAt))
       .limit(30),
   ]);
-  return { record, observations: links, events, tasks };
+  // Projection is strictly tied to the already tenant-scoped, case-linked IDs.
+  // Never attach coordinates or private media URLs to Supervisor responses.
+  const evidence = await getCaseObservationEvidence(
+    organizationId,
+    links.map((item) => item.id),
+  );
+  return {
+    record,
+    observations: links.map((item) => ({
+      ...item,
+      evidence: evidence.get(item.id) ?? null,
+    })),
+    events,
+    tasks,
+  };
 }
 
 export async function getWorkspaceTask(organizationId: string, taskId: string) {

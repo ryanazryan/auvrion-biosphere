@@ -1,0 +1,94 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  createRangerFinding: vi.fn(),
+  sameOrigin: vi.fn(),
+}));
+vi.mock("server-only", () => ({}));
+vi.mock("@/server/workflow/task-transition-service", () => ({
+  createRangerFinding: mocks.createRangerFinding,
+}));
+vi.mock("@/server/workflow/task-route-security", async () => {
+  const original = await vi.importActual<
+    typeof import("@/server/workflow/task-route-security")
+  >("@/server/workflow/task-route-security");
+  return { ...original, sameOrigin: mocks.sameOrigin };
+});
+
+import { POST } from "./route";
+
+const organizationId = "00000000-0000-4000-8000-000000000001";
+const taskId = "00000000-0000-4000-8000-000000000002";
+const key = "00000000-0000-4000-8000-000000000003";
+const url = `http://localhost/api/ranger/tasks/${taskId}/findings?organizationId=${organizationId}`;
+const ctx = (id = taskId) => ({ params: Promise.resolve({ id }) });
+const request = (
+  endpoint = url,
+  headerKey = key,
+  body: unknown = {
+    summary: "Simulasi pemeriksaan lapangan; belum ada karhutla terkonfirmasi.",
+  },
+) =>
+  new Request(endpoint, {
+    method: "POST",
+    headers: {
+      origin: "http://localhost",
+      "content-type": "application/json",
+      "idempotency-key": headerKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.sameOrigin.mockReturnValue(true);
+  mocks.createRangerFinding.mockResolvedValue({
+    findingId: key,
+    replayed: false,
+  });
+});
+
+describe("Ranger finding write HTTP", () => {
+  it("delegates a bounded, scoped, idempotent command", async () => {
+    const res = await POST(request(), ctx());
+    expect(res.status).toBe(201);
+    expect(mocks.createRangerFinding).toHaveBeenCalledWith({
+      taskId,
+      organizationId,
+      requestId: key,
+      summary:
+        "Simulasi pemeriksaan lapangan; belum ada karhutla terkonfirmasi.",
+    });
+    expect(await res.json()).toEqual({ findingId: key, replayed: false });
+  });
+  it("rejects cross-origin before a write", async () => {
+    mocks.sameOrigin.mockReturnValue(false);
+    const res = await POST(request(), ctx());
+    expect(res.status).toBe(403);
+    expect(mocks.createRangerFinding).not.toHaveBeenCalled();
+  });
+  it("rejects invalid task ID", async () => {
+    const res = await POST(request(), ctx("bad"));
+    expect(res.status).toBe(400);
+    expect(mocks.createRangerFinding).not.toHaveBeenCalled();
+  });
+  it("rejects extra request fields", async () => {
+    const res = await POST(
+      request(url, key, {
+        summary: "Valid twenty characters here",
+        authorUserId: "victim",
+      }),
+      ctx(),
+    );
+    expect(res.status).toBe(400);
+    expect(mocks.createRangerFinding).not.toHaveBeenCalled();
+  });
+  it("reports idempotent replay", async () => {
+    mocks.createRangerFinding.mockResolvedValue({
+      findingId: key,
+      replayed: true,
+    });
+    const res = await POST(request(), ctx());
+    expect(res.status).toBe(200);
+  });
+});

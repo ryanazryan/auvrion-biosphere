@@ -13,8 +13,12 @@ import {
 import { getCurrentSession } from "@/server/auth/session";
 import { checkAccountAccess } from "@/server/authorization/account-access";
 import { getDb } from "@/server/db";
-import { passkey } from "@/server/db/auth-schema";
-import { adminCapabilityGrants, roleGrants } from "@/server/db/grants-schema";
+import { passkey, user } from "@/server/db/auth-schema";
+import {
+  adminCapabilityGrants,
+  organizations,
+  roleGrants,
+} from "@/server/db/grants-schema";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -22,98 +26,175 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-const panel =
-  "min-w-0 rounded-2xl border border-line bg-white shadow-[0_12px_36px_-28px_rgba(16,53,35,0.28)]";
+const PANEL = "overflow-hidden rounded-xl border border-line bg-white";
+const ROLES = {
+  operator: { label: "Operator", path: "/operator/overview" },
+  supervisor: { label: "Supervisor", path: "/supervisor/overview" },
+  ranger: { label: "Ranger", path: "/ranger" },
+} as const;
 
-function RoundIcon({ children }: { children: ReactNode }) {
+function Section({
+  id,
+  title,
+  note,
+  children,
+}: {
+  id: string;
+  title: string;
+  note?: string;
+  children: ReactNode;
+}) {
   return (
-    <span
-      aria-hidden="true"
-      className="grid size-10 shrink-0 place-items-center rounded-full bg-[#eaf5ee] text-brand [&_svg]:size-5"
-    >
+    <section id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-8">
+      <div className="mb-3">
+        <h2
+          id={`${id}-heading`}
+          className="text-[16px] font-semibold tracking-tight text-ink"
+        >
+          {title}
+        </h2>
+        {note && (
+          <p className="mt-1 text-[13px] leading-5 text-muted">{note}</p>
+        )}
+      </div>
       {children}
-    </span>
+    </section>
   );
 }
 
-function StatusRow({
-  label,
-  icon,
-  good,
-}: {
-  label: string;
-  icon: ReactNode;
-  good: boolean;
-}) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-line bg-[#fafcfb] px-3 py-3 sm:px-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <RoundIcon>{icon}</RoundIcon>
-        <span className="text-[13px] font-semibold text-ink">{label}</span>
-      </div>
-      <span
-        className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${good ? "bg-[#e7f4eb] text-[#165c3e]" : "bg-warn-50 text-warn"}`}
-      >
-        {good ? (
-          <I.Check className="size-3.5" />
-        ) : (
-          <I.Alert className="size-3.5" />
-        )}
-        {good ? "Terverifikasi" : "Perlu verifikasi"}
-      </span>
+    <div className="min-w-0">
+      <dt className="text-xs font-medium text-muted">{label}</dt>
+      <dd className="mt-1 min-w-0 wrap-break-word text-[13px] font-medium text-fg">
+        {children}
+      </dd>
     </div>
   );
 }
+
+function Fact({
+  label,
+  value,
+  detail,
+  positive,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  positive?: boolean;
+}) {
+  return (
+    <div className="min-w-0 bg-white px-4 py-4">
+      <dt className="text-xs font-medium text-muted">{label}</dt>
+      <dd className="mt-2 flex items-center gap-2 text-sm font-semibold text-ink">
+        <span
+          aria-hidden="true"
+          className={`size-2 shrink-0 rounded-full ${positive ? "bg-brand" : "bg-muted"}`}
+        />
+        {value}
+      </dd>
+      <dd className="mt-1 text-xs leading-5 text-muted">{detail}</dd>
+    </div>
+  );
+}
+
+function Row({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5 sm:px-5">
+      <div className="flex min-w-0 gap-3">
+        <span
+          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-bg text-muted [&_svg]:size-4"
+          aria-hidden="true"
+        >
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-ink">{title}</p>
+          {description && (
+            <p className="mt-1 max-w-[65ch] text-xs leading-5 text-muted">
+              {description}
+            </p>
+          )}
+        </div>
+      </div>
+      {action && <div className="shrink-0 sm:ml-2">{action}</div>}
+    </div>
+  );
+}
+
+const NAV = [
+  ["profil", "Profil"],
+  ["akses", "Akses organisasi"],
+  ["status", "Ringkasan keamanan"],
+  ["totp", "Autentikator"],
+  ["pemulihan", "Kode pemulihan"],
+  ["passkey", "Passkey"],
+  ["sesi", "Sesi & akun"],
+] as const;
 
 export default async function AccountSecurityPage() {
   const session = await getCurrentSession();
   if (!session) redirect("/login");
 
   const db = getDb();
-  const [assured, recentMfa, account, grants, adminGrants] = await Promise.all([
-    hasMfaSessionAssurance({
-      sessionId: session.session.id,
-      userId: session.user.id,
-    }),
-    hasRecentMfaAssurance({
-      sessionId: session.session.id,
-      userId: session.user.id,
-    }),
-    checkAccountAccess(),
-    db
-      .select({ role: roleGrants.role })
-      .from(roleGrants)
-      .where(
-        and(
-          eq(roleGrants.userId, session.user.id),
-          isNull(roleGrants.revokedAt),
+  const [assured, recentMfa, access, grants, adminGrants, accountIdentity] =
+    await Promise.all([
+      hasMfaSessionAssurance({
+        sessionId: session.session.id,
+        userId: session.user.id,
+      }),
+      hasRecentMfaAssurance({
+        sessionId: session.session.id,
+        userId: session.user.id,
+      }),
+      checkAccountAccess(),
+      db
+        .select({
+          id: roleGrants.id,
+          role: roleGrants.role,
+          organizationName: organizations.name,
+        })
+        .from(roleGrants)
+        .innerJoin(
+          organizations,
+          eq(roleGrants.organizationId, organizations.id),
+        )
+        .where(
+          and(
+            eq(roleGrants.userId, session.user.id),
+            isNull(roleGrants.revokedAt),
+          ),
         ),
-      ),
-    db
-      .select({ id: adminCapabilityGrants.id })
-      .from(adminCapabilityGrants)
-      .where(
-        and(
-          eq(adminCapabilityGrants.userId, session.user.id),
-          isNull(adminCapabilityGrants.revokedAt),
-        ),
-      )
-      .limit(1),
-  ]);
-
-  const role = (["supervisor", "operator", "ranger"] as const).find(
-    (candidate) => grants.some((grant) => grant.role === candidate),
-  );
-  const roleLabel = role
-    ? { supervisor: "Supervisor", operator: "Operator", ranger: "Ranger" }[role]
-    : adminGrants.length > 0
-      ? "Administrator"
-      : "Akun Auvrion";
-
-  // This query uses the authenticated user ID and never exposes other users' keys.
-  // No unsolicited client-side /passkey/list-user-passkeys request is needed.
+      db
+        .select({ id: adminCapabilityGrants.id })
+        .from(adminCapabilityGrants)
+        .where(
+          and(
+            eq(adminCapabilityGrants.userId, session.user.id),
+            isNull(adminCapabilityGrants.revokedAt),
+          ),
+        )
+        .limit(1),
+      db
+        .select({ totpEnabled: user.twoFactorEnabled })
+        .from(user)
+        .where(eq(user.id, session.user.id))
+        .limit(1),
+    ]);
+  const totpEnabled = accountIdentity[0]?.totpEnabled === true;
   const canManagePasskeys =
-    account.allowed && (grants.length > 0 || adminGrants.length > 0) && assured;
+    access.allowed && (grants.length > 0 || adminGrants.length > 0) && assured;
   const devices = canManagePasskeys
     ? (
         await db
@@ -132,108 +213,239 @@ export default async function AccountSecurityPage() {
         createdAt: device.createdAt?.toISOString() ?? null,
       }))
     : [];
+  const returnPath = grants.find((g) => g.role === "operator")
+    ? "/operator/overview"
+    : grants.find((g) => g.role === "supervisor")
+      ? "/supervisor/overview"
+      : grants.find((g) => g.role === "ranger")
+        ? "/ranger"
+        : adminGrants.length
+          ? "/admin/access-applications"
+          : "/";
 
   return (
-    <main className="min-h-dvh bg-[#f6f9f7] px-4 py-4 text-fg sm:px-6 xl:h-dvh xl:overflow-hidden lg:px-8 xl:py-5">
-      <div className="mx-auto flex w-full max-w-[1450px] flex-col xl:h-full">
-        <header className="mb-4 shrink-0 sm:mb-5">
+    <main className="min-h-dvh bg-bg px-4 py-7 text-fg sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-290">
+        <header className="mb-8 flex flex-col gap-3 border-b border-line pb-6">
           <Link
-            href="/"
-            className="inline-flex min-h-8 items-center gap-2 text-[12px] font-semibold text-brand hover:text-brand-hover"
+            href={returnPath}
+            className="inline-flex min-h-10 w-fit items-center gap-2 text-[13px] font-medium text-brand hover:underline"
           >
             <I.ArrowLeft className="size-4" /> Kembali ke ruang kerja
           </Link>
-          <h1 className="mt-2 text-[29px] font-bold tracking-tight text-ink sm:text-[34px]">
-            Profil &amp; Keamanan
-          </h1>
+          <div>
+            <p className="text-xs font-medium text-muted">Akun</p>
+            <h1 className="mt-1 text-[28px] font-semibold tracking-tight text-ink">
+              Profil &amp; Keamanan
+            </h1>
+            <p className="mt-1.5 text-[13px] text-muted">
+              Identitas, akses organisasi, dan metode verifikasi akun.
+            </p>
+          </div>
         </header>
 
-        <div className="grid min-h-0 flex-1 items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-5">
-          <section
-            className={`${panel} flex min-h-0 flex-col p-5 sm:p-6 xl:overflow-hidden`}
-            aria-label="Identitas dan keamanan akun"
+        <div className="lg:grid lg:grid-cols-[190px_minmax(0,1fr)] lg:gap-9 xl:gap-12">
+          <nav
+            aria-label="Bagian Profil dan Keamanan"
+            className="hidden lg:block"
           >
-            <div className="flex min-w-0 items-center gap-5 pb-6">
-              <span
-                aria-hidden="true"
-                className="grid size-18 shrink-0 place-items-center rounded-full bg-[#e5f2ea] text-brand sm:size-22"
-              >
-                <I.Users className="size-9 sm:size-10" />
-              </span>
-              <dl className="min-w-0 flex-1 space-y-2.5 text-[13px]">
-                <div>
-                  <dt className="text-xs text-muted">Nama</dt>
-                  <dd className="mt-0.5 break-words font-bold text-ink">
-                    {session.user.name}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted">Email</dt>
-                  <dd className="mt-0.5 break-all font-medium text-ink">
-                    {session.user.email}
-                  </dd>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <dt className="text-xs text-muted">Peran</dt>
-                  <dd className="rounded-full bg-brand-50 px-3 py-1 text-[11px] font-semibold text-brand">
-                    {roleLabel}
-                  </dd>
-                </div>
+            <ul className="sticky top-6 space-y-1 border-l border-line">
+              {NAV.map(([id, label]) => (
+                <li key={id}>
+                  <a
+                    href={`#${id}`}
+                    className="-ml-px flex min-h-9 items-center border-l-2 border-transparent pl-4 text-[13px] text-muted transition-colors hover:border-brand hover:text-ink focus-visible:border-brand focus-visible:text-ink"
+                  >
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <div className="min-w-0 space-y-9 pb-10">
+            <Section id="profil" title="Profil">
+              <div className={PANEL}>
+                <dl className="grid gap-x-8 gap-y-5 px-4 py-5 sm:grid-cols-2 sm:px-5">
+                  <Field label="Nama lengkap">{session.user.name}</Field>
+                  <Field label="Email">
+                    <span className="break-all">{session.user.email}</span>
+                  </Field>
+                  <Field label="Verifikasi email">
+                    {session.user.emailVerified
+                      ? "Terverifikasi"
+                      : "Belum terverifikasi"}
+                  </Field>
+                  <Field label="Status akses">
+                    {access.allowed ? "Aktif" : "Perlu pemeriksaan"}
+                  </Field>
+                </dl>
+              </div>
+            </Section>
+
+            <Section id="akses" title="Akses organisasi">
+              <div className={`${PANEL} divide-y divide-line`}>
+                {grants.length ? (
+                  grants.map((grant) => {
+                    const info =
+                      grant.role === "operator"
+                        ? ROLES.operator
+                        : grant.role === "supervisor"
+                          ? ROLES.supervisor
+                          : grant.role === "ranger"
+                            ? ROLES.ranger
+                            : null;
+                    return (
+                      <Row
+                        key={grant.id}
+                        icon={<I.Users />}
+                        title={grant.organizationName}
+                        description={`Peran: ${info?.label ?? grant.role}`}
+                        action={
+                          info ? (
+                            <Link
+                              href={info.path}
+                              className="inline-flex min-h-10 items-center rounded-md border border-line-strong px-3 text-xs font-semibold text-brand hover:bg-bg"
+                            >
+                              Buka ruang kerja
+                            </Link>
+                          ) : undefined
+                        }
+                      />
+                    );
+                  })
+                ) : (
+                  <p className="px-5 py-5 text-[13px] text-muted">
+                    Tidak ada peran organisasi aktif.
+                  </p>
+                )}
+                {adminGrants.length > 0 && (
+                  <Row
+                    icon={<I.Shield />}
+                    title="Akses administrator"
+                    description="Hak administratif terverifikasi pada akun ini."
+                  />
+                )}
+              </div>
+            </Section>
+
+            <Section id="status" title="Ringkasan keamanan">
+              <dl className="grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 xl:grid-cols-4">
+                <Fact
+                  label="Email"
+                  value={
+                    session.user.emailVerified
+                      ? "Terverifikasi"
+                      : "Belum diverifikasi"
+                  }
+                  detail="Status akun saat ini"
+                  positive={session.user.emailVerified}
+                />
+                <Fact
+                  label="Autentikator"
+                  value={totpEnabled ? "Terdaftar" : "Belum terdaftar"}
+                  detail="Kode TOTP enam digit"
+                  positive={totpEnabled}
+                />
+                <Fact
+                  label="MFA sesi"
+                  value={assured ? "Terverifikasi" : "Perlu verifikasi"}
+                  detail="Berlaku untuk sesi aktif"
+                  positive={assured}
+                />
+                <Fact
+                  label="Passkey"
+                  value={
+                    devices.length
+                      ? `${devices.length} terdaftar`
+                      : "Belum ditampilkan"
+                  }
+                  detail="Akses kelola memerlukan MFA"
+                  positive={devices.length > 0}
+                />
               </dl>
-            </div>
+            </Section>
 
-            <div className="border-t border-line pt-5">
-              <h2 className="mb-3 text-[16px] font-bold text-ink">
-                Status keamanan
-              </h2>
-              <div className="space-y-3">
-                <StatusRow
-                  label="Verifikasi email"
-                  icon={<I.Mail />}
-                  good={session.user.emailVerified}
-                />
-                <StatusRow
-                  label="MFA sesi aktif"
+            <Section id="totp" title="Autentikator">
+              <div className={PANEL}>
+                <Row
                   icon={<I.Shield />}
-                  good={assured}
+                  title={
+                    totpEnabled
+                      ? "Aplikasi autentikator terdaftar"
+                      : "Autentikator belum terdaftar"
+                  }
+                  description="Kode TOTP enam digit digunakan saat verifikasi dua faktor."
+                  action={
+                    !totpEnabled ? (
+                      <Link
+                        href="/account/security/enroll"
+                        className="inline-flex min-h-10 items-center rounded-md bg-brand px-3 text-xs font-semibold text-white"
+                      >
+                        Daftarkan autentikator
+                      </Link>
+                    ) : undefined
+                  }
                 />
-              </div>
-            </div>
-          </section>
-
-          <div className="flex min-h-0 min-w-0 flex-col gap-4">
-            {canManagePasskeys ? (
-              <PasskeyManager
-                initialPasskeys={devices}
-                recentMfa={recentMfa}
-                signInEnabled={process.env.ENABLE_PASSKEY_SIGNIN === "YES"}
-              />
-            ) : (
-              <section className={`${panel} flex-1 p-5 sm:p-6`}>
-                <div className="flex items-center gap-3">
-                  <RoundIcon>
-                    <I.Lock />
-                  </RoundIcon>
-                  <h2 className="text-[17px] font-bold text-ink">Passkey</h2>
+                <div className="border-t border-line bg-[#fbfcfb] px-5 py-3 text-xs leading-5 text-muted">
+                  Perubahan autentikator harus melalui alur keamanan yang
+                  diverifikasi server.
                 </div>
-                <p className="mt-4 text-[13px] text-muted">
-                  Masuk kembali dengan TOTP untuk mengelola Passkey.
-                </p>
-              </section>
-            )}
-
-            <section
-              className={`${panel} flex shrink-0 flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6`}
-              aria-label="Keluar dari akun"
-            >
-              <div className="flex items-center gap-3">
-                <RoundIcon>
-                  <I.LogOut />
-                </RoundIcon>
-                <h2 className="text-sm font-bold text-ink">Keluar dari akun</h2>
               </div>
-              <LogoutButton />
-            </section>
+            </Section>
+
+            <Section id="pemulihan" title="Kode pemulihan">
+              <div className={PANEL}>
+                <Row
+                  icon={<I.Lock />}
+                  title="Kode pemulihan disimpan secara pribadi"
+                  description="Kode baru ditampilkan saat enrollment TOTP. Kode yang pernah disimpan tidak ditampilkan ulang pada halaman ini."
+                />
+                <div className="border-t border-line bg-[#fbfcfb] px-5 py-3 text-xs leading-5 text-muted">
+                  Pemakaian kode pemulihan saat login masih memerlukan alur yang
+                  telah diuji. Jika autentikator hilang, hubungi administrator
+                  melalui proses pemulihan resmi.
+                </div>
+              </div>
+            </Section>
+
+            <Section id="passkey" title="Passkey">
+              {canManagePasskeys ? (
+                <PasskeyManager
+                  initialPasskeys={devices}
+                  recentMfa={recentMfa}
+                  signInEnabled={process.env.ENABLE_PASSKEY_SIGNIN === "YES"}
+                />
+              ) : (
+                <div className={PANEL}>
+                  <Row
+                    icon={<I.Lock />}
+                    title="Akses pengelolaan Passkey memerlukan MFA"
+                    description="Masuk kembali dan verifikasi TOTP sebelum mengelola perangkat Passkey."
+                  />
+                </div>
+              )}
+            </Section>
+
+            <Section id="sesi" title="Sesi & akun">
+              <div className={PANEL}>
+                <Row
+                  icon={<I.Shield />}
+                  title="Sesi ini"
+                  description={
+                    assured
+                      ? "Verifikasi MFA berlaku pada sesi saat ini."
+                      : "MFA sesi belum terverifikasi."
+                  }
+                />
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-4 sm:px-5">
+                  <span className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+                    <I.LogOut className="size-4 text-muted" /> Keluar dari akun
+                  </span>
+                  <LogoutButton />
+                </div>
+              </div>
+            </Section>
           </div>
         </div>
       </div>

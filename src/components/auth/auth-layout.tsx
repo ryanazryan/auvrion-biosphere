@@ -1,4 +1,6 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
+import { SidebarBrandImage } from "@/components/branding/SidebarBrandImage";
 
 type WordmarkProps = {
   inverted?: boolean;
@@ -15,39 +17,17 @@ type AuthHeaderProps = {
 
 export function Wordmark({ inverted = false }: WordmarkProps) {
   return (
-    <span
-      className={`inline-flex min-w-0 max-w-full items-center gap-2 whitespace-nowrap min-[360px]:gap-2.5 ${
-        inverted ? "text-white" : "text-ink"
-      }`}
-    >
-      <svg
-        width="22"
-        height="22"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-        className="shrink-0"
-      >
-        <circle
-          cx="12"
-          cy="12"
-          r="10.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-        <path
-          d="M12 4.5c-3.5 3-4.8 6.6-3.6 10.5M12 4.5c3.5 3 4.8 6.6 3.6 10.5M12 4.5v15"
-          fill="none"
-          stroke={inverted ? "#8fc9b2" : "#20785F"}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      </svg>
-
-      <span className="text-[14px] font-semibold tracking-[-0.01em] min-[360px]:text-[15px]">
-        Auvrion <span className="font-normal opacity-70">Biosphere</span>
-      </span>
-    </span>
+    <Image
+      src={
+        inverted
+          ? "/branding/auvrion-biosphere-wordmark-inverted.png"
+          : "/branding/auvrion-biosphere-wordmark.png"
+      }
+      alt="Auvrion Biosphere"
+      width={196}
+      height={52}
+      className="h-8 w-auto max-w-[146px] object-contain"
+    />
   );
 }
 
@@ -97,39 +77,22 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       {/* Desktop branding panel */}
       <aside className="relative hidden overflow-hidden bg-ink text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:self-start lg:flex-col lg:justify-between lg:p-10 xl:p-12">
         <Contours />
-
-        <div className="relative">
-          <Wordmark inverted />
-        </div>
-
-        <div className="relative max-w-sm">
-          <p className="text-[13px] font-medium text-[#8fc9b2]">
+        <div className="relative max-w-lg">
+          <p className="text-[17px] font-medium text-[#8fc9b2]">
             Platform AIoT &amp; WebGIS
           </p>
 
-          <p className="mt-3 text-2xl leading-snug font-semibold tracking-[-0.015em] text-white/95 xl:text-[28px] xl:leading-[1.35]">
-            Pemantauan keanekaragaman hayati dan risiko kebakaran hutan, dengan
-            keputusan akhir tetap di tangan manusia.
-          </p>
-
-          <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-white/12 pt-6 text-[13px]">
-            {[
-              ["IoT", "mengamati"],
-              ["AI", "membantu"],
-              ["Web", "mengorkestrasi"],
-              ["Manusia", "memutuskan"],
-            ].map(([term, meaning]) => (
-              <div key={term}>
-                <dt className="font-medium text-white">{term}</dt>
-                <dd className="text-white/60">{meaning}</dd>
-              </div>
-            ))}
-          </dl>
+          <div className="mt-14">
+            <Image
+              src="/branding/auvrion-biosphere-wordmark-white.png"
+              alt="Auvrion Biosphere"
+              width={520}
+              height={220}
+              priority
+              className="h-auto w-full max-w-[520px] object-contain"
+            />
+          </div>
         </div>
-
-        <p className="relative text-xs text-white/45">
-          Tim Pais Patin · UINIC 8.0 · 2026
-        </p>
       </aside>
 
       {/* Authentication content panel */}
@@ -149,8 +112,8 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         "
       >
         {/* Mobile branding header */}
-        <header className="flex h-14 min-w-0 shrink-0 items-center lg:hidden">
-          <Wordmark />
+        <header className="flex min-w-0 shrink-0 pt-2 pb-4 lg:hidden">
+          <SidebarBrandImage />
         </header>
 
         {/* Main authentication form */}

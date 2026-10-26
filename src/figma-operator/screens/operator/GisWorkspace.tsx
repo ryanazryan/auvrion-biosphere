@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { AirQualityControl } from "@/components/gis/AirQualityControl";
 import * as I from "@/figma-operator/components/icons";
 import { OperatorLayout } from "@/figma-operator/components/operator/OperatorLayout";
 import {
@@ -21,6 +22,8 @@ import {
   listGisObservations,
   listGisZones,
 } from "@/figma-operator/gis/client";
+import type { IndonesiaTimeZone } from "@/figma-operator/gis/format-time";
+import type { HotspotPoint } from "@/figma-operator/gis/hotspots";
 import {
   DOMAIN,
   type Domain,
@@ -31,12 +34,21 @@ import {
 } from "@/figma-operator/observations";
 import { useOperator } from "@/figma-operator/operator-context";
 import { isoToZoneLocal, zoneLocalToIso } from "@/figma-operator/time";
+import type { AirQualitySite } from "@/server/gis/air-quality-contract";
 import {
   type GisDropdownOption,
   GisFilterDropdown,
   GisReceivedTimeDropdown,
 } from "./GisFilterDropdown";
 import { GisMapCanvas } from "./GisMapCanvas";
+import { WebGisIntelPanel } from "./WebGisIntelPanel";
+
+const INDONESIA_TIME_ZONES: Record<"WIB" | "WITA" | "WIT", IndonesiaTimeZone> =
+  {
+    WIB: "Asia/Jakarta",
+    WITA: "Asia/Makassar",
+    WIT: "Asia/Jayapura",
+  };
 
 const LIMIT = 50;
 const EMPTY_ROWS: GisRecord[] = [];
@@ -134,6 +146,15 @@ export function GisWorkspace() {
   } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hotspots, setHotspots] = useState<HotspotPoint[]>([]);
+  const [airQualitySites, setAirQualitySites] = useState<AirQualitySite[]>([]);
+  const [pickedMapLocation, setPickedMapLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [hotspotBounds, setHotspotBounds] = useState<
+    [number, number, number, number] | null
+  >(null);
   const [refresh, setRefresh] = useState(0);
   const [result, setResult] = useState<QueryState<GisResult>>({
     status: "loading",
@@ -673,6 +694,23 @@ export function GisWorkspace() {
                 selected={selectedId}
                 onSelect={onSelect}
                 focusTarget={focusTarget}
+                hotspots={hotspots}
+                hotspotBounds={hotspotBounds}
+                airQualitySites={airQualitySites}
+                onPickedLocationChange={setPickedMapLocation}
+                selectedTimeZone={INDONESIA_TIME_ZONES[timeZone]}
+              />
+              <WebGisIntelPanel
+                organizationId={operator.organizationId}
+                enabled={hasApprovedBasemap}
+                onFeatures={setHotspots}
+                onBounds={setHotspotBounds}
+              />
+              <AirQualityControl
+                organizationId={operator.organizationId}
+                enabled={hasApprovedBasemap}
+                selectedPoint={pickedMapLocation}
+                onSites={setAirQualitySites}
               />
               {result.status === "success" && rows.length > shown && (
                 <div className="absolute top-16 left-4 z-10 hidden max-w-[calc(100%-5rem)] items-center gap-2 rounded-md border border-line bg-white/95 px-2.5 py-2 text-[11px] text-muted shadow-sm md:inline-flex">

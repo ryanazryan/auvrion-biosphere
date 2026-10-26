@@ -4,7 +4,6 @@ import {
   Empty,
   PageHeading,
   Panel,
-  ReadOnlyNote,
   StatusChip,
   shortId,
 } from "@/components/supervisor/SupervisorElements";
@@ -27,15 +26,7 @@ export default async function SupervisorOutcomes() {
   );
   return (
     <>
-      <PageHeading
-        title="Hasil & riwayat"
-        desc="Tinjau laporan Ranger dan keputusan Case tanpa menganggap status Submitted sebagai Completed atau Closed."
-      />
-      <ReadOnlyNote>
-        Registrasi outcome (Confirmed / Not Confirmed / Insufficient Evidence),
-        rework, completion, dan closure belum disahkan untuk V1. Tidak ada
-        tombol mutasi atau penilaian otomatis dari AI.
-      </ReadOnlyNote>
+      <PageHeading title="Hasil & riwayat" />
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
         <Panel title={`Laporan tugas · ${submitted.length}`}>
           {!submitted.length ? (

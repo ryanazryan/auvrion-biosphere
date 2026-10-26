@@ -5,6 +5,17 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GisRecord } from "@/figma-operator/gis/client";
 import { approvedPoint } from "@/figma-operator/gis/client";
+import {
+  formatIndonesiaTime,
+  type IndonesiaTimeZone,
+} from "@/figma-operator/gis/format-time";
+import type { HotspotPoint } from "@/figma-operator/gis/hotspots";
+import {
+  formatBrightness,
+  formatConfidence,
+  formatFrp,
+} from "@/figma-operator/gis/thermal-display";
+import type { AirQualitySite } from "@/server/gis/air-quality-contract";
 
 const STYLE_URL = process.env.NEXT_PUBLIC_AUVRION_BASEMAP_STYLE_URL?.trim();
 const ATTRIBUTION = process.env.NEXT_PUBLIC_AUVRION_BASEMAP_ATTRIBUTION?.trim();
@@ -20,23 +31,50 @@ export function GisMapCanvas({
   selected,
   onSelect,
   focusTarget = null,
+  hotspots = [],
+  hotspotBounds = null,
+  airQualitySites = [],
+  onPickedLocationChange,
+  selectedTimeZone = "Asia/Makassar",
 }: {
   rows: GisRecord[];
   selected: string | null;
   onSelect: (id: string) => void;
+  hotspots?: HotspotPoint[];
+  airQualitySites?: AirQualitySite[];
+  onPickedLocationChange?: (
+    point: { latitude: number; longitude: number } | null,
+  ) => void;
+  hotspotBounds?: [number, number, number, number] | null;
   /** Explicit, approved pan action; never inferred from normal list selection. */
   focusTarget?: { id: string; request: number } | null;
+  selectedTimeZone?: IndonesiaTimeZone;
 }) {
   const containerRef = useRef<HTMLElement>(null);
   const mapRef = useRef<import("maplibre-gl").Map | null>(null);
+  const timeZoneRef = useRef(selectedTimeZone);
+  timeZoneRef.current = selectedTimeZone;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const onPickedLocationChangeRef = useRef(onPickedLocationChange);
+  onPickedLocationChangeRef.current = onPickedLocationChange;
   const markerButtons = useRef(new Map<string, HTMLButtonElement>());
+  const [hotspotLayerReady, setHotspotLayerReady] = useState(false);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [legendOpen, setLegendOpen] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [bearing, setBearing] = useState(0);
+  const [pinPicking, setPinPicking] = useState(false);
+  const [pickedLocation, setPickedLocation] = useState<{
+    longitude: number;
+    latitude: number;
+  } | null>(null);
+  const pinPickingRef = useRef(pinPicking);
+  pinPickingRef.current = pinPicking;
+  const pickedLocationRef = useRef(pickedLocation);
+  pickedLocationRef.current = pickedLocation;
+  const pickedMarkerRef = useRef<import("maplibre-gl").Marker | null>(null);
 
   useEffect(() => {
     for (const [id, button] of markerButtons.current) {
@@ -57,6 +95,7 @@ export function GisMapCanvas({
     // Explicit retry trigger: keep this dependency to reinitialize MapLibre.
     void retryKey;
     setMapLoaded(false);
+    setHotspotLayerReady(false);
     setBearing(0);
     if (
       (!HAS_APPROVED_BASEMAP && !LOCAL_SCHEMATIC_PREVIEW) ||
@@ -96,6 +135,40 @@ export function GisMapCanvas({
           maxPitch: 0,
         });
         mapRef.current = map;
+        map.on("click", (event) => {
+          const activeMap = map;
+          if (
+            !activeMap ||
+            disposed ||
+            !pinPickingRef.current ||
+            !HAS_APPROVED_BASEMAP
+          )
+            return;
+          // Clicking NASA features should keep their original inspect/zoom behavior.
+          const satelliteLayers = [
+            "auvrion-hotspot-points",
+            "auvrion-hotspot-clusters",
+          ].filter((id) => Boolean(activeMap.getLayer(id)));
+          if (
+            satelliteLayers.length > 0 &&
+            activeMap.queryRenderedFeatures(event.point, {
+              layers: satelliteLayers,
+            }).length > 0
+          )
+            return;
+          const { lng, lat } = event.lngLat;
+          if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+          pickedMarkerRef.current?.remove();
+          pickedMarkerRef.current = new lib.Marker({ color: "#20785f" })
+            .setLngLat([lng, lat])
+            .addTo(activeMap);
+          setPickedLocation({ longitude: lng, latitude: lat });
+          onPickedLocationChangeRef.current?.({
+            longitude: lng,
+            latitude: lat,
+          });
+          setPinPicking(false);
+        });
         map.on("rotate", () => {
           if (!disposed && map) setBearing(map.getBearing());
         });
@@ -105,6 +178,205 @@ export function GisMapCanvas({
           const activeMap = map;
           setMapLoaded(true);
           setBearing(activeMap.getBearing());
+          const lastPin = pickedLocationRef.current;
+          if (!schematic && lastPin) {
+            pickedMarkerRef.current = new lib.Marker({ color: "#20785f" })
+              .setLngLat([lastPin.longitude, lastPin.latitude])
+              .addTo(activeMap);
+          }
+          if (!schematic) {
+            activeMap.addSource("auvrion-model-air-quality", {
+              type: "geojson",
+              data: { type: "FeatureCollection", features: [] },
+            });
+            activeMap.addLayer({
+              id: "auvrion-model-aqi-circles",
+              type: "circle",
+              source: "auvrion-model-air-quality",
+              paint: {
+                "circle-radius": 16,
+                "circle-color": [
+                  "step",
+                  ["get", "aqi"],
+                  "#27965f",
+                  51,
+                  "#c49620",
+                  101,
+                  "#d66a27",
+                  151,
+                  "#bc3636",
+                  201,
+                  "#893875",
+                ],
+                "circle-opacity": 0.92,
+                "circle-stroke-color": "#fff",
+                "circle-stroke-width": 2,
+              },
+            });
+            activeMap.addLayer({
+              id: "auvrion-model-aqi-numbers",
+              type: "symbol",
+              source: "auvrion-model-air-quality",
+              layout: {
+                "text-field": ["get", "aqiLabel"],
+                "text-size": 11,
+                "text-allow-overlap": true,
+              },
+              paint: {
+                "text-color": "#ffffff",
+                "text-halo-color": "#1c2931",
+                "text-halo-width": 0.4,
+              },
+            });
+            activeMap.on("click", "auvrion-model-aqi-circles", (event) => {
+              const feature = event.features?.[0];
+              if (feature?.geometry.type !== "Point") return;
+              const coord = feature.geometry.coordinates;
+              if (coord.length < 2) return;
+              const props = feature.properties ?? {};
+              const panel = document.createElement("div");
+              panel.className = "space-y-1 text-xs";
+              const heading = document.createElement("strong");
+              heading.textContent = `${String(props.name ?? "Lokasi")} · US AQI ${String(props.aqiLabel ?? "—")}`;
+              const particles = document.createElement("p");
+              particles.textContent = `PM2.5 ${String(props.pm25 ?? "—")} · PM10 ${String(props.pm10 ?? "—")} µg/m³`;
+              const stamp = document.createElement("p");
+              stamp.textContent = `Pembaruan: ${formatIndonesiaTime(
+                String(props.modelTimeUtc ?? ""),
+                timeZoneRef.current,
+              )}`;
+              stamp.className = "text-[#64766c]";
+              panel.append(heading, particles, stamp);
+              new lib.Popup({ maxWidth: "280px", closeButton: true })
+                .setLngLat([Number(coord[0]), Number(coord[1])])
+                .setDOMContent(panel)
+                .addTo(activeMap);
+            });
+            activeMap.addSource("auvrion-nasa-hotspots", {
+              type: "geojson",
+              data: { type: "FeatureCollection", features: [] },
+              cluster: true,
+              clusterRadius: 42,
+              clusterMaxZoom: 10,
+              // Use peak observed FRP for visual display, NOT a verified fire rating.
+              clusterProperties: {
+                maxFrpMw: ["max", ["coalesce", ["get", "frpMw"], -1]],
+              },
+            });
+            activeMap.addLayer({
+              id: "auvrion-hotspot-clusters",
+              type: "circle",
+              source: "auvrion-nasa-hotspots",
+              filter: ["has", "point_count"],
+              paint: {
+                "circle-radius": 14,
+                "circle-color": [
+                  "case",
+                  ["==", ["get", "maxFrpMw"], -1],
+                  "#64748b",
+                  [">=", ["get", "maxFrpMw"], 20],
+                  "#dc2626",
+                  [">=", ["get", "maxFrpMw"], 5],
+                  "#f59e0b",
+                  "#eab308",
+                ],
+                "circle-opacity": 0.8,
+                "circle-stroke-color": "#fff",
+                "circle-stroke-width": 1.5,
+              },
+            });
+            activeMap.addLayer({
+              id: "auvrion-hotspot-counts",
+              type: "symbol",
+              source: "auvrion-nasa-hotspots",
+              filter: ["has", "point_count"],
+              layout: {
+                "text-field": ["get", "point_count_abbreviated"],
+                "text-size": 11,
+              },
+              paint: { "text-color": "#fff" },
+            });
+            activeMap.addLayer({
+              id: "auvrion-hotspot-points",
+              type: "circle",
+              source: "auvrion-nasa-hotspots",
+              filter: ["!", ["has", "point_count"]],
+              paint: {
+                "circle-radius": 5.5,
+                "circle-color": [
+                  "case",
+                  ["==", ["get", "frpMw"], null],
+                  "#64748b",
+                  [">=", ["get", "frpMw"], 20],
+                  "#dc2626",
+                  [">=", ["get", "frpMw"], 5],
+                  "#f59e0b",
+                  "#eab308",
+                ],
+                "circle-opacity": 0.78,
+                "circle-stroke-color": "#fff",
+                "circle-stroke-width": 1.1,
+              },
+            });
+            activeMap.on("click", "auvrion-hotspot-points", (event) => {
+              const feature = event.features?.[0];
+              if (feature?.geometry.type !== "Point") return;
+              const [longitude, latitude] = feature.geometry.coordinates;
+              if (!Number.isFinite(longitude) || !Number.isFinite(latitude))
+                return;
+              const p = feature.properties ?? {};
+              const content = document.createElement("div");
+              content.className = "space-y-1 text-xs leading-5 text-[#23352d]";
+              const heading = document.createElement("strong");
+              heading.className = "block text-sm";
+              heading.textContent = "Anomali termal · NASA FIRMS";
+              content.append(heading);
+              const addLine = (label: string, value: string) => {
+                const line = document.createElement("p");
+                line.textContent = `${label}: ${value}`;
+                content.append(line);
+              };
+              addLine("FRP", formatFrp(p.frpMw));
+              addLine("Kecerahan I4", formatBrightness(p.brightnessTi4K));
+              addLine("Confidence", formatConfidence(p.confidence));
+              addLine(
+                "Akuisisi",
+                formatIndonesiaTime(
+                  String(p.acquiredAtUtc ?? ""),
+                  timeZoneRef.current,
+                ),
+              );
+              addLine(
+                "Sensor",
+                `${String(p.satellite ?? "—")} · ${String(p.instrument ?? "VIIRS")}`,
+              );
+              addLine(
+                "Koordinat indikatif",
+                `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+              );
+              const caution = document.createElement("p");
+              caution.className =
+                "border-t border-[#dbe4df] pt-1 text-[#64766c]";
+              caution.textContent =
+                "Status lapangan: belum diverifikasi. Kecerahan I4 bukan suhu udara.";
+              content.append(caution);
+              new lib.Popup({ maxWidth: "320px", closeButton: true })
+                .setLngLat([longitude, latitude])
+                .setDOMContent(content)
+                .addTo(activeMap);
+            });
+            activeMap.on("click", "auvrion-hotspot-clusters", (event) => {
+              const feature = event.features?.[0];
+              if (feature?.geometry.type !== "Point") return;
+              const coords = feature.geometry.coordinates;
+              activeMap.easeTo({
+                center: [Number(coords[0]), Number(coords[1])],
+                zoom: Math.min(14, activeMap.getZoom() + 2),
+                duration: 350,
+              });
+            });
+            setHotspotLayerReady(true);
+          }
           // Do not place actual observations on invented local cartography.
           for (const point of schematic ? [] : points) {
             const button = document.createElement("button");
@@ -154,11 +426,85 @@ export function GisMapCanvas({
     return () => {
       disposed = true;
       for (const marker of markers) marker.remove();
+      pickedMarkerRef.current?.remove();
+      pickedMarkerRef.current = null;
       buttons.clear();
       mapRef.current = null;
       map?.remove();
     };
   }, [points, retryKey]);
+
+  // Repaint model AQI without resetting current map viewport or private observation markers.
+  useEffect(() => {
+    if (!hotspotLayerReady || !HAS_APPROVED_BASEMAP) return;
+    const source = mapRef.current?.getSource("auvrion-model-air-quality") as
+      | import("maplibre-gl").GeoJSONSource
+      | undefined;
+    const features = airQualitySites
+      .filter((site) => site.usAqi !== null)
+      .map((site) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [site.longitude, site.latitude] as [number, number],
+        },
+        properties: {
+          name: site.name,
+          aqi: site.usAqi,
+          aqiLabel: String(site.usAqi),
+          pm25: site.pm25 === null ? "—" : String(site.pm25),
+          pm10: site.pm10 === null ? "—" : String(site.pm10),
+          modelTimeUtc: site.modelTimeUtc ?? "tidak tersedia",
+        },
+      }));
+    source?.setData({ type: "FeatureCollection", features });
+  }, [airQualitySites, hotspotLayerReady]);
+
+  // Refresh the MapLibre satellite source after the style and its layers exist.
+  // Keep satellite visibility independent from the AQI DOM markers.
+  useEffect(() => {
+    if (!hotspotLayerReady || !HAS_APPROVED_BASEMAP) return;
+    const map = mapRef.current;
+    const source = map?.getSource("auvrion-nasa-hotspots") as
+      | import("maplibre-gl").GeoJSONSource
+      | undefined;
+    if (!map || !source) {
+      console.error("AUVRION_HOTSPOTS_SOURCE_MISSING");
+      return;
+    }
+    const layerIds = [
+      "auvrion-hotspot-clusters",
+      "auvrion-hotspot-counts",
+      "auvrion-hotspot-points",
+    ];
+    try {
+      // A prior style operation must never leave the satellite layer hidden.
+      for (const id of layerIds) {
+        if (map.getLayer(id))
+          map.setLayoutProperty(id, "visibility", "visible");
+      }
+      const update = source.setData({
+        type: "FeatureCollection",
+        features: hotspots,
+      });
+      void Promise.resolve(update).catch(() => {
+        console.error("AUVRION_HOTSPOTS_GEOJSON_UPDATE_FAILED");
+      });
+    } catch {
+      console.error("AUVRION_HOTSPOTS_GEOJSON_UPDATE_FAILED");
+    }
+  }, [hotspots, hotspotLayerReady]);
+
+  useEffect(() => {
+    if (!hotspotLayerReady || !HAS_APPROVED_BASEMAP || !hotspotBounds) return;
+    mapRef.current?.fitBounds(
+      [
+        [hotspotBounds[0], hotspotBounds[1]],
+        [hotspotBounds[2], hotspotBounds[3]],
+      ],
+      { padding: 50, duration: 500, maxZoom: 9 },
+    );
+  }, [hotspotBounds, hotspotLayerReady]);
 
   // Resize the WebGL viewport whenever mobile list/panel geometry changes.
   useEffect(() => {
@@ -218,6 +564,42 @@ export function GisMapCanvas({
           ref={containerRef}
           aria-label="Peta observasi"
         />
+      )}
+
+      {HAS_APPROVED_BASEMAP && mapLoaded && !error && (
+        <div className="absolute bottom-4 right-3 z-20 flex max-w-[min(260px,calc(100%-1.5rem))] flex-col items-end gap-2 max-md:bottom-22">
+          {pickedLocation && (
+            <div className="rounded-lg border border-line bg-white/95 px-3 py-2 text-xs text-ink shadow-sm backdrop-blur-sm">
+              <div className="font-medium">
+                Pin · {pickedLocation.latitude.toFixed(5)},{" "}
+                {pickedLocation.longitude.toFixed(5)}
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted">
+                Data lokasi belum dimuat
+              </div>
+              <button
+                type="button"
+                className="mt-1 text-xs text-brand hover:underline"
+                onClick={() => {
+                  pickedMarkerRef.current?.remove();
+                  pickedMarkerRef.current = null;
+                  setPickedLocation(null);
+                  onPickedLocationChangeRef.current?.(null);
+                }}
+              >
+                Hapus pin
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            aria-pressed={pinPicking}
+            onClick={() => setPinPicking((value) => !value)}
+            className="rounded-lg border border-line bg-white px-3 py-2 text-xs font-semibold text-ink shadow-sm hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            {pinPicking ? "Batalkan pilih titik" : "Pilih titik lokasi"}
+          </button>
+        </div>
       )}
 
       {(!ready || error) && (
@@ -411,6 +793,28 @@ export function GisMapCanvas({
           {legendOpen && (
             <div className="mt-2 w-52 rounded-md border border-line bg-white p-3 text-xs text-muted shadow-md max-md:absolute max-md:top-0 max-md:right-12 max-md:mt-0">
               <p className="mb-2 font-medium text-ink">Penanda peta</p>
+              <p className="mt-2 text-[11px] font-semibold text-ink">
+                FRP satelit (MW) · skala visual
+              </p>
+              <p className="mt-1">
+                <span className="mr-2 inline-block size-2 rounded-full bg-[#eab308]" />
+                0–&lt;5 MW
+              </p>
+              <p className="mt-1">
+                <span className="mr-2 inline-block size-2 rounded-full bg-[#f59e0b]" />
+                5–&lt;20 MW
+              </p>
+              <p className="mt-1">
+                <span className="mr-2 inline-block size-2 rounded-full bg-[#dc2626]" />
+                ≥20 MW
+              </p>
+              <p className="mt-1">
+                <span className="mr-2 inline-block size-2 rounded-full bg-[#64748b]" />
+                FRP tidak tersedia
+              </p>
+              <p className="mt-1 text-[10px]">
+                Warna bukan verifikasi kebakaran.
+              </p>
               <p>
                 <span className="mr-2 inline-block size-2 rounded-full bg-brand" />
                 Hayati

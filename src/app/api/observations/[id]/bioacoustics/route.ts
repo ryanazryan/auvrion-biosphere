@@ -40,7 +40,23 @@ export async function GET(
   } catch (error) {
     if (error instanceof BioacousticDiscoveryError)
       return json({ error: error.code }, error.status);
-    // Intentionally avoid raw errors, SQL traces, model internals or file paths.
+    // Keep internal errors server-side; never return SQL or paths to clients.
+    if (process.env.NODE_ENV === "development") {
+      const diagnostic =
+        error instanceof Error
+          ? {
+              name: error.name,
+              message: error.message,
+              code:
+                "code" in error && typeof error.code === "string"
+                  ? error.code
+                  : undefined,
+            }
+          : { name: "UnknownError" };
+
+      console.error("[WC-023] SOURCE_DISCOVERY_FAILED", diagnostic);
+    }
+
     return json({ error: "BIOACOUSTIC_DISCOVERY_UNAVAILABLE" }, 503);
   }
 }

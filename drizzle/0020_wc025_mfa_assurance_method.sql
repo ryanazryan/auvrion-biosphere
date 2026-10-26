@@ -1,0 +1,1 @@
+ALTER TABLE "mfa_session_assurance" ADD COLUMN "method" text DEFAULT 'legacy' NOT NULL;
