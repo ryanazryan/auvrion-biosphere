@@ -67,7 +67,7 @@ export function LoginForm() {
   return (
     <>
       <AuthHeader title="Masuk">
-        Gunakan akun yang telah disetujui oleh administrator Auvrion Biosphere.
+        Gunakan akun yang telah disetujui oleh administrator.
       </AuthHeader>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
@@ -169,8 +169,7 @@ export function LoginForm() {
         >
           Ajukan akses
         </Link>
-        . Peran operasional diberikan secara eksplisit oleh administrator, bukan
-        dipilih sendiri.
+        . Peran operasional diberikan secara eksplisit oleh administrator
       </p>
     </>
   );

@@ -48,8 +48,12 @@ export async function GET(request: Request) {
       organizationId,
       "supervisor",
     );
-    if (!supervisor.allowed)
-      return json({ error: supervisor.reason }, supervisor.status);
+    if (!supervisor.allowed) {
+      if (supervisor.reason !== "ROLE_OR_SCOPE_DENIED")
+        return json({ error: supervisor.reason }, supervisor.status);
+      const ranger = await checkOperationalAccess(organizationId, "ranger");
+      if (!ranger.allowed) return json({ error: ranger.reason }, ranger.status);
+    }
   }
   try {
     return json(await getNasaHotspots(regionId, days));

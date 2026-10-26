@@ -11,6 +11,7 @@ import {
   taskZone,
 } from "@/components/ranger/RangerViews";
 import { TaskActionPanel } from "@/components/ranger/TaskActionPanel";
+import { getAssignedCaseObservations } from "@/server/ranger/ranger-case-observations";
 import { isTaskUuid } from "@/server/ranger/ranger-task-query";
 import { getMyRangerTask } from "@/server/ranger/ranger-task-service";
 import { findRangerWorkspaceAccess } from "@/server/ranger/ranger-workspace";
@@ -43,6 +44,12 @@ export default async function RangerTaskDetail({
   if (!access.allowed) return null;
   const task = await getMyRangerTask(access.organizationId, access.userId, id);
   if (!task) notFound();
+  const caseObservations = await getAssignedCaseObservations(
+    access.organizationId,
+    access.userId,
+    id,
+  );
+  if (!caseObservations) notFound();
   const step = stepByStatus[task.status] ?? 1;
   const zone = taskZone(task.instructions);
   return (
@@ -123,14 +130,36 @@ export default async function RangerTaskDetail({
               </p>
             </InfoCard>
             <InfoCard title="Bukti dan observasi">
-              <div className="rounded-md border border-line bg-bg px-3 py-3 text-xs text-muted">
-                <RangerIcon
-                  name="lock"
-                  className="mr-2 inline size-4 align-middle"
-                />
-                Berkas privat dan lokasi presisi belum dapat ditampilkan pada
-                slice ini.
-              </div>
+              {caseObservations.length === 0 ? (
+                <p className="text-[13px] text-muted">
+                  Belum ada observasi aktif yang ditautkan pada Case ini.
+                </p>
+              ) : (
+                <ol className="divide-y divide-line">
+                  {caseObservations.map((observation) => (
+                    <li
+                      key={observation.id}
+                      className="py-3 first:pt-0 last:pb-0"
+                    >
+                      <p className="text-[13px] font-medium text-ink">
+                        Observasi {observation.id.slice(0, 8)}…
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        {observation.domain} · {observation.quality} ·{" "}
+                        {observation.sourceCode}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        Diterima {formattedDate(observation.receivedAt)} WITA
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <p className="mt-3 border-t border-line pt-3 text-xs leading-5 text-muted">
+                Metadata observasi terkait tugas tersedia. Lampiran privat dan
+                koordinat presisi memerlukan otorisasi khusus; status Case
+                selesai tidak otomatis membuka keduanya.
+              </p>
             </InfoCard>
             <InfoCard
               title="Riwayat tugas"

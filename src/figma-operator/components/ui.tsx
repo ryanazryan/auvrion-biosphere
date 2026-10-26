@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { type ButtonHTMLAttributes, forwardRef, type ReactNode } from "react";
 import * as I from "./icons";
 
@@ -9,40 +11,17 @@ const cx = (...c: (string | false | null | undefined)[]) =>
 /* ---------- Brand ---------- */
 export function Wordmark({ inverted = false }: { inverted?: boolean }) {
   return (
-    <span
-      className={cx(
-        "inline-flex items-center gap-2 whitespace-nowrap min-[360px]:gap-2.5",
-        inverted ? "text-white" : "text-ink",
-      )}
-    >
-      <svg
-        width="22"
-        height="22"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-        className="shrink-0"
-      >
-        <title>Auvrion Biosphere</title>
-        <circle
-          cx="12"
-          cy="12"
-          r="10.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-        <path
-          d="M12 4.5c-3.5 3-4.8 6.6-3.6 10.5M12 4.5c3.5 3 4.8 6.6 3.6 10.5M12 4.5v15"
-          fill="none"
-          stroke={inverted ? "#8fc9b2" : "#20785F"}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      </svg>
-      <span className="text-[14px] font-semibold tracking-[-0.01em] min-[360px]:text-[15px]">
-        Auvrion <span className="font-normal opacity-70">Biosphere</span>
-      </span>
-    </span>
+    <Image
+      src={
+        inverted
+          ? "/branding/auvrion-biosphere-wordmark-inverted.png"
+          : "/branding/auvrion-biosphere-wordmark.png"
+      }
+      alt="Auvrion Biosphere"
+      width={196}
+      height={52}
+      className="h-8 w-auto max-w-[146px] object-contain"
+    />
   );
 }
 
