@@ -1,10 +1,11 @@
 "use client";
 
+import Image from "next/image";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import {
-  AuvrionMark,
   BellIcon,
   CloseIcon,
   GearIcon,
@@ -37,15 +38,21 @@ const NAV_ITEMS = [
 
 function Brand({ collapsed = false }: { collapsed?: boolean }) {
   return (
-    <div className="inline-flex items-center gap-2.5 whitespace-nowrap text-white">
-      <AuvrionMark className="shrink-0" />
-
-      {!collapsed && (
-        <span className="text-[15px] font-semibold tracking-[-0.01em]">
-          Auvrion <span className="font-normal text-white/70">Biosphere</span>
-        </span>
-      )}
-    </div>
+    <Image
+      src={
+        collapsed
+          ? "/branding/auvrion-biosphere-mark.png"
+          : "/branding/auvrion-biosphere-wordmark-inverted.png"
+      }
+      alt="Auvrion Biosphere"
+      width={collapsed ? 44 : 196}
+      height={52}
+      className={
+        collapsed
+          ? "size-9 object-contain"
+          : "h-8 w-auto max-w-36.5 object-contain"
+      }
+    />
   );
 }
 

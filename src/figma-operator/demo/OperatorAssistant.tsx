@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import ReactMarkdown from "react-markdown";
+import { AuvrionAIBrand } from "@/components/branding/AuvrionAIBrand";
 import * as I from "@/figma-operator/components/icons";
 import {
   CopilotVisual,
@@ -55,22 +56,6 @@ const SUGGESTIONS = [
 ] as const;
 const cls =
   "inline-flex items-center justify-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-[13px] font-medium text-fg transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-brand";
-
-function Sparkles({ className = "size-4" }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinejoin="round"
-    >
-      <path d="m12 2 2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6ZM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z" />
-    </svg>
-  );
-}
 
 function Bell({ className = "size-5" }: { className?: string }) {
   return <I.Bell className={className} />;
@@ -328,7 +313,9 @@ export function OperatorAssistControls() {
         aria-haspopup="dialog"
         aria-label="Buka Auvrion AI"
       >
-        <Sparkles className="size-4 text-brand" />
+        <span aria-hidden="true" className="block size-4">
+          <AuvrionAIBrand />
+        </span>
         <span className="hidden sm:inline">Auvrion AI</span>
       </button>
       <div ref={noticeRef} className="relative shrink-0">
@@ -371,7 +358,9 @@ export function OperatorAssistControls() {
                     <span
                       className={`grid size-7 shrink-0 place-items-center rounded-full ${item.level === "warn" ? "bg-warn-50 text-warn" : "bg-brand-50 text-brand"}`}
                     >
-                      <Sparkles className="size-3.5" />
+                      <span aria-hidden="true" className="block size-3.5">
+                        <AuvrionAIBrand />
+                      </span>
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
@@ -414,15 +403,11 @@ export function OperatorAssistControls() {
       >
         <div className="flex h-full min-h-0 flex-col">
           <header className="flex items-start gap-3 border-b border-line px-4 py-3">
-            <span
-              aria-hidden="true"
-              className="grid size-10 shrink-0 place-items-center rounded-md bg-ink text-white"
-            >
-              <Sparkles className="size-4.5" />
-            </span>
             <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold">Auvrion AI</h2>
-              <p className="mt-0.5 truncate text-xs text-muted">
+              <h2 className="min-w-0">
+                <AuvrionAIBrand variant="wordmark" />
+              </h2>
+              <p className="mt-2 truncate text-xs text-muted">
                 Konteks:{" "}
                 <span className="rounded bg-brand-50 px-1.5 py-px font-medium text-brand">
                   {currentContext}
@@ -446,7 +431,9 @@ export function OperatorAssistControls() {
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
                 <span className="grid size-11 place-items-center rounded-full bg-brand-50 text-brand">
-                  <Sparkles className="size-5" />
+                  <span aria-hidden="true" className="block size-5">
+                    <AuvrionAIBrand />
+                  </span>
                 </span>
                 <p className="mt-3 text-sm font-medium">
                   Tanyakan konteks yang sedang dibuka
@@ -464,7 +451,9 @@ export function OperatorAssistControls() {
                     </p>
                     <div className="flex items-start gap-2">
                       <span className="grid size-6 shrink-0 place-items-center rounded-full bg-brand-50 text-brand">
-                        <Sparkles className="size-3.5" />
+                        <span aria-hidden="true" className="block size-3.5">
+                          <AuvrionAIBrand />
+                        </span>
                       </span>
                       <div className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-2.5 text-[13px] leading-5">
                         <p className="mb-2 font-semibold">
@@ -603,7 +592,7 @@ export function OperatorAssistControls() {
                 value={query}
                 maxLength={200}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Tulis pertanyaan singkat…"
+                placeholder="Tulis pertanyaan..."
                 className="h-9 min-w-0 flex-1 rounded-md border border-line-strong bg-white px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
               />
               <button
@@ -615,11 +604,6 @@ export function OperatorAssistControls() {
                 ➤
               </button>
             </form>
-            <p className="mt-2 text-[11px] leading-4 text-muted">
-              Analisis lingkungan memakai data resmi BMKG/NASA FIRMS bila
-              tersedia. Konteks LISTEN lain masih preview; keputusan manusia
-              tetap wajib.
-            </p>
           </footer>
         </div>
       </dialog>

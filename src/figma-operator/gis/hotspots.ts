@@ -7,12 +7,14 @@ export type HotspotPoint = {
     acquiredAtUtc: string;
     confidence: string;
     frpMw: number | null;
+    brightnessTi4K?: number | null;
+    brightnessTi5K?: number | null;
     satellite: string;
     instrument: string;
   };
 };
 export type HotspotsPayload = {
-  regionId: "kalimantan" | "sulawesi" | "bali";
+  regionId: "indonesia" | "kalimantan" | "sulawesi" | "bali";
   regionLabel: string;
   bbox: [number, number, number, number];
   days: 1 | 2 | 5;

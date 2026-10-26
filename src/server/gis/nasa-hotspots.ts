@@ -2,6 +2,9 @@ import "server-only";
 
 /** Regional bounding rectangles, NOT legal province/island boundaries. */
 export const WEBGIS_REGIONS = {
+  // Nationwide FIRMS country endpoint filters by Indonesian territory.
+  // The broad bbox here validates coordinates; it does not define national borders.
+  indonesia: { label: "Indonesia", bbox: [94, -11.5, 142, 7.5] },
   kalimantan: { label: "Kalimantan", bbox: [108, -5, 120, 8] },
   sulawesi: { label: "Sulawesi", bbox: [118, -6.5, 126, 3] },
   bali: { label: "Bali", bbox: [114.3, -8.95, 115.8, -8] },
@@ -12,8 +15,8 @@ export const WEBGIS_WINDOWS: readonly WebgisDays[] = [1, 2, 5];
 const NASA_SOURCE = "VIIRS_NOAA20_NRT";
 const DATASET_URL = "https://firms.modaps.eosdis.nasa.gov/api/area";
 const CACHE_MS = 15 * 60_000;
-const MAX_CSV_BYTES = 5_000_000;
-const MAX_FEATURES = 3000;
+const MAX_CSV_BYTES = 16_000_000;
+const MAX_FEATURES = 25_000;
 
 export type HotspotFeature = {
   type: "Feature";
@@ -23,6 +26,8 @@ export type HotspotFeature = {
     acquiredAtUtc: string;
     confidence: string;
     frpMw: number | null;
+    brightnessTi4K: number | null;
+    brightnessTi5K: number | null;
     satellite: string;
     instrument: string;
   };
@@ -63,6 +68,13 @@ function csvLine(line: string): string[] {
 }
 
 /** Parses only declared NASA FIRMS fields, rejecting invalid/geographically inconsistent points. */
+/** VIIRS channel brightness (Kelvin), not ambient air or surface fire temperature. */
+function brightnessKelvin(raw: string | undefined): number | null {
+  if (raw === undefined || raw.trim() === "") return null;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 150 && value <= 500 ? value : null;
+}
+
 export function parseNasaCsv(
   csv: string,
   bbox: readonly [number, number, number, number],
@@ -98,6 +110,12 @@ export function parseNasaCsv(
     const time = values[idx("acq_time")] ?? "";
     const frpRaw = values[idx("frp")] ?? "";
     const frp = frpRaw ? Number(frpRaw) : null;
+    const brightnessTi4K = brightnessKelvin(
+      idx("bright_ti4") < 0 ? undefined : values[idx("bright_ti4")],
+    );
+    const brightnessTi5K = brightnessKelvin(
+      idx("bright_ti5") < 0 ? undefined : values[idx("bright_ti5")],
+    );
     if (
       !Number.isFinite(lat) ||
       !Number.isFinite(lon) ||
@@ -134,6 +152,8 @@ export function parseNasaCsv(
         acquiredAtUtc: stamp,
         confidence: (values[idx("confidence")] ?? "unknown").slice(0, 16),
         frpMw: frp,
+        brightnessTi4K,
+        brightnessTi5K,
         satellite: (values[idx("satellite")] ?? "unknown").slice(0, 20),
         instrument: (values[idx("instrument")] ?? "unknown").slice(0, 20),
       },
@@ -202,7 +222,7 @@ export async function getNasaHotspots(
     const url = `${DATASET_URL}/csv/${key}/${NASA_SOURCE}/${bbox.join(",")}/${days}`;
     // Credential stays server-side; never return the credential-bearing URL or log it.
     const upstream = await fetch(url, {
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(regionId === "indonesia" ? 20_000 : 12_000),
       cache: "no-store",
     });
     const parsed = parseNasaCsv(await readCappedResponse(upstream), bbox);
@@ -219,11 +239,13 @@ export async function getNasaHotspots(
       truncated: parsed.truncated,
       features: parsed.features,
       limitations: [
-        "Batas wilayah berbentuk bounding box perkiraan, bukan batas administrasi resmi.",
+        regionId === "indonesia"
+          ? "Cakupan berupa bounding box kawasan Indonesia, dapat mencakup negara tetangga, dan bukan batas administrasi resmi."
+          : "Batas wilayah berbentuk bounding box perkiraan, bukan batas administrasi resmi.",
         "Titik adalah anomali termal satelit, bukan konfirmasi kebakaran.",
         ...(parsed.truncated
           ? [
-              "Hasil dipotong pada 3.000 titik; jumlah tidak mewakili total wilayah.",
+              "Hasil dipotong pada 25.000 titik; jumlah tidak mewakili total wilayah.",
             ]
           : []),
         ...(parsed.invalidRows > 0
