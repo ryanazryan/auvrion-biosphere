@@ -141,6 +141,13 @@
       "when": 1792814576637,
       "tag": "0019_wc017_device_recordings",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792981086599,
+      "tag": "0020_wc025_mfa_assurance_method",
+      "breakpoints": true
     }
   ]
 }

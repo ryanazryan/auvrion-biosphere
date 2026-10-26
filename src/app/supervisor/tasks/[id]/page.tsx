@@ -4,13 +4,13 @@ import { TaskActionPanel } from "@/components/ranger/TaskActionPanel";
 import { TaskPhotoGallery } from "@/components/shared/TaskPhotoGallery";
 import {
   dateTime,
-  Empty,
   NavButton,
   PageHeading,
   Panel,
   StatusChip,
   shortId,
 } from "@/components/supervisor/SupervisorElements";
+import { TaskActivityFeed } from "@/components/supervisor/TaskActivityFeed";
 import { isUuid } from "@/server/workflow/approved-case-policy";
 import {
   findWorkspaceAccess,
@@ -29,7 +29,7 @@ export default async function SupervisorTaskDetail({
   if (!isUuid(id)) notFound();
   const data = await getWorkspaceTask(a.organizationId, id);
   if (!data) notFound();
-  const { task: t, findings } = data;
+  const { task: t } = data;
   return (
     <>
       <div className="mb-4">
@@ -67,24 +67,7 @@ export default async function SupervisorTaskDetail({
               </div>
             </div>
           </Panel>
-          <Panel title={`Temuan lapangan · ${findings.length}`}>
-            {!findings.length ? (
-              <Empty text="Belum ada temuan Ranger tersimpan." />
-            ) : (
-              <ol className="divide-y divide-line">
-                {findings.map((f) => (
-                  <li key={f.id} className="px-4 py-3">
-                    <p className="whitespace-pre-wrap text-sm leading-6">
-                      {f.summary}
-                    </p>
-                    <p className="mt-1 text-xs text-muted">
-                      {dateTime(f.createdAt)}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </Panel>
+          <TaskActivityFeed taskId={t.id} organizationId={a.organizationId} />
           <TaskPhotoGallery taskId={t.id} organizationId={a.organizationId} />
         </div>
         <aside className="space-y-4">

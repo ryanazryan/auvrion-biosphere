@@ -264,11 +264,7 @@ export default async function AccountSecurityPage() {
           </nav>
 
           <div className="min-w-0 space-y-9 pb-10">
-            <Section
-              id="profil"
-              title="Profil"
-              note="Identitas pribadi dari sesi akun yang terautentikasi."
-            >
+            <Section id="profil" title="Profil">
               <div className={PANEL}>
                 <dl className="grid gap-x-8 gap-y-5 px-4 py-5 sm:grid-cols-2 sm:px-5">
                   <Field label="Nama lengkap">{session.user.name}</Field>
@@ -287,11 +283,7 @@ export default async function AccountSecurityPage() {
               </div>
             </Section>
 
-            <Section
-              id="akses"
-              title="Akses organisasi"
-              note="Peran menentukan data dan tindakan yang diizinkan oleh server."
-            >
+            <Section id="akses" title="Akses organisasi">
               <div className={`${PANEL} divide-y divide-line`}>
                 {grants.length ? (
                   grants.map((grant) => {
@@ -374,11 +366,7 @@ export default async function AccountSecurityPage() {
               </dl>
             </Section>
 
-            <Section
-              id="totp"
-              title="Autentikator"
-              note="Pengamanan operasional menggunakan kode yang dibuat aplikasi autentikator."
-            >
+            <Section id="totp" title="Autentikator">
               <div className={PANEL}>
                 <Row
                   icon={<I.Shield />}
@@ -406,11 +394,7 @@ export default async function AccountSecurityPage() {
               </div>
             </Section>
 
-            <Section
-              id="pemulihan"
-              title="Kode pemulihan"
-              note="Simpan kode sekali pakai saat pendaftaran autentikator."
-            >
+            <Section id="pemulihan" title="Kode pemulihan">
               <div className={PANEL}>
                 <Row
                   icon={<I.Lock />}
@@ -425,11 +409,7 @@ export default async function AccountSecurityPage() {
               </div>
             </Section>
 
-            <Section
-              id="passkey"
-              title="Passkey"
-              note="Perangkat keamanan yang terdaftar pada akun Anda."
-            >
+            <Section id="passkey" title="Passkey">
               {canManagePasskeys ? (
                 <PasskeyManager
                   initialPasskeys={devices}

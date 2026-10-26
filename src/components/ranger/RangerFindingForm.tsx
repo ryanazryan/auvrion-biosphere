@@ -58,10 +58,16 @@ export function RangerFindingForm({
             body: JSON.stringify({ summary: summary.trim() }),
           },
         );
-        const data: { error?: string; findingId?: string } =
-          await response.json();
+        const data = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          findingId?: string;
+        };
         if (!response.ok) {
-          setError(data.error ?? "Gagal menyimpan temuan.");
+          setError(
+            response.status === 404
+              ? "Endpoint penyimpanan temuan tidak ditemukan (HTTP 404). Periksa API Ranger pada server."
+              : `Gagal menyimpan temuan (HTTP ${response.status}): ${data.error ?? "REQUEST_FAILED"}`,
+          );
           return;
         }
         if (!data.findingId) {
@@ -82,8 +88,10 @@ export function RangerFindingForm({
             body: photo,
           },
         );
-        const data: { error?: string; mediaId?: string } =
-          await response.json();
+        const data = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          mediaId?: string;
+        };
         if (!response.ok || !data.mediaId) {
           setError(
             `Temuan sudah disimpan, tetapi foto gagal diunggah (${data.error ?? "UPLOAD_FAILED"}). Coba Simpan lagi, atau buka Riwayat Tugas.`,
@@ -127,6 +135,11 @@ export function RangerFindingForm({
           className="mt-2 block w-full rounded-md border border-line-strong p-3 text-sm focus-visible:outline-2 focus-visible:outline-brand"
         />
       </label>
+      <p className="text-xs leading-5 text-muted">
+        Setiap temuan yang disimpan menjadi pembaruan aktivitas yang dapat
+        dipantau Supervisor, tanpa menunggu pengajuan hasil akhir tugas. Jika
+        sudah selesai, ajukan hasil melalui Tindakan Tugas.
+      </p>
       <PhotoFilePicker
         label="Foto bukti lapangan (opsional)"
         file={photo}

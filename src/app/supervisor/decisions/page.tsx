@@ -37,10 +37,7 @@ export default async function SupervisorDecisions({
     : cases;
   return (
     <>
-      <PageHeading
-        title="Antrean keputusan"
-        desc="Tinjau Case yang dikirim Operator. Keputusan Monitoring atau penugasan Ranger hanya tersedia pada status Awaiting Decision."
-      />
+      <PageHeading title="Antrean keputusan" />
       <div className="mb-4 flex flex-wrap gap-2">
         {filters.map((f) => (
           <Link

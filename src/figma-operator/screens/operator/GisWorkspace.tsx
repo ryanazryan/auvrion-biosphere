@@ -22,6 +22,7 @@ import {
   listGisObservations,
   listGisZones,
 } from "@/figma-operator/gis/client";
+import type { IndonesiaTimeZone } from "@/figma-operator/gis/format-time";
 import type { HotspotPoint } from "@/figma-operator/gis/hotspots";
 import {
   DOMAIN,
@@ -41,6 +42,13 @@ import {
 } from "./GisFilterDropdown";
 import { GisMapCanvas } from "./GisMapCanvas";
 import { WebGisIntelPanel } from "./WebGisIntelPanel";
+
+const INDONESIA_TIME_ZONES: Record<"WIB" | "WITA" | "WIT", IndonesiaTimeZone> =
+  {
+    WIB: "Asia/Jakarta",
+    WITA: "Asia/Makassar",
+    WIT: "Asia/Jayapura",
+  };
 
 const LIMIT = 50;
 const EMPTY_ROWS: GisRecord[] = [];
@@ -690,6 +698,7 @@ export function GisWorkspace() {
                 hotspotBounds={hotspotBounds}
                 airQualitySites={airQualitySites}
                 onPickedLocationChange={setPickedMapLocation}
+                selectedTimeZone={INDONESIA_TIME_ZONES[timeZone]}
               />
               <WebGisIntelPanel
                 organizationId={operator.organizationId}

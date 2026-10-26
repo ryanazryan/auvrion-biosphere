@@ -7,6 +7,7 @@ import {
   islandBounds,
   islandHotspots,
 } from "@/components/gis/island-regions";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import type {
   HotspotPoint,
   HotspotsPayload,
@@ -14,6 +15,11 @@ import type {
 
 type Region = HotspotsPayload["regionId"];
 type WindowDays = HotspotsPayload["days"];
+const PERIOD_OPTIONS = [
+  { value: "1", label: "1 hari" },
+  { value: "2", label: "2 hari" },
+  { value: "5", label: "5 hari" },
+] as const;
 const regionId: Region = "indonesia";
 export function WebGisIntelPanel({
   organizationId,
@@ -209,21 +215,21 @@ export function WebGisIntelPanel({
                     Seluruh Indonesia
                   </span>
                 </div>
-                <label className="text-[11px] text-muted">
-                  Periode
-                  <select
-                    aria-label="Periode hotspot"
-                    value={days}
-                    onChange={(event) =>
-                      setDays(Number(event.target.value) as WindowDays)
-                    }
-                    className="mt-1 block w-full rounded border border-line bg-white px-1.5 py-1.5 text-xs text-fg"
-                  >
-                    <option value={1}>1 hari</option>
-                    <option value={2}>2 hari</option>
-                    <option value={5}>5 hari</option>
-                  </select>
-                </label>
+                <div className="min-w-0">
+                  <span className="mb-1 block text-[11px] text-muted">
+                    Periode
+                  </span>
+
+                  <SelectMenu
+                    label="Periode hotspot"
+                    value={String(days)}
+                    options={PERIOD_OPTIONS}
+                    onChange={(value) => {
+                      setDays(Number(value) as WindowDays);
+                    }}
+                    className="w-full"
+                  />
+                </div>
               </div>
               <div className="mt-2 text-xs text-fg" aria-live="polite">
                 {loading

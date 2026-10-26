@@ -1,0 +1,120 @@
+import { checkOperationalAccess } from "@/server/authorization/operational-access";
+import { MAX_RANGER_PHOTO_BYTES } from "@/server/evidence/private-ranger-photo";
+import {
+  attachRangerFindingPhoto,
+  RangerPhotoFailure,
+} from "@/server/evidence/ranger-photo-service";
+import { getMyRangerTask } from "@/server/ranger/ranger-task-service";
+import { isTaskWorkflowUuid } from "@/server/workflow/approved-task-policy";
+import {
+  sameOrigin,
+  taskResponseHeaders,
+} from "@/server/workflow/task-route-security";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+const TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+function json(data: unknown, status = 200) {
+  return Response.json(data, { status, headers: taskResponseHeaders });
+}
+
+/** Bounded binary input: enforce limit even if Content-Length is absent or false. */
+async function readBoundedPhoto(request: Request): Promise<Uint8Array> {
+  if (!request.body) throw new RangerPhotoFailure(400, "EMPTY_PHOTO");
+  const lengthHeader = request.headers.get("content-length");
+  if (
+    lengthHeader !== null &&
+    (!/^\d+$/.test(lengthHeader) ||
+      Number(lengthHeader) > MAX_RANGER_PHOTO_BYTES)
+  ) {
+    throw new RangerPhotoFailure(413, "PHOTO_TOO_LARGE");
+  }
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      length += part.value.byteLength;
+      if (length > MAX_RANGER_PHOTO_BYTES) {
+        await reader.cancel().catch(() => {});
+        throw new RangerPhotoFailure(413, "PHOTO_TOO_LARGE");
+      }
+      chunks.push(part.value);
+    }
+  } catch (error) {
+    if (error instanceof RangerPhotoFailure) throw error;
+    throw new RangerPhotoFailure(400, "PHOTO_READ_FAILED");
+  } finally {
+    reader.releaseLock();
+  }
+  if (length === 0) throw new RangerPhotoFailure(400, "EMPTY_PHOTO");
+  if (lengthHeader !== null && Number(lengthHeader) !== length) {
+    throw new RangerPhotoFailure(400, "PHOTO_LENGTH_MISMATCH");
+  }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const part of chunks) {
+    bytes.set(part, offset);
+    offset += part.byteLength;
+  }
+  return bytes;
+}
+
+/** Private photo linked to an existing finding owned by the assigned Ranger. */
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ id: string; findingId: string }> },
+) {
+  const { id: taskId, findingId } = await context.params;
+  const query = new URL(request.url).searchParams;
+  const organizationId = query.get("organizationId");
+  if (
+    !isTaskWorkflowUuid(taskId) ||
+    !isTaskWorkflowUuid(findingId) ||
+    !isTaskWorkflowUuid(organizationId) ||
+    query.size !== 1 ||
+    query.getAll("organizationId").length !== 1
+  ) {
+    return json({ error: "INVALID_PHOTO_TARGET" }, 400);
+  }
+  if (!sameOrigin(request)) return json({ error: "ORIGIN_NOT_ALLOWED" }, 403);
+  const contentType = request.headers
+    .get("content-type")
+    ?.split(";")[0]
+    ?.trim()
+    .toLowerCase();
+  if (!contentType || !TYPES.has(contentType)) {
+    return json({ error: "INVALID_PHOTO_CONTENT_TYPE" }, 415);
+  }
+  const encoding = request.headers.get("content-encoding");
+  if (encoding && encoding.toLowerCase() !== "identity") {
+    return json({ error: "PHOTO_CONTENT_ENCODING_NOT_ALLOWED" }, 415);
+  }
+  try {
+    // Reject unauthorized uploaders before consuming their binary body.
+    const access = await checkOperationalAccess(organizationId, "ranger");
+    if (!access.allowed) return json({ error: access.reason }, access.status);
+    const task = await getMyRangerTask(organizationId, access.userId, taskId);
+    if (!task) return json({ error: "TASK_NOT_FOUND" }, 404);
+    if (task.status !== "in_progress") {
+      return json({ error: "TASK_NOT_IN_PROGRESS" }, 409);
+    }
+    const bytes = await readBoundedPhoto(request);
+    const result = await attachRangerFindingPhoto({
+      organizationId,
+      taskId,
+      findingId,
+      bytes,
+      mimeType: contentType,
+    });
+    return json(result, result.replayed ? 200 : 201);
+  } catch (error) {
+    if (error instanceof RangerPhotoFailure) {
+      return json({ error: error.code }, error.status);
+    }
+    return json({ error: "PHOTO_UPLOAD_FAILED" }, 500);
+  }
+}

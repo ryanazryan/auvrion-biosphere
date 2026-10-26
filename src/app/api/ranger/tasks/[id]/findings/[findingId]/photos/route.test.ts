@@ -1,0 +1,104 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  attachRangerFindingPhoto: vi.fn(),
+  checkOperationalAccess: vi.fn(),
+  getMyRangerTask: vi.fn(),
+  sameOrigin: vi.fn(),
+}));
+vi.mock("server-only", () => ({}));
+vi.mock("@/server/evidence/private-ranger-photo", () => ({
+  MAX_RANGER_PHOTO_BYTES: 5 * 1024 * 1024,
+}));
+vi.mock("@/server/evidence/ranger-photo-service", () => ({
+  attachRangerFindingPhoto: mocks.attachRangerFindingPhoto,
+  RangerPhotoFailure: class extends Error {
+    constructor(
+      public status: number,
+      public code: string,
+    ) {
+      super(code);
+    }
+  },
+}));
+vi.mock("@/server/authorization/operational-access", () => ({
+  checkOperationalAccess: mocks.checkOperationalAccess,
+}));
+vi.mock("@/server/ranger/ranger-task-service", () => ({
+  getMyRangerTask: mocks.getMyRangerTask,
+}));
+vi.mock("@/server/workflow/task-route-security", async () => {
+  const original = await vi.importActual<
+    typeof import("@/server/workflow/task-route-security")
+  >("@/server/workflow/task-route-security");
+  return { ...original, sameOrigin: mocks.sameOrigin };
+});
+
+import { POST } from "./route";
+
+const org = "00000000-0000-4000-8000-000000000001";
+const taskId = "00000000-0000-4000-8000-000000000002";
+const findingId = "00000000-0000-4000-8000-000000000003";
+const url = `http://localhost/api/ranger/tasks/${taskId}/findings/${findingId}/photos?organizationId=${org}`;
+const ctx = () => ({ params: Promise.resolve({ id: taskId, findingId }) });
+const request = (headers: Record<string, string> = {}) =>
+  new Request(url, {
+    method: "POST",
+    headers: {
+      origin: "http://localhost",
+      "content-type": "image/jpeg",
+      ...headers,
+    },
+    body: new Blob(["mock-photo-content"]),
+  });
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.sameOrigin.mockReturnValue(true);
+  mocks.checkOperationalAccess.mockResolvedValue({
+    allowed: true,
+    userId: "ranger-1",
+  });
+  mocks.getMyRangerTask.mockResolvedValue({
+    id: taskId,
+    status: "in_progress",
+  });
+  mocks.attachRangerFindingPhoto.mockResolvedValue({
+    mediaId: findingId,
+    replayed: false,
+  });
+});
+
+describe("Ranger private photo upload HTTP", () => {
+  it("delegates to the existing scoped private photo service", async () => {
+    const res = await POST(request(), ctx());
+    expect(res.status).toBe(201);
+    expect(mocks.attachRangerFindingPhoto).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: org,
+        taskId,
+        findingId,
+        mimeType: "image/jpeg",
+      }),
+    );
+  });
+  it("rejects unauthorized uploads before body processing", async () => {
+    mocks.checkOperationalAccess.mockResolvedValue({
+      allowed: false,
+      status: 403,
+      reason: "ROLE_OR_SCOPE_DENIED",
+    });
+    const res = await POST(request(), ctx());
+    expect(res.status).toBe(403);
+    expect(mocks.attachRangerFindingPhoto).not.toHaveBeenCalled();
+  });
+  it("rejects unsupported image types", async () => {
+    const res = await POST(request({ "content-type": "text/plain" }), ctx());
+    expect(res.status).toBe(415);
+  });
+  it("rejects requests claiming excessive upload size", async () => {
+    const res = await POST(request({ "content-length": "5242881" }), ctx());
+    expect(res.status).toBe(413);
+    expect(mocks.attachRangerFindingPhoto).not.toHaveBeenCalled();
+  });
+});

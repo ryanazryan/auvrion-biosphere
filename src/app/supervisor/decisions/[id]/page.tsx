@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ObservationLocationMap } from "@/components/gis/ObservationLocationMap";
 import { CaseActionForm } from "@/components/supervisor/CaseActionForm";
 import {
   dateTime,
@@ -10,6 +11,12 @@ import {
   StatusChip,
   shortId,
 } from "@/components/supervisor/SupervisorElements";
+import {
+  formatEvidenceTime,
+  formatMeasurementValue,
+  ingestionModeLabel,
+  sourceKindLabel,
+} from "@/figma-operator/gis/observation-evidence-display";
 import { isUuid } from "@/server/workflow/approved-case-policy";
 import {
   findWorkspaceAccess,
@@ -73,8 +80,79 @@ export default async function SupervisorCaseDetail({
                       · diamati {dateTime(o.observedAt)}
                     </p>
                     <p className="mt-1 text-xs text-muted">{o.linkReason}</p>
+                    {o.domain === "environmental_risk" && (
+                      <ObservationLocationMap
+                        observationId={o.id}
+                        organizationId={a.organizationId}
+                      />
+                    )}
+                    {o.evidence && (
+                      <div className="mt-3 space-y-2 rounded-md border border-line bg-bg p-3 text-xs leading-5">
+                        <p className="font-semibold text-ink">
+                          Bukti observasi untuk keputusan
+                        </p>
+                        <p>
+                          Asal: {sourceKindLabel(o.evidence.sourceKind)} ·{" "}
+                          {ingestionModeLabel(o.evidence.ingestionMode)}
+                        </p>
+                        <p>
+                          ID rekaman sumber:{" "}
+                          {o.evidence.sourceRecordId ?? "Tidak tersedia"}
+                        </p>
+                        <p>
+                          Metode akuisisi:{" "}
+                          {o.evidence.acquisitionMethod ?? "Belum diketahui"}
+                        </p>
+                        {o.evidence.measurements.length > 0 && (
+                          <ul className="space-y-1 border-t border-line pt-2">
+                            {o.evidence.measurements.map((m) => (
+                              <li key={m.id}>
+                                {m.kind === "air_temperature"
+                                  ? "Suhu udara"
+                                  : m.kind === "relative_humidity"
+                                    ? "Kelembapan relatif"
+                                    : m.kind === "pm2_5"
+                                      ? "PM2.5"
+                                      : m.kind}
+                                : {formatMeasurementValue(m.measuredValue)}{" "}
+                                {m.unit}
+                                {" · "}
+                                {formatEvidenceTime(m.measuredAt, "WITA")}
+                                {" · kualitas: "}
+                                {m.quality}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {o.evidence.attribution && (
+                          <p>Atribusi: {o.evidence.attribution}</p>
+                        )}
+                        {o.evidence.limitations.length > 0 && (
+                          <div className="border-t border-line pt-2">
+                            <p className="font-medium">Keterbatasan sumber</p>
+                            <ul className="list-disc pl-4">
+                              {[...new Set(o.evidence.limitations)].map(
+                                (note) => (
+                                  <li key={note}>{note}</li>
+                                ),
+                              )}
+                            </ul>
+                          </div>
+                        )}
+                        <p className="text-muted">
+                          {o.evidence.hasCoordinates
+                            ? "Titik tersimpan, koordinat presisi dilindungi."
+                            : "Titik belum diketahui."}{" "}
+                          Zona operasional adalah area tugas, bukan koordinat
+                          kejadian terverifikasi.
+                        </p>
+                      </div>
+                    )}
                     <p className="mt-1 text-xs text-muted">
-                      Lokasi presisi tidak dibuka melalui workspace keputusan.
+                      Akses titik presisi dibatasi sesuai kebijakan lokasi dan
+                      tautan Case. BMKG/NASA pada halaman Operator adalah
+                      referensi wilayah, bukan pengukuran sensor dari observasi
+                      ini.
                     </p>
                   </li>
                 ))}

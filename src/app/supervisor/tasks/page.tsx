@@ -37,10 +37,7 @@ export default async function SupervisorTasks({
     selected === "all" ? all : all.filter((t) => t.status === selected);
   return (
     <>
-      <PageHeading
-        title="Tugas Ranger"
-        desc="Pantau penugasan dan temuan lapangan dari data yang tersimpan. Mutasi status Task masih dikunci sampai AB-TR-024–033 disetujui."
-      />
+      <PageHeading title="Tugas Ranger" />
       <div className="mb-4 flex flex-wrap gap-2">
         {statuses.map((s) => (
           <Link

@@ -26,6 +26,7 @@ import {
   overviewVisual,
   speciesVisual,
 } from "@/server/copilot/visual";
+import { getObservationEnvironmentalContext } from "@/server/environment/observation-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -159,7 +160,11 @@ export async function POST(request: Request) {
     let visual: CopilotVisual | null = null;
     const sources: { name: string; url: string }[] = [];
     let mode = resolution.mode;
-    if (resolution.observationId && resolution.mode !== "environment") {
+    if (
+      resolution.observationId &&
+      resolution.mode !== "environment" &&
+      body.context !== "environment"
+    ) {
       const observation = await readCopilotObservation(
         auth.organizationId,
         resolution.observationId,
@@ -193,16 +198,42 @@ export async function POST(request: Request) {
         { name: "GBIF", url: "https://www.gbif.org/" },
         { name: "iNaturalist", url: "https://www.inaturalist.org/" },
       );
-    } else if (resolution.mode === "environment") {
-      const region = resolveRegion(
-        question,
-        body.regionId as string | undefined,
-      );
-      const env = await getCopilotEnvironment(auth.organizationId, region);
-      if (env.bmkg.state !== "available" && env.nasa.state !== "available") {
+    } else if (
+      resolution.mode === "environment" ||
+      (body.context === "environment" && body.observationId)
+    ) {
+      const selectedObservationId =
+        typeof body.observationId === "string" ? body.observationId : null;
+      const region = selectedObservationId
+        ? null
+        : resolveRegion(question, body.regionId as string | undefined);
+      const env = selectedObservationId
+        ? await getObservationEnvironmentalContext(
+            auth.organizationId,
+            selectedObservationId,
+          )
+        : await getCopilotEnvironment(auth.organizationId, region);
+      if (!env) return reply({ error: "OBSERVATION_NOT_FOUND" }, 404);
+      if (
+        !selectedObservationId &&
+        env.bmkg.state !== "available" &&
+        env.nasa.state !== "available"
+      ) {
         return reply({ error: "NO_VERIFIABLE_EXTERNAL_DATA" }, 503);
       }
-      facts = env;
+      const scopedObservation = selectedObservationId
+        ? await readCopilotObservation(
+            auth.organizationId,
+            selectedObservationId,
+          )
+        : null;
+      facts = scopedObservation
+        ? {
+            observation: scopedObservation.observation,
+            referenceEnvironment: env,
+          }
+        : env;
+      mode = "environment";
       visual = environmentVisual(env);
       if (env.bmkg.state === "available")
         sources.push({ name: "BMKG", url: env.sources.bmkg });

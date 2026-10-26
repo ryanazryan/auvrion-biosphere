@@ -4,6 +4,7 @@ import {
   getAirQualityCities,
 } from "@/server/gis/air-quality";
 import { parseIndonesiaPoint } from "@/server/gis/air-quality-contract";
+import { createPointRateLimiter } from "@/server/gis/point-rate-limit";
 import { isUuid } from "@/server/observations/observation-input";
 
 export const runtime = "nodejs";
@@ -13,24 +14,18 @@ const headers = {
   Vary: "Cookie",
   "X-Content-Type-Options": "nosniff",
 };
-const json = (body: unknown, status = 200) =>
-  Response.json(body, { status, headers });
-// Bounded per-session-user point inspection to protect the no-key noncommercial provider.
-// Replace with a shared distributed limiter before production deployment.
-const pointBudgets = new Map<string, { until: number; count: number }>();
-function allowPoint(userId: string, organizationId: string): boolean {
-  if (pointBudgets.size > 300) pointBudgets.clear();
-  const key = `${organizationId}:${userId}`;
-  const now = Date.now();
-  const existing = pointBudgets.get(key);
-  if (!existing || existing.until <= now) {
-    pointBudgets.set(key, { until: now + 10 * 60_000, count: 1 });
-    return true;
-  }
-  if (existing.count >= 24) return false;
-  existing.count += 1;
-  return true;
-}
+const json = (
+  body: unknown,
+  status = 200,
+  additionalHeaders: Record<string, string> = {},
+) =>
+  Response.json(body, {
+    status,
+    headers: { ...headers, ...additionalHeaders },
+  });
+// Single-process bounded limiter: 24 inspections / 10 min per user + organization.
+// Deploy a distributed limiter before running multiple instances.
+const pointBudget = createPointRateLimiter();
 
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams;
@@ -66,8 +61,14 @@ export async function GET(request: Request) {
       return json({ error: access.reason }, access.status);
   }
   if (!authorizedUserId) return json({ error: "ROLE_OR_SCOPE_DENIED" }, 403);
-  if (point && !allowPoint(authorizedUserId, organizationId))
-    return json({ error: "RATE_LIMITED" }, 429);
+  if (point) {
+    const budget = pointBudget.consume(`${organizationId}:${authorizedUserId}`);
+    if (!budget.allowed) {
+      return json({ error: "RATE_LIMITED" }, 429, {
+        "Retry-After": String(budget.retryAfterSeconds),
+      });
+    }
+  }
   try {
     return json(
       point

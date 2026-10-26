@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ObservationLocationMap } from "@/components/gis/ObservationLocationMap";
 import { RangerIcon } from "@/components/ranger/RangerIcons";
 import {
   formattedDate,
@@ -11,6 +12,12 @@ import {
   taskZone,
 } from "@/components/ranger/RangerViews";
 import { TaskActionPanel } from "@/components/ranger/TaskActionPanel";
+import {
+  formatEvidenceTime,
+  formatMeasurementValue,
+  ingestionModeLabel,
+  sourceKindLabel,
+} from "@/figma-operator/gis/observation-evidence-display";
 import { getAssignedCaseObservations } from "@/server/ranger/ranger-case-observations";
 import { isTaskUuid } from "@/server/ranger/ranger-task-query";
 import { getMyRangerTask } from "@/server/ranger/ranger-task-service";
@@ -104,6 +111,10 @@ export default async function RangerTaskDetail({
               <dd className="mt-1 font-medium">
                 {zone ?? "Sesuai instruksi Supervisor"}
               </dd>
+              <p className="mt-1 text-xs text-muted">
+                Operational Zone adalah area kerja penugasan, bukan pin
+                koordinat observasi.
+              </p>
             </div>
             <div>
               <dt className="text-xs text-muted">Ditugaskan</dt>
@@ -151,15 +162,54 @@ export default async function RangerTaskDetail({
                       <p className="mt-1 text-xs text-muted">
                         Diterima {formattedDate(observation.receivedAt)} WITA
                       </p>
+                      {observation.domain === "environmental_risk" && (
+                        <ObservationLocationMap
+                          observationId={observation.id}
+                          organizationId={access.organizationId}
+                        />
+                      )}
+                      {observation.evidence && (
+                        <div className="mt-2 space-y-1 rounded-md border border-line bg-bg p-2.5 text-xs leading-5">
+                          <p>
+                            Sumber:{" "}
+                            {sourceKindLabel(observation.evidence.sourceKind)} ·{" "}
+                            {ingestionModeLabel(
+                              observation.evidence.ingestionMode,
+                            )}
+                          </p>
+                          {observation.evidence.measurements.map((m) => (
+                            <p key={m.id}>
+                              {m.kind === "air_temperature"
+                                ? "Suhu udara"
+                                : m.kind === "relative_humidity"
+                                  ? "Kelembapan relatif"
+                                  : m.kind === "pm2_5"
+                                    ? "PM2.5"
+                                    : m.kind}
+                              : {formatMeasurementValue(m.measuredValue)}{" "}
+                              {m.unit}
+                              {" · "}
+                              {formatEvidenceTime(m.measuredAt, "WITA")}
+                            </p>
+                          ))}
+                          {[...new Set(observation.evidence.limitations)]
+                            .slice(0, 3)
+                            .map((note) => (
+                              <p key={note} className="text-muted">
+                                Batasan: {note}
+                              </p>
+                            ))}
+                          <p className="text-muted">
+                            Tidak ada koordinat presisi atau berkas privat dalam
+                            ringkasan ini. Hubungi Supervisor jika tugas
+                            membutuhkan akses lokasi khusus.
+                          </p>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ol>
               )}
-              <p className="mt-3 border-t border-line pt-3 text-xs leading-5 text-muted">
-                Metadata observasi terkait tugas tersedia. Lampiran privat dan
-                koordinat presisi memerlukan otorisasi khusus; status Case
-                selesai tidak otomatis membuka keduanya.
-              </p>
             </InfoCard>
             <InfoCard
               title="Riwayat tugas"
