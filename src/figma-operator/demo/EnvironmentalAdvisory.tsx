@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatEvidenceTime } from "@/figma-operator/gis/observation-evidence-display";
 import { useOperator } from "@/figma-operator/operator-context";
 import { openOperatorAssistant } from "./OperatorAssistant";
 
@@ -39,11 +40,13 @@ type ExternalContext = {
 export function EnvironmentalAdvisory({
   observationId,
   measurements,
+  sourceSummary,
 }: {
   observationId: string;
   measurements: { label: string; value: string; unit?: string }[];
+  sourceSummary: string;
 }) {
-  const { operator } = useOperator();
+  const { operator, timeZone } = useOperator();
   const [expanded, setExpanded] = useState(false);
   const [external, setExternal] = useState<ExternalContext | null>(null);
   const [status, setStatus] = useState<"loading" | "available" | "unavailable">(
@@ -51,10 +54,12 @@ export function EnvironmentalAdvisory({
   );
   useEffect(() => {
     const controller = new AbortController();
+    setExternal(null);
+    setStatus("loading");
     void (async () => {
       try {
         const response = await fetch(
-          `/api/operator/environment/context?organizationId=${encodeURIComponent(operator.organizationId)}`,
+          `/api/operator/environment/context?organizationId=${encodeURIComponent(operator.organizationId)}&observationId=${encodeURIComponent(observationId)}`,
           { signal: controller.signal, cache: "no-store" },
         );
         if (!response.ok) throw new Error("UNAVAILABLE");
@@ -75,7 +80,7 @@ export function EnvironmentalAdvisory({
       }
     })();
     return () => controller.abort();
-  }, [operator.organizationId]);
+  }, [operator.organizationId, observationId]);
   const facts = measurements.slice(0, 6).map((item) => ({
     label: item.label,
     value: `${item.value}${item.unit ? ` ${item.unit}` : ""}`,
@@ -117,10 +122,7 @@ export function EnvironmentalAdvisory({
         {external && (
           <p className="mt-1 text-xs text-muted">
             Wilayah referensi: {external.region} · Diperiksa:{" "}
-            {new Date(external.retrievedAtUtc).toLocaleString("id-ID", {
-              timeZone: "Asia/Makassar",
-            })}{" "}
-            WITA
+            {formatEvidenceTime(external.retrievedAtUtc, timeZone)}
           </p>
         )}
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -138,7 +140,7 @@ export function EnvironmentalAdvisory({
                   : `${forecast.humidityPct}%`}
                 .
                 <span className="block text-xs text-muted">
-                  Berlaku: {forecast.utc} (UTC)
+                  Berlaku: {formatEvidenceTime(forecast.utc, timeZone)}
                 </span>
               </p>
             ) : (
@@ -148,14 +150,19 @@ export function EnvironmentalAdvisory({
             )}
           </div>
           <div className="rounded-md border border-line bg-bg p-3">
-            <p className="font-semibold">NASA FIRMS — deteksi termal</p>
+            <p className="font-semibold">NASA FIRMS</p>
             {nasaData ? (
               <p className="mt-1">
-                {nasaData.count} deteksi termal ({nasaData.sensor},{" "}
-                {nasaData.windowDays} hari).
+                {nasaData.count} titik anomali termal dalam{" "}
+                {nasaData.windowDays} hari.
                 <span className="block text-xs text-muted">
-                  Deteksi terakhir:{" "}
-                  {nasaData.latestUtc ?? "tidak ada deteksi tercatat"}.
+                  Sensor: {nasaData.sensor.replaceAll("_", " · ")} · NASA FIRMS
+                  (VIIRS NRT).
+                </span>
+                <span className="block text-xs text-muted">
+                  {nasaData.latestUtc
+                    ? `Deteksi terakhir: ${formatEvidenceTime(nasaData.latestUtc, timeZone)}`
+                    : "Tidak ada deteksi tercatat pada cakupan dan periode ini."}
                 </span>
               </p>
             ) : (
@@ -168,7 +175,12 @@ export function EnvironmentalAdvisory({
         {facts.length > 0 && (
           <div className="mt-3 rounded-md border border-line p-3">
             <p className="mb-2 font-medium">
-              Pengukuran dari observasi tersimpan (bukan data BMKG/NASA)
+              Pengukuran observasi tersimpan (bukan nilai BMKG/NASA)
+            </p>
+            <p className="mb-2 text-xs text-muted">
+              Sumber data observasi: {sourceSummary}. Perangkat IoT hanya
+              ditampilkan jika data perangkat benar-benar telah masuk melalui
+              ingestion.
             </p>
             <dl className="grid grid-cols-2 gap-2">
               {facts.slice(0, 4).map((fact) => (
@@ -180,11 +192,7 @@ export function EnvironmentalAdvisory({
             </dl>
           </div>
         )}
-        <p className="mt-3 text-xs text-muted">
-          Deteksi termal satelit bukan konfirmasi kebakaran. Tidak ada deteksi
-          juga tidak berarti wilayah pasti aman. Semua interpretasi memerlukan
-          tinjauan manusia.
-        </p>
+
         <div className="mt-3 flex items-center justify-between border-t border-line pt-2.5">
           <button
             type="button"

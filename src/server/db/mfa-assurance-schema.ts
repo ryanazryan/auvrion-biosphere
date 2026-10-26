@@ -2,6 +2,8 @@ import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { session, user } from "./auth-schema";
 
+export type MfaAssuranceMethod = "totp" | "recovery" | "passkey" | "legacy";
+
 export const mfaSessionAssurance = pgTable(
   "mfa_session_assurance",
   {
@@ -12,6 +14,11 @@ export const mfaSessionAssurance = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+
+    method: text("method")
+      .$type<MfaAssuranceMethod>()
+      .default("legacy")
+      .notNull(),
 
     verifiedAt: timestamp("verified_at", {
       withTimezone: true,

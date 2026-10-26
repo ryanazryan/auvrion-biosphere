@@ -259,7 +259,7 @@ export function CaseActionForm({
             />
           </div>
           <div className="block text-xs font-medium text-fg">
-            Zona operasi (bukan titik kejadian terverifikasi)
+            Zona operasi
             <SelectMenu
               label="Zona operasi"
               value={zoneId}

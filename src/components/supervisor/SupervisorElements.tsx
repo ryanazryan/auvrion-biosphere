@@ -133,7 +133,7 @@ export function Metric({
   label: string;
   value: number;
   href: string;
-  note: string;
+  note?: string;
   lead?: boolean;
 }) {
   return (
@@ -145,7 +145,7 @@ export function Metric({
       <strong className="tnum mt-1 block text-[29px] font-semibold text-ink">
         {value}
       </strong>
-      <span className="mt-1 block text-xs text-muted">{note} →</span>
+      {note && <p className="text-xs text-muted">{note}</p>}
     </Link>
   );
 }

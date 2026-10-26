@@ -5,6 +5,10 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GisRecord } from "@/figma-operator/gis/client";
 import { approvedPoint } from "@/figma-operator/gis/client";
+import {
+  formatIndonesiaTime,
+  type IndonesiaTimeZone,
+} from "@/figma-operator/gis/format-time";
 import type { HotspotPoint } from "@/figma-operator/gis/hotspots";
 import {
   formatBrightness,
@@ -31,6 +35,7 @@ export function GisMapCanvas({
   hotspotBounds = null,
   airQualitySites = [],
   onPickedLocationChange,
+  selectedTimeZone = "Asia/Makassar",
 }: {
   rows: GisRecord[];
   selected: string | null;
@@ -43,9 +48,12 @@ export function GisMapCanvas({
   hotspotBounds?: [number, number, number, number] | null;
   /** Explicit, approved pan action; never inferred from normal list selection. */
   focusTarget?: { id: string; request: number } | null;
+  selectedTimeZone?: IndonesiaTimeZone;
 }) {
   const containerRef = useRef<HTMLElement>(null);
   const mapRef = useRef<import("maplibre-gl").Map | null>(null);
+  const timeZoneRef = useRef(selectedTimeZone);
+  timeZoneRef.current = selectedTimeZone;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const onPickedLocationChangeRef = useRef(onPickedLocationChange);
@@ -233,11 +241,12 @@ export function GisMapCanvas({
               const particles = document.createElement("p");
               particles.textContent = `PM2.5 ${String(props.pm25 ?? "—")} · PM10 ${String(props.pm10 ?? "—")} µg/m³`;
               const stamp = document.createElement("p");
-              stamp.textContent = `Waktu model (UTC): ${String(props.modelTimeUtc ?? "tidak tersedia")}`;
-              const caveat = document.createElement("p");
-              caveat.textContent =
-                "Estimasi CAMS global (~45 km), bukan ISPU/stasiun pengukuran.";
-              panel.append(heading, particles, stamp, caveat);
+              stamp.textContent = `Pembaruan: ${formatIndonesiaTime(
+                String(props.modelTimeUtc ?? ""),
+                timeZoneRef.current,
+              )}`;
+              stamp.className = "text-[#64766c]";
+              panel.append(heading, particles, stamp);
               new lib.Popup({ maxWidth: "280px", closeButton: true })
                 .setLngLat([Number(coord[0]), Number(coord[1])])
                 .setDOMContent(panel)
@@ -331,8 +340,11 @@ export function GisMapCanvas({
               addLine("Kecerahan I4", formatBrightness(p.brightnessTi4K));
               addLine("Confidence", formatConfidence(p.confidence));
               addLine(
-                "Akuisisi UTC",
-                String(p.acquiredAtUtc ?? "Tidak tersedia"),
+                "Akuisisi",
+                formatIndonesiaTime(
+                  String(p.acquiredAtUtc ?? ""),
+                  timeZoneRef.current,
+                ),
               );
               addLine(
                 "Sensor",

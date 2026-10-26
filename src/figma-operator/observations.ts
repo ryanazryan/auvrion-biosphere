@@ -87,7 +87,10 @@ export const KINDS: Record<
   MeasurementKind,
   { label: string; units: string[] }
 > = {
-  air_temperature: { label: "Suhu udara", units: ["°C"] },
+  air_temperature: {
+    label: "Suhu udara",
+    units: ["°C", "°F", "K"],
+  },
   relative_humidity: { label: "Kelembapan relatif", units: ["%"] },
   pm2_5: { label: "Partikulat PM2.5", units: ["µg/m³"] },
   wind_speed: { label: "Kecepatan angin", units: ["m/s", "km/j"] },

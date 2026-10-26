@@ -107,7 +107,7 @@ if (!baseURL) {
  * (e.g. authenticator enrollment) must never be mistaken for
  * an MFA-gated login.
  */
-const mfaLoginCandidates = new WeakSet<object>();
+const mfaLoginCandidates = new WeakMap<object, "totp" | "recovery">();
 
 export const auth = betterAuth({
   appName: "Auvrion Biosphere",
@@ -323,9 +323,20 @@ export const auth = betterAuth({
         }
       }
 
-      // Only a TOTP sign-in, not TOTP enrollment,
-      // may receive login MFA assurance.
-      if (ctx.path === "/two-factor/verify-totp") {
+      // Capture only login challenges (without an existing authenticated session).
+      // Enrollment and step-up must not mint a new session assurance.
+      if (
+        ctx.path === "/two-factor/verify-totp" ||
+        ctx.path === "/two-factor/verify-backup-code"
+      ) {
+        if (ctx.path === "/two-factor/verify-backup-code") {
+          const input = ctx.body as { disableSession?: unknown } | undefined;
+          if (input?.disableSession === true) {
+            throw new APIError("FORBIDDEN", {
+              message: "RECOVERY_SESSION_REQUIRED",
+            });
+          }
+        }
         if (!ctx.headers) {
           throw new APIError("UNAUTHORIZED", {
             message: "UNAUTHENTICATED",
@@ -337,7 +348,10 @@ export const auth = betterAuth({
         });
 
         if (!existingSession) {
-          mfaLoginCandidates.add(ctx.context);
+          mfaLoginCandidates.set(
+            ctx.context,
+            ctx.path === "/two-factor/verify-totp" ? "totp" : "recovery",
+          );
         }
 
         return;
@@ -392,19 +406,19 @@ export const auth = betterAuth({
           sessionId: signed.session.id,
           userId: signed.user.id,
           sessionExpiresAt: signed.session.expiresAt,
+          method: "passkey",
         });
         return;
       }
-      if (ctx.path !== "/two-factor/verify-totp") {
+      if (
+        ctx.path !== "/two-factor/verify-totp" &&
+        ctx.path !== "/two-factor/verify-backup-code"
+      ) {
         return;
       }
 
-      // Reject enrollment / verification within an
-      // already-authenticated session.
-      if (!mfaLoginCandidates.has(ctx.context)) {
-        return;
-      }
-
+      const method = mfaLoginCandidates.get(ctx.context);
+      if (!method) return;
       mfaLoginCandidates.delete(ctx.context);
 
       // Better Auth issues a new session after successful
@@ -430,6 +444,7 @@ export const auth = betterAuth({
         sessionId: issuedSession.id,
         userId: issuedUser.id,
         sessionExpiresAt: issuedSession.expiresAt,
+        method,
       });
     }),
   },

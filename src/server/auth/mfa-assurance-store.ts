@@ -1,9 +1,12 @@
 import "server-only";
 
 import { and, eq, gt } from "drizzle-orm";
-
+import { RECENT_SENSITIVE_ASSURANCE_METHOD } from "@/server/auth/mfa-login-method";
 import { getDb } from "@/server/db";
-import { mfaSessionAssurance } from "@/server/db/mfa-assurance-schema";
+import {
+  type MfaAssuranceMethod,
+  mfaSessionAssurance,
+} from "@/server/db/mfa-assurance-schema";
 
 // Batas usia assurance untuk V1.
 // Setelah melewati batas ini, sesi perlu diautentikasi ulang
@@ -14,6 +17,7 @@ type RecordAssuranceInput = {
   sessionId: string;
   userId: string;
   sessionExpiresAt: Date;
+  method: MfaAssuranceMethod;
 };
 
 type CheckAssuranceInput = {
@@ -25,6 +29,7 @@ export async function recordMfaSessionAssurance({
   sessionId,
   userId,
   sessionExpiresAt,
+  method,
 }: RecordAssuranceInput): Promise<void> {
   if (!sessionId || !userId) {
     throw new Error("INVALID_MFA_SESSION_IDENTITY");
@@ -48,6 +53,7 @@ export async function recordMfaSessionAssurance({
     .values({
       sessionId,
       userId,
+      method,
       verifiedAt: now,
       expiresAt,
     })
@@ -114,6 +120,7 @@ export async function hasRecentMfaAssurance({
         eq(mfaSessionAssurance.sessionId, sessionId),
         eq(mfaSessionAssurance.userId, userId),
         gt(mfaSessionAssurance.expiresAt, now),
+        eq(mfaSessionAssurance.method, RECENT_SENSITIVE_ASSURANCE_METHOD),
         gt(
           mfaSessionAssurance.verifiedAt,
           new Date(now.getTime() - 5 * 60_000),

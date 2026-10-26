@@ -31,6 +31,7 @@ import { useOperator } from "../../operator-context";
 import {
   type IndonesianTimeZone,
   isFutureLocalTime,
+  isoToZoneLocal,
   nowInZone,
   zoneLocalToIso,
 } from "../../time";
@@ -244,10 +245,58 @@ function Section({
 
 type Step = "edit" | "review" | "submitting" | "done";
 
+function convertMeasurementTimeZone(
+  localValue: string,
+  fromZone: IndonesianTimeZone,
+  toZone: IndonesianTimeZone,
+): string {
+  if (!localValue || fromZone === toZone) {
+    return localValue;
+  }
+
+  try {
+    const utc = zoneLocalToIso(localValue, fromZone);
+    return isoToZoneLocal(utc, toZone);
+  } catch {
+    // Jangan menghilangkan input yang sedang diketik.
+    return localValue;
+  }
+}
+
 export function ObservationNew() {
   const { operator: OPERATOR, sources: SOURCES, timeZone } = useOperator();
   const uid = useId();
   const [f, setF] = useState<Form>(INIT);
+  const previousTimeZoneRef = useRef(timeZone);
+
+  useEffect(() => {
+    const previousZone = previousTimeZoneRef.current;
+
+    if (previousZone === timeZone) return;
+
+    previousTimeZoneRef.current = timeZone;
+
+    setF((current) => ({
+      ...current,
+
+      observedAt: current.timeUnknown
+        ? current.observedAt
+        : convertMeasurementTimeZone(
+            current.observedAt,
+            previousZone,
+            timeZone,
+          ),
+
+      measurements: current.measurements.map((measurement) => ({
+        ...measurement,
+        measuredAt: convertMeasurementTimeZone(
+          measurement.measuredAt,
+          previousZone,
+          timeZone,
+        ),
+      })),
+    }));
+  }, [timeZone]);
   // Stable for SSR and the first client render: populated only after hydration.
   const [maxLocalTime, setMaxLocalTime] = useState<string | undefined>(
     undefined,
@@ -351,10 +400,7 @@ export function ObservationNew() {
       ]}
     >
       <div ref={topRef} className="scroll-mt-20" />
-      <PageTitle
-        title="Catat observasi manual"
-        sub="Rekaman baru selalu masuk dengan kualitas &ldquo;Belum ditinjau&rdquo;. Operator tidak menetapkan kualitas, temuan ilmiah, atau status kebakaran."
-      />
+      <PageTitle title="Catat observasi manual" />
       <ol
         aria-label="Langkah"
         className="mb-5 flex items-center gap-2 text-[13px]"
@@ -526,11 +572,7 @@ export function ObservationNew() {
             </div>
           )}
 
-          <Section
-            n={1}
-            title="Identitas observasi"
-            desc="Sumber dan ID rekaman sumber bersama-sama mencegah pencatatan ganda."
-          >
+          <Section n={1} title="Identitas observasi">
             <fieldset>
               <legend className="mb-1 text-[13px] font-medium">Domain</legend>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -563,7 +605,7 @@ export function ObservationNew() {
                       <span className="mt-0.5 block text-xs text-muted">
                         {d === "biodiversity"
                           ? "Satwa, tumbuhan, atau aktivitas hayati yang teramati."
-                          : "Kondisi lingkungan terkait risiko, mis. suhu atau kelembapan. Bukan laporan kebakaran."}
+                          : "Kondisi lingkungan terkait risiko, mis. suhu atau kelembapan."}
                       </span>
                     </span>
                   </label>
@@ -593,10 +635,6 @@ export function ObservationNew() {
                     })),
                   ]}
                 />
-                <p className="mt-1 text-xs text-muted">
-                  Sumber manual diambil dari organisasi yang dapat diakses.
-                  Sumber nonaktif tidak dapat menerima rekaman baru.
-                </p>
                 {src && !src.active && !errs.sourceId && (
                   <p className="mt-1 flex gap-1.5 text-xs text-warn">
                     <I.Alert className="mt-px size-3.5 shrink-0" />
@@ -604,11 +642,7 @@ export function ObservationNew() {
                   </p>
                 )}
               </Field>
-              <Field
-                id={fid("ingestionMode")}
-                label="Mode ingesti"
-                hint="Terkini (live) untuk kejadian saat ini; Historis untuk arsip lama. Simulasi hanya untuk data uji."
-              >
+              <Field id={fid("ingestionMode")} label="Mode ingesti">
                 <SelectMenu
                   id={fid("ingestionMode")}
                   label="Mode ingesti"
@@ -627,7 +661,6 @@ export function ObservationNew() {
               id={fid("sourceRecordId")}
               label="ID rekaman sumber"
               err={errs.sourceRecordId}
-              hint="ID tetap dari catatan asli, mis. nomor lembar patroli. Jangan dibuat ulang saat mengirim ulang."
             >
               <input
                 {...aria(fid("sourceRecordId"), errs.sourceRecordId, true)}
@@ -641,11 +674,7 @@ export function ObservationNew() {
             </Field>
           </Section>
 
-          <Section
-            n={2}
-            title="Waktu & lokasi"
-            desc="Isi nilai yang diketahui, atau tandai tidak diketahui beserta alasannya. Keduanya tidak bisa diisi bersamaan."
-          >
+          <Section n={2} title="Waktu & lokasi">
             <p className="text-xs leading-5 text-muted">
               Tanggal dan jam ditafsirkan sebagai {timeZone}. Ubah pilihan zona
               di bagian atas sebelum mengisi waktu; data yang dikirim akan
@@ -786,11 +815,7 @@ export function ObservationNew() {
             </div>
           </Section>
 
-          <Section
-            n={3}
-            title="Provenans"
-            desc="Asal-usul dan batasan data, agar peninjau dapat menilai keandalannya."
-          >
+          <Section n={3} title="Provenans">
             <Field
               id={fid("attribution")}
               label="Atribusi"
@@ -814,12 +839,7 @@ export function ObservationNew() {
                 className={input()}
               />
             </Field>
-            <Field
-              id={fid("limitations")}
-              label="Keterbatasan"
-              optional
-              hint="Satu keterbatasan per baris, mis. identifikasi belum pasti atau alat belum dikalibrasi."
-            >
+            <Field id={fid("limitations")} label="Keterbatasan" optional>
               <textarea
                 {...aria(fid("limitations"), undefined, true)}
                 rows={3}
@@ -971,7 +991,7 @@ export function ObservationNew() {
               <p className="text-[13px] text-muted">
                 {f.domain === "biodiversity"
                   ? "Tidak berlaku untuk domain keanekaragaman hayati."
-                  : "Tersedia setelah memilih domain risiko lingkungan."}
+                  : "Tersedia untuk domain risiko lingkungan."}
                 {f.measurements.length > 0 &&
                   f.domain === "biodiversity" &&
                   " Pengukuran yang sudah diisi tidak akan dikirim."}

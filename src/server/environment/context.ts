@@ -9,7 +9,10 @@ import {
 } from "./contracts";
 export type Source<T> =
   | { state: "available"; retrievedAtUtc: string; data: T }
-  | { state: "unavailable"; reason: "missing_key" | "upstream_error" };
+  | {
+      state: "unavailable";
+      reason: "missing_key" | "upstream_error" | "region_unmapped";
+    };
 export type EnvironmentalContext = {
   region: string;
   retrievedAtUtc: string;
@@ -68,7 +71,7 @@ async function weather(adm4: string): Promise<Source<BmkgData>> {
     return { state: "unavailable", reason: "upstream_error" };
   }
 }
-async function thermal(box: BoundingBox): Promise<Source<FirmsData>> {
+export async function thermal(box: BoundingBox): Promise<Source<FirmsData>> {
   const key = process.env.AUVRION_FIRMS_MAP_KEY;
   if (!key || !/^[A-Za-z0-9]{24,64}$/.test(key))
     return { state: "unavailable", reason: "missing_key" };
@@ -133,7 +136,7 @@ export async function getEnvironmentalContext(
       sources: SOURCE_LINKS,
       limitations: [
         "BMKG merupakan prakiraan, bukan pengukuran IoT langsung.",
-        "NASA FIRMS mencatat deteksi termal satelit, bukan bukti kebakaran terkonfirmasi.",
+        "NASA FIRMS mencatat deteksi termal satelit.",
         "Nol deteksi tidak menjamin bebas kebakaran dan data wilayah tidak berarti kondisi di satu titik observasi.",
       ],
     };

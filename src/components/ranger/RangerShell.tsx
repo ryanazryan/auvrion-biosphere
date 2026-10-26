@@ -7,6 +7,7 @@ import { SidebarBrandImage } from "@/components/branding/SidebarBrandImage";
 import { SidebarToggleIcon } from "@/components/ui/SidebarToggleIcon";
 import { authClient } from "@/lib/auth-client";
 import { RangerIcon } from "./RangerIcons";
+import { activeRangerNavPath } from "./ranger-nav-active";
 
 const NAV = [
   { href: "/ranger", label: "Beranda", short: "Beranda", icon: "home" },
@@ -30,24 +31,6 @@ const NAV = [
     icon: "clock",
   },
 ] as const;
-
-function activePath(path: string, href: string) {
-  if (href === "/ranger") return path === href;
-
-  if (href === "/ranger/tasks") {
-    return (
-      path.startsWith(href) &&
-      !path.includes("/findings/") &&
-      !path.endsWith("/history")
-    );
-  }
-
-  if (href === "/ranger/findings") {
-    return path.startsWith(href) || path.includes("/findings/");
-  }
-
-  return path.startsWith(href) || path.endsWith("/history");
-}
 
 function SignOut({ compact = false }: { compact?: boolean }) {
   const [busy, setBusy] = useState(false);
@@ -118,7 +101,7 @@ function Navigation({
       }
     >
       {NAV.map((item) => {
-        const active = activePath(path, item.href);
+        const active = activeRangerNavPath(path, item.href);
 
         return (
           <Link
@@ -217,7 +200,8 @@ export function RangerShell({
     .toUpperCase();
 
   const breadcrumb =
-    NAV.find((item) => activePath(path, item.href))?.label ?? "Tugas Saya";
+    NAV.find((item) => activeRangerNavPath(path, item.href))?.label ??
+    "Tugas Saya";
 
   return (
     <div className="min-h-dvh bg-bg text-fg">

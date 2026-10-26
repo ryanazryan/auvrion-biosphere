@@ -68,6 +68,27 @@ function parsePresets(): RegionPreset[] {
   return presets;
 }
 
+export function configuredRegionForPoint(
+  latitude: number,
+  longitude: number,
+): RegionPreset | null {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  const matches = parsePresets().filter((preset) => {
+    const [west, south, east, north] = parseBoundingBox(preset.bbox);
+    // A single ADM4 reference should not claim a multi-province bounding box.
+    return (
+      east - west <= 2 &&
+      north - south <= 2 &&
+      longitude >= west &&
+      longitude <= east &&
+      latitude >= south &&
+      latitude <= north
+    );
+  });
+  // Ambiguous administrative coverage is not safe to auto-select.
+  return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
 /** Only server-configured regions; never accept arbitrary client ADM4/BBOX or URL. */
 export function resolveRegion(
   question: string,

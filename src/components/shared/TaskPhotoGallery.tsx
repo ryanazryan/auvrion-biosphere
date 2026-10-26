@@ -44,8 +44,12 @@ export function TaskPhotoGallery({
       }
     }
     void load();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 10000);
     return () => {
       alive = false;
+      window.clearInterval(timer);
     };
   }, [taskId, organizationId]);
   return (
