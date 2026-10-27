@@ -9,6 +9,7 @@ import {
   evidenceLinks,
   evidenceMedia,
 } from "@/server/db/operations-domain-schema";
+import { ingestionRecordings } from "@/server/db/wc017-device-recordings-schema";
 import { isUuid } from "@/server/observations/observation-input";
 
 import { readPrivateWav } from "./private-storage";
@@ -92,20 +93,57 @@ export async function readAuthorizedObservationAudio(
     )
     .limit(1);
 
-  // Avoid revealing whether an inaccessible media ID exists.
-  if (!record) {
+  // A registered LISTEN device stores audio in WC017 receipts, not in evidence_media.
+  // Never accept a receipt without matching organization, observation and biodiversity domain.
+  const [deviceReceipt] = record
+    ? []
+    : await getDb()
+        .select({
+          storageKey: ingestionRecordings.storageKey,
+          sha256: ingestionRecordings.audioSha256,
+          byteLength: ingestionRecordings.audioBytes,
+        })
+        .from(ingestionRecordings)
+        .innerJoin(
+          observations,
+          and(
+            eq(observations.id, ingestionRecordings.observationId),
+            eq(observations.organizationId, ingestionRecordings.organizationId),
+          ),
+        )
+        .where(
+          and(
+            eq(ingestionRecordings.id, input.mediaId),
+            eq(ingestionRecordings.organizationId, input.organizationId),
+            eq(ingestionRecordings.observationId, input.observationId),
+            eq(observations.domain, "biodiversity"),
+          ),
+        )
+        .limit(1);
+  const media =
+    record ??
+    (deviceReceipt
+      ? {
+          storageKey: deviceReceipt.storageKey,
+          sha256: deviceReceipt.sha256,
+          mimeType: "audio/wav" as const,
+          byteLength: deviceReceipt.byteLength,
+          availability: "available" as const,
+        }
+      : null);
+  if (!media) {
     throw new EvidencePlaybackError(404, "AUDIO_EVIDENCE_NOT_FOUND");
   }
 
   if (
-    record.availability !== "available" ||
-    record.mimeType !== "audio/wav" ||
-    typeof record.sha256 !== "string" ||
-    !/^[0-9a-f]{64}$/.test(record.sha256) ||
-    typeof record.byteLength !== "number" ||
-    !Number.isSafeInteger(record.byteLength) ||
-    record.byteLength <= 0 ||
-    record.byteLength > MAX_AUDIO_BYTES
+    media.availability !== "available" ||
+    media.mimeType !== "audio/wav" ||
+    typeof media.sha256 !== "string" ||
+    !/^[0-9a-f]{64}$/.test(media.sha256) ||
+    typeof media.byteLength !== "number" ||
+    !Number.isSafeInteger(media.byteLength) ||
+    media.byteLength <= 0 ||
+    media.byteLength > MAX_AUDIO_BYTES
   ) {
     throw new EvidencePlaybackError(503, "EVIDENCE_RECONCILIATION_REQUIRED");
   }
@@ -113,9 +151,9 @@ export async function readAuthorizedObservationAudio(
   try {
     // This function verifies private storage safety
     // and compares file SHA-256 to database metadata.
-    const bytes = await readPrivateWav(record.storageKey, record.sha256);
+    const bytes = await readPrivateWav(media.storageKey, media.sha256);
 
-    if (bytes.byteLength !== record.byteLength) {
+    if (bytes.byteLength !== media.byteLength) {
       throw new Error("AUDIO_LENGTH_MISMATCH");
     }
 

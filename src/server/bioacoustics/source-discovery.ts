@@ -18,6 +18,7 @@ export type BioacousticSource = {
   sha256: string;
   byteLength: number;
   recordedAt: string;
+  ingestionMode?: "live" | "historical" | "simulation";
   integrity: "not_verified_for_analysis";
 };
 export type BioacousticDiscovery = {
@@ -118,6 +119,7 @@ export async function listAuthorizedBioacousticSources(input: {
       .select({
         id: ingestionRecordings.id,
         sha256: ingestionRecordings.audioSha256,
+        ingestionMode: ingestionRecordings.ingestionMode,
         byteLength: ingestionRecordings.audioBytes,
         createdAt: ingestionRecordings.createdAt,
       })
@@ -156,6 +158,14 @@ export async function listAuthorizedBioacousticSources(input: {
       sha256: row.sha256,
       byteLength: row.byteLength,
       recordedAt: row.createdAt.toISOString(),
+      ingestionMode:
+        row.ingestionMode === "simulation"
+          ? "simulation"
+          : row.ingestionMode === "historical"
+            ? "historical"
+            : row.ingestionMode === "live"
+              ? "live"
+              : undefined,
       integrity: "not_verified_for_analysis",
     });
   }

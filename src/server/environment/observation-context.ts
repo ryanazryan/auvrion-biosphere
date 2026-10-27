@@ -14,6 +14,7 @@ import {
   thermal,
 } from "./context";
 import { observationCell } from "./observation-cell";
+import { getPointForecast } from "./point-weather";
 
 // Bounded per-process cache. For multi-instance deployment use shared caching and quotas.
 const CACHE_TTL = 15 * 60_000;
@@ -64,7 +65,11 @@ export async function getObservationEnvironmentalContext(
   // Admin-maintained presets must identify the actual observation area.
   const preset = configuredRegionForPoint(row.latitude, row.longitude);
   if (preset) {
-    return getCopilotEnvironment(organizationId, preset);
+    const [reference, pointForecast] = await Promise.all([
+      getCopilotEnvironment(organizationId, preset),
+      getPointForecast(row.latitude, row.longitude),
+    ]);
+    return { ...reference, pointForecast };
   }
 
   // Without a verified ADM4, do not re-use the organization's Banjarbaru forecast.
@@ -74,15 +79,19 @@ export async function getObservationEnvironmentalContext(
   const previous = cache.get(cacheKey);
   if (previous && previous.until > Date.now()) return previous.value;
 
-  const nasa = await thermal(box);
+  const [nasa, pointForecast] = await Promise.all([
+    thermal(box),
+    getPointForecast(row.latitude, row.longitude),
+  ]);
   const value: EnvironmentalContext = {
     region: "Area sekitar observasi · grid 1°",
     retrievedAtUtc: new Date().toISOString(),
     bmkg: { state: "unavailable", reason: "region_unmapped" },
     nasa,
+    pointForecast,
     sources: SOURCE_LINKS,
     limitations: [
-      "Kode wilayah BMKG (ADM4) belum dipetakan secara tervalidasi untuk titik observasi ini; prakiraan BMKG tidak ditampilkan.",
+      "Kode wilayah BMKG (ADM4) belum dipetakan secara tervalidasi untuk titik observasi ini; prakiraan BMKG tidak ditampilkan. Prakiraan titik Open-Meteo, bila tersedia, adalah model berbeda dari BMKG dan pengukuran IoT.",
       "NASA FIRMS merangkum anomali termal pada sel geografis 1° yang mencakup observasi, bukan pada satu titik sensor.",
       "Deteksi satelit tidak mengonfirmasi kebakaran; tidak ada deteksi bukan jaminan aman.",
     ],

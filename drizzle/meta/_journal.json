@@ -148,6 +148,13 @@
       "when": 1792981086599,
       "tag": "0020_wc025_mfa_assurance_method",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793044475222,
+      "tag": "0021_wc019_signal_events",
+      "breakpoints": true
     }
   ]
 }
