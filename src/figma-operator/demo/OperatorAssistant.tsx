@@ -435,12 +435,7 @@ export function OperatorAssistControls() {
                     <AuvrionAIBrand />
                   </span>
                 </span>
-                <p className="mt-3 text-sm font-medium">
-                  Tanyakan konteks yang sedang dibuka
-                </p>
-                <p className="mt-1 text-[13px] text-muted">
-                  Jawaban hanya dari data yang tersedia.
-                </p>
+                <p className="mt-3 text-sm font-medium">Auvrion AI</p>
               </div>
             ) : (
               <ul className="space-y-4">

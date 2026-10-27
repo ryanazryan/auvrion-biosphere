@@ -92,6 +92,9 @@ beforeEach(() => {
     select: () => ({
       from: () => ({
         innerJoin: () => ({
+          where: () => ({
+            limit: async () => [],
+          }),
           innerJoin: () => ({
             where: () => ({
               limit: async () => records,

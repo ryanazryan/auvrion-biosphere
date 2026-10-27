@@ -16,6 +16,11 @@ const groups = [
     pages: [
       { href: "/supervisor/overview", label: "Ringkasan", icon: I.Grid },
       { href: "/supervisor/map", label: "Peta lingkungan", icon: I.Route },
+      {
+        href: "/supervisor/analytics",
+        label: "Analitik operasional",
+        icon: I.Grid,
+      },
     ],
   },
   {

@@ -76,10 +76,6 @@ export function CaseIntakeForm({
   }
   return (
     <form onSubmit={submit} className="space-y-4">
-      <p className="rounded-md border border-brand/20 bg-brand-50 p-3 text-xs leading-5 text-ink">
-        Pencatatan manual untuk review manusia. Case dimulai berstatus Received,
-        bukan laporan kejadian terkonfirmasi; AI/IoT tidak digunakan.
-      </p>
       <div className="block text-[13px] font-medium text-fg">
         <span className="mb-1.5 block">Observasi yang belum terkait Case</span>
         <SelectMenu
