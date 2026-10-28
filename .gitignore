@@ -90,16 +90,3 @@ __pycache__/
 # Local backup artifacts
 *.mfa-before
 *.wc024-identity-backup
-
-# AB-WC-015 - ESP32 LISTEN
-/firmware/listen-esp32/.pio/
-/firmware/listen-esp32/include/listen_secrets.h
-/firmware/listen-esp32/*.wav
-/firmware/listen-esp32/main-wav-backup.txt
-
-# Python Perch virtual environment
-/.venv-perch/
-
-# Local backup artifacts
-*.mfa-before
-*.wc024-identity-backup
