@@ -16,6 +16,10 @@ import {
 } from "@/figma-operator/gis/format-time";
 import type { HotspotPoint } from "@/figma-operator/gis/hotspots";
 import {
+  installOpenFreeMapPoiFallback,
+  isOpenFreeMapLiberty,
+} from "@/figma-operator/gis/openfreemap-missing-icons";
+import {
   formatBrightness,
   formatConfidence,
   formatFrp,
@@ -149,6 +153,12 @@ export function GisMapCanvas({
           maxPitch: 0,
         });
         mapRef.current = map;
+        // OpenFreeMap Liberty's upstream sprite lacks some POI icons. Supply
+        // visible neutral fallback markers, never silent transparent pixels.
+        // Does not affect third-party styles, observation pins, NASA or AQI layers.
+        if (!schematic && isOpenFreeMapLiberty(STYLE_URL)) {
+          installOpenFreeMapPoiFallback(map);
+        }
         map.on("click", (event) => {
           const activeMap = map;
           if (
