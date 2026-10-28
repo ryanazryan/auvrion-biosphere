@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OperatorLayout } from "../../components/operator/OperatorLayout";
 import { useOperator } from "../../operator-context";
+import { ListenUsbControls } from "./ListenUsbControls";
 
 type Device = {
   id: string;
@@ -234,6 +235,8 @@ export function ListenWorkspace() {
           Segarkan data
         </button>
       </header>
+
+      <ListenUsbControls />
 
       {fleetError && (
         <p
