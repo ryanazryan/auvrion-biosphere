@@ -191,3 +191,58 @@ dialog::backdrop {
     animation: none;
   }
 }
+
+/* AB-WC-011 UNIVERSAL FORM FOCUS: operator / supervisor / ranger / admin / auth */
+/* Focus only text-like controls; leave radios, checkboxes, file pickers, etc. intact. */
+:where(
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="color"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not([data-auvrion-focus-inner]):not(:disabled):focus {
+  outline: none;
+  outline-offset: 0;
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 2px rgb(32 120 95 / 0.16);
+}
+
+/* Retain error semantics instead of masking invalid fields with green. */
+:where(
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="color"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not([data-auvrion-focus-inner])[aria-invalid="true"]:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 2px rgb(168 60 60 / 0.18);
+}
+
+/* Search is one compound control: focus goes on rounded outer container,
+   never on the inner input (avoids a sharp rectangular double outline). */
+input[data-auvrion-focus-inner]:focus,
+input[data-auvrion-focus-inner]:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  border-color: transparent;
+  box-shadow: none;
+}

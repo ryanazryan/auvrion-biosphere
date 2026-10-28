@@ -14,7 +14,16 @@ export type HotspotPoint = {
   };
 };
 export type HotspotsPayload = {
-  regionId: "indonesia" | "kalimantan" | "sulawesi" | "bali";
+  regionId:
+    | "indonesia"
+    | "sumatra"
+    | "jawa"
+    | "kalimantan"
+    | "sulawesi"
+    | "bali"
+    | "bali_nusatenggara"
+    | "maluku"
+    | "papua";
   regionLabel: string;
   bbox: [number, number, number, number];
   days: 1 | 2 | 5;

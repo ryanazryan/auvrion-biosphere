@@ -45,6 +45,51 @@ describe("Air Quality model parser", () => {
       modelTimeUtc: null,
     });
   });
+  it("uses only an upstream hourly US AQI no older than two hours when current index is null", () => {
+    const result = parseModelAirQuality(
+      {
+        current: {
+          time: "2026-10-28T10:00",
+          us_aqi: null,
+          pm2_5: 45,
+          pm10: 78,
+        },
+        hourly: {
+          time: ["2026-10-28T07:00", "2026-10-28T09:00", "2026-10-28T11:00"],
+          us_aqi: [80, 115, 160],
+        },
+      },
+      city,
+    )[0];
+    expect(result).toMatchObject({
+      usAqi: 115,
+      aqiTimeUtc: "2026-10-28T09:00Z",
+      pm25: 45,
+    });
+  });
+  it("does not use stale or future hourly AQI or calculate AQI from particulate values", () => {
+    const result = parseModelAirQuality(
+      {
+        current: {
+          time: "2026-10-28T10:00",
+          us_aqi: null,
+          pm2_5: 100,
+          pm10: 150,
+        },
+        hourly: {
+          time: ["2026-10-28T07:00", "2026-10-28T11:00"],
+          us_aqi: [200, 220],
+        },
+      },
+      city,
+    )[0];
+    expect(result).toMatchObject({
+      usAqi: null,
+      aqiTimeUtc: null,
+      pm25: 100,
+      pm10: 150,
+    });
+  });
   it("rejects mismatch counts", () => {
     expect(() => parseModelAirQuality([], city)).toThrow(
       "AQI_RESPONSE_COUNT_MISMATCH",

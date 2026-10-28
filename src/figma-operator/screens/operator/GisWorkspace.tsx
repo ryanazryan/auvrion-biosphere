@@ -10,6 +10,8 @@ import {
   useState,
 } from "react";
 import { AirQualityControl } from "@/components/gis/AirQualityControl";
+import { MapLocationControls } from "@/components/gis/MapLocationControls";
+import type { MapNavigationTarget } from "@/components/gis/map-navigation";
 import * as I from "@/figma-operator/components/icons";
 import { OperatorLayout } from "@/figma-operator/components/operator/OperatorLayout";
 import {
@@ -148,6 +150,8 @@ export function GisWorkspace() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hotspots, setHotspots] = useState<HotspotPoint[]>([]);
   const [airQualitySites, setAirQualitySites] = useState<AirQualitySite[]>([]);
+  const [navigationTarget, setNavigationTarget] =
+    useState<MapNavigationTarget | null>(null);
   const [pickedMapLocation, setPickedMapLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -699,6 +703,22 @@ export function GisWorkspace() {
                 airQualitySites={airQualitySites}
                 onPickedLocationChange={setPickedMapLocation}
                 selectedTimeZone={INDONESIA_TIME_ZONES[timeZone]}
+                navigationTarget={navigationTarget}
+              />
+              {/* AB-WC-011-PIN-AQI-UX-20261028 */}
+              <MapLocationControls
+                organizationId={operator.organizationId}
+                onNavigate={(target) => {
+                  setNavigationTarget(target);
+                  setPickedMapLocation(
+                    target
+                      ? {
+                          latitude: target.latitude,
+                          longitude: target.longitude,
+                        }
+                      : null,
+                  );
+                }}
               />
               <WebGisIntelPanel
                 organizationId={operator.organizationId}

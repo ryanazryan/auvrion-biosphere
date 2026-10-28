@@ -20,6 +20,23 @@ describe("WC011 Stage B3 nationwide FIRMS country source", () => {
     expect(isWebgisRegion("world")).toBe(false);
   });
 
+  it("supports a bounded 5-day island query instead of requesting the entire country", async () => {
+    vi.stubEnv("AUVRION_FIRMS_MAP_KEY", "B".repeat(32));
+    const localCsv = [
+      "latitude,longitude,acq_date,acq_time,confidence,satellite,instrument,frp",
+      "0.5,101.4,2026-10-25,0035,n,N20,VIIRS,8.4",
+    ].join("\n");
+    const requested = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(localCsv, { status: 200 }));
+    const result = await getNasaHotspots("sumatra", 5);
+    expect(result.features).toHaveLength(1);
+    expect(result.days).toBe(5);
+    expect(String(requested.mock.calls[0]?.[0])).toContain(
+      "/VIIRS_NOAA20_NRT/94,-6.8,107.5,6.8/5",
+    );
+  });
+
   it("uses the NASA FIRMS country IDN endpoint and retains unverified satellite provenance", async () => {
     vi.stubEnv("AUVRION_FIRMS_MAP_KEY", "A".repeat(32));
 

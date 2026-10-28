@@ -5,9 +5,17 @@ export const WEBGIS_REGIONS = {
   // Nationwide FIRMS country endpoint filters by Indonesian territory.
   // The broad bbox here validates coordinates; it does not define national borders.
   indonesia: { label: "Indonesia", bbox: [94, -11.5, 142, 7.5] },
+  sumatra: { label: "Sumatra", bbox: [94, -6.8, 107.5, 6.8] },
+  jawa: { label: "Jawa", bbox: [105, -9.3, 115.2, -5.3] },
   kalimantan: { label: "Kalimantan", bbox: [108, -5, 120, 8] },
   sulawesi: { label: "Sulawesi", bbox: [118, -6.5, 126, 3] },
   bali: { label: "Bali", bbox: [114.3, -8.95, 115.8, -8] },
+  bali_nusatenggara: {
+    label: "Bali & Nusa Tenggara",
+    bbox: [114, -12, 126.5, -7.5],
+  },
+  maluku: { label: "Maluku", bbox: [124, -9, 135, 3.5] },
+  papua: { label: "Papua", bbox: [129, -10.8, 142, 1.2] },
 } as const;
 export type WebgisRegion = keyof typeof WEBGIS_REGIONS;
 export type WebgisDays = 1 | 2 | 5;
@@ -222,7 +230,9 @@ export async function getNasaHotspots(
     const url = `${DATASET_URL}/csv/${key}/${NASA_SOURCE}/${bbox.join(",")}/${days}`;
     // Credential stays server-side; never return the credential-bearing URL or log it.
     const upstream = await fetch(url, {
-      signal: AbortSignal.timeout(regionId === "indonesia" ? 20_000 : 12_000),
+      signal: AbortSignal.timeout(
+        regionId === "indonesia" ? 25_000 : days === 5 ? 20_000 : 12_000,
+      ),
       cache: "no-store",
     });
     const parsed = parseNasaCsv(await readCappedResponse(upstream), bbox);

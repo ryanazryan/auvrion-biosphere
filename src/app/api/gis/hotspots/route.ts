@@ -57,7 +57,9 @@ export async function GET(request: Request) {
   }
   try {
     return json(await getNasaHotspots(regionId, days));
-  } catch {
+  } catch (cause) {
+    if (cause instanceof Error && cause.message === "NASA_RESPONSE_TOO_LARGE")
+      return json({ error: "NASA_RESPONSE_TOO_LARGE" }, 503);
     return json({ error: "NASA_HOTSPOTS_UNAVAILABLE" }, 503);
   }
 }
