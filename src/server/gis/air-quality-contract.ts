@@ -47,6 +47,8 @@ export type AirQualitySite = {
   pm25: number | null;
   pm10: number | null;
   modelTimeUtc: string | null;
+  /** Source-model timestamp used for displayed US AQI; differs when hourly fallback was needed. */
+  aqiTimeUtc?: string | null;
 };
 
 export type AirQualityPayload = {
@@ -94,15 +96,51 @@ export function parseModelAirQuality(
       /^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d)?$/.test(time)
         ? `${time}Z`
         : null;
+    let usAqi = numeric(current?.us_aqi, 0, 500);
+    let aqiTimeUtc: string | null = usAqi !== null ? utc : null;
+    // Open-Meteo may return valid PM concentrations while current.us_aqi is null.
+    // Only reuse the model's OWN most recent hourly US AQI, never a PM-based guess.
+    // Reject future values and values more than two hours behind the current model time.
+    if (usAqi === null && utc) {
+      const hourly = record(source?.hourly);
+      const times = Array.isArray(hourly?.time) ? hourly.time : [];
+      const values = Array.isArray(hourly?.us_aqi) ? hourly.us_aqi : [];
+      const nowMs = Date.parse(utc);
+      let bestMs = -Infinity;
+      for (let i = 0; i < Math.min(times.length, values.length); i++) {
+        const at = times[i];
+        if (
+          typeof at !== "string" ||
+          !/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d)?$/.test(at)
+        )
+          continue;
+        const timestamp = `${at}Z`;
+        const stampMs = Date.parse(timestamp);
+        const delta = nowMs - stampMs;
+        const value = numeric(values[i], 0, 500);
+        if (
+          value !== null &&
+          Number.isFinite(stampMs) &&
+          delta >= 0 &&
+          delta <= 2 * 60 * 60_000 &&
+          stampMs > bestMs
+        ) {
+          bestMs = stampMs;
+          usAqi = value;
+          aqiTimeUtc = timestamp;
+        }
+      }
+    }
     return {
       id: loc.id,
       name: loc.name,
       latitude: loc.latitude,
       longitude: loc.longitude,
-      usAqi: numeric(current?.us_aqi, 0, 500),
+      usAqi,
       pm25: numeric(current?.pm2_5, 0, 2000),
       pm10: numeric(current?.pm10, 0, 4000),
       modelTimeUtc: utc,
+      aqiTimeUtc,
     };
   });
 }

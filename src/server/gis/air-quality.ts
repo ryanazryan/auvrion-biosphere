@@ -52,6 +52,9 @@ async function fetchModel(
     locations.map((s) => s.longitude.toFixed(2)).join(","),
   );
   url.searchParams.set("current", "us_aqi,pm2_5,pm10");
+  // Use the provider's own nearby historical hourly value only when current US AQI is null.
+  // Never infer US AQI from PM concentrations with an unvalidated calculation.
+  url.searchParams.set("hourly", "us_aqi");
   url.searchParams.set("timezone", "GMT");
   url.searchParams.set("forecast_days", "1");
   url.searchParams.set("domains", "cams_global");

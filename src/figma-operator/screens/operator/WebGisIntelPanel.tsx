@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { IslandSelector } from "@/components/gis/IslandSelector";
 import {
+  ISLAND_REGIONS,
   type IslandRegion,
   islandBounds,
   islandHotspots,
@@ -20,7 +21,6 @@ const PERIOD_OPTIONS = [
   { value: "2", label: "2 hari" },
   { value: "5", label: "5 hari" },
 ] as const;
-const regionId: Region = "indonesia";
 export function WebGisIntelPanel({
   organizationId,
   enabled,
@@ -37,7 +37,9 @@ export function WebGisIntelPanel({
   const [hotspotPanelOpen, setHotspotPanelOpen] = useState(false);
 
   const [island, setIsland] = useState<IslandRegion>("kalimantan");
-  const [days, setDays] = useState<WindowDays>(1);
+  const regionId: Region = island;
+  const [days, setDays] = useState<WindowDays>(2);
+  const [hotspotRetry, setHotspotRetry] = useState(0);
   const [result, setResult] = useState<HotspotsPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -48,6 +50,7 @@ export function WebGisIntelPanel({
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
+    void hotspotRetry; // Intentionally force refetch when Retry is clicked.
     if (!enabled || !hotspotLayerVisible) {
       setResult(null);
       onFeatures([]);
@@ -72,17 +75,26 @@ export function WebGisIntelPanel({
       signal: controller.signal,
     })
       .then(async (response) => {
-        if (!response.ok)
-          throw new Error(`NASA data unavailable (HTTP ${response.status})`);
+        if (!response.ok) throw new Error(`NASA FIRMS HTTP ${response.status}`);
         return (await response.json()) as HotspotsPayload;
       })
       .then((data) => {
         if (controller.signal.aborted) return;
+        if (
+          data.regionId !== regionId ||
+          data.days !== days ||
+          !Array.isArray(data.features)
+        )
+          throw new Error("INVALID_HOTSPOT_PAYLOAD");
         setResult(data);
       })
-      .catch(() => {
+      .catch((cause: unknown) => {
         if (controller.signal.aborted) return;
-        setError("Deteksi NASA FIRMS belum dapat dimuat.");
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Deteksi NASA FIRMS belum dapat dimuat.",
+        );
         onFeatures([]);
         onBounds(null);
       })
@@ -92,7 +104,9 @@ export function WebGisIntelPanel({
     return () => controller.abort();
   }, [
     organizationId,
+    regionId,
     days,
+    hotspotRetry,
     hotspotLayerVisible,
     enabled,
     onFeatures,
@@ -212,7 +226,7 @@ export function WebGisIntelPanel({
                 <div className="flex min-w-0 flex-col gap-1 text-[11px] text-muted">
                   <span>Sumber data</span>
                   <span className="flex min-h-9 items-center truncate rounded border border-line bg-bg px-2 text-xs font-semibold text-ink">
-                    Seluruh Indonesia
+                    {ISLAND_REGIONS[island].label}
                   </span>
                 </div>
                 <div className="min-w-0">
@@ -239,6 +253,18 @@ export function WebGisIntelPanel({
                       ? `${result.count} deteksi termal · ${result.sensor}`
                       : "—")}
               </div>
+              {error && (
+                <div className="mt-1 text-xs text-danger" role="alert">
+                  <p>{error}. Coba periode lebih singkat atau wilayah lain.</p>
+                  <button
+                    type="button"
+                    className="mt-1 underline"
+                    onClick={() => setHotspotRetry((value) => value + 1)}
+                  >
+                    Coba lagi
+                  </button>
+                </div>
+              )}
               {result && hotspotLayerVisible && (
                 <p
                   className="mt-1 text-[11px] font-medium text-ink"
