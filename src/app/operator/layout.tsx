@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { OperatorProvider } from "@/figma-operator/operator-context";
@@ -86,6 +86,8 @@ export default async function OperatorRouteLayout({
       and(
         eq(observationSources.organizationId, org.id),
         eq(observationSources.kind, "manual"),
+        eq(observationSources.isActive, true),
+        ne(observationSources.code, "WC009-MANUAL-DEV"),
       ),
     )
     .orderBy(asc(observationSources.code));

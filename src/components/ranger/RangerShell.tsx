@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { SidebarBrandImage } from "@/components/branding/SidebarBrandImage";
 import { SidebarToggleIcon } from "@/components/ui/SidebarToggleIcon";
+import { WorkspaceNotifications } from "@/components/workspace/WorkspaceNotifications";
 import { authClient } from "@/lib/auth-client";
 import { RangerIcon } from "./RangerIcons";
 import { activeRangerNavPath } from "./ranger-nav-active";
@@ -288,6 +289,7 @@ export function RangerShell({
             </span>
           </nav>
 
+          <WorkspaceNotifications workspaceRole="ranger" />
           <div className="relative lg:hidden">
             <button
               type="button"

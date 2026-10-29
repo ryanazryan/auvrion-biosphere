@@ -34,6 +34,10 @@ export async function listScopedGisObservations(filter: GisFilter) {
 
   const conditions: SQL[] = [
     eq(observations.organizationId, filter.organizationId),
+    sql`NOT EXISTS (SELECT 1 FROM observation_sources AS development_source
+      WHERE development_source.id = ${observations.sourceId}
+      AND development_source.organization_id = ${observations.organizationId}
+      AND development_source.code = 'WC009-MANUAL-DEV')`,
   ];
 
   if (filter.domain) {

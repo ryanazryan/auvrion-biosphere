@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   type FormEvent,
@@ -11,17 +10,13 @@ import {
 } from "react";
 import ReactMarkdown from "react-markdown";
 import { AuvrionAIBrand } from "@/components/branding/AuvrionAIBrand";
+import { WorkspaceNotifications } from "@/components/workspace/WorkspaceNotifications";
 import * as I from "@/figma-operator/components/icons";
 import {
   CopilotVisual,
   type CopilotVisualData,
 } from "@/figma-operator/components/operator/CopilotVisual";
 import { useOperator } from "@/figma-operator/operator-context";
-import {
-  LISTEN_DEMO_ROUTE,
-  markListenRead,
-  useListenPreview,
-} from "./listen-store";
 
 type AIContext = "overview" | "listen" | "observation" | "environment";
 type OpenDetail = {
@@ -57,28 +52,13 @@ const SUGGESTIONS = [
 const cls =
   "inline-flex items-center justify-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-[13px] font-medium text-fg transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-brand";
 
-function Bell({ className = "size-5" }: { className?: string }) {
-  return <I.Bell className={className} />;
-}
-
-function formatWita(value?: string) {
-  if (!value) return "";
-  if (!value.includes("T")) return value;
-  return new Intl.DateTimeFormat("id-ID", {
-    timeZone: "Asia/Makassar",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
 /** Header actions rendered before the organization name. Preview data stays isolated in listen-store. */
 export function OperatorAssistControls() {
   const { operator: OPERATOR } = useOperator();
   const path = usePathname();
-  const listen = useListenPreview();
+
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
-  const [notificationOpen, setNotificationOpen] = useState(false);
   const [messages, setMessages] = useState<
     {
       id: number;
@@ -97,16 +77,12 @@ export function OperatorAssistControls() {
   const closingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const lastTrigger = useRef<HTMLElement | null>(null);
-  const noticeRef = useRef<HTMLDivElement>(null);
 
-  const inferred: OpenDetail =
-    path === LISTEN_DEMO_ROUTE
-      ? { context: "listen", observationId: "demo-listen-01" }
-      : path.includes("/observations/")
-        ? { context: "observation" }
-        : path.includes("/map")
-          ? { context: "environment" }
-          : { context: "overview" };
+  const inferred: OpenDetail = path.includes("/observations/")
+    ? { context: "observation" }
+    : path.includes("/map")
+      ? { context: "environment" }
+      : { context: "overview" };
 
   function openSheet(value: OpenDetail, trigger?: HTMLElement | null) {
     lastTrigger.current =
@@ -264,22 +240,6 @@ export function OperatorAssistControls() {
       lastTrigger.current?.focus();
     }
   }, [visible]);
-  useEffect(() => {
-    if (!notificationOpen) return;
-    const onDown = (event: PointerEvent) => {
-      if (!noticeRef.current?.contains(event.target as Node))
-        setNotificationOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setNotificationOpen(false);
-    };
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [notificationOpen]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -301,8 +261,6 @@ export function OperatorAssistControls() {
         : detail.context === "observation"
           ? "Observasi"
           : "Ringkasan";
-  const isListenReady =
-    listen.step === "candidate" || listen.step === "notified";
 
   return (
     <>
@@ -318,75 +276,7 @@ export function OperatorAssistControls() {
         </span>
         <span className="hidden sm:inline">Auvrion AI</span>
       </button>
-      <div ref={noticeRef} className="relative shrink-0">
-        <button
-          type="button"
-          className="relative grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-bg hover:text-fg"
-          aria-label={`Notifikasi${listen.unread > 0 ? `, ${listen.unread} belum dibaca` : ""}`}
-          aria-expanded={notificationOpen}
-          onClick={() => {
-            setNotificationOpen((v) => !v);
-            markListenRead();
-          }}
-        >
-          <Bell className="size-4.5" />
-          {listen.unread > 0 && (
-            <span className="absolute right-0 top-0 grid size-4 place-items-center rounded-full bg-brand text-[10px] text-white">
-              {listen.unread}
-            </span>
-          )}
-        </button>
-        {notificationOpen && (
-          <section
-            aria-label="Notifikasi"
-            className="absolute right-0 z-50 mt-2 w-[min(350px,calc(100vw-32px))] overflow-hidden rounded-lg border border-line bg-white shadow-[0_10px_30px_-10px_rgb(20_45_37/0.25)]"
-          >
-            <header className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
-              <h2 className="text-sm font-semibold">Notifikasi</h2>
-              {listen.notices.length > 0 && (
-                <span className="text-[11px] text-warn">Demo LISTEN</span>
-              )}
-            </header>
-            {listen.notices.length === 0 ? (
-              <p className="px-4 py-7 text-center text-[13px] text-muted">
-                Belum ada notifikasi
-              </p>
-            ) : (
-              <ul className="max-h-96 divide-y divide-line overflow-y-auto">
-                {listen.notices.map((item) => (
-                  <li key={item.id} className="flex gap-3 px-3.5 py-3">
-                    <span
-                      className={`grid size-7 shrink-0 place-items-center rounded-full ${item.level === "warn" ? "bg-warn-50 text-warn" : "bg-brand-50 text-brand"}`}
-                    >
-                      <span aria-hidden="true" className="block size-3.5">
-                        <AuvrionAIBrand />
-                      </span>
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[13px] font-medium">{item.label}</p>
-                        <time className="shrink-0 text-xs text-muted">
-                          {formatWita(item.at)} WITA
-                        </time>
-                      </div>
-                      <p className="mt-0.5 text-xs text-muted">
-                        LISTEN-01 · Data simulasi
-                      </p>
-                      <Link
-                        href={LISTEN_DEMO_ROUTE}
-                        onClick={() => setNotificationOpen(false)}
-                        className="mt-1.5 inline-block text-xs font-medium text-brand hover:underline"
-                      >
-                        Lihat observasi
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
-      </div>
+      <WorkspaceNotifications workspaceRole="operator" />
       <dialog
         ref={dialogRef}
         data-closing={closing || undefined}
@@ -458,9 +348,7 @@ export function OperatorAssistControls() {
                               ? "Auvrion AI"
                               : msg.state === "error"
                                 ? "Analisis belum tersedia"
-                                : msg.context === "listen" && isListenReady
-                                  ? "Pola suara perlu ditinjau"
-                                  : "Analisis belum tersedia"}
+                                : "Analisis belum tersedia"}
                         </p>
                         {msg.answer ? (
                           <div className="min-w-0 wrap-break-word">
@@ -531,9 +419,9 @@ export function OperatorAssistControls() {
                           </dl>
                         ) : (
                           <p className="text-muted">
-                            {msg.context === "listen" && isListenReady
-                              ? "Kandidat demo: vokalisasi burung. Skor 0,62 bukan probabilitas terkalibrasi; belum diverifikasi manusia."
-                              : "Layanan AI belum terhubung. Informasi belum dapat disimpulkan otomatis."}
+                            {
+                              "Layanan AI belum terhubung. Informasi belum dapat disimpulkan otomatis."
+                            }
                           </p>
                         )}
                         {msg.sources && msg.sources.length > 0 && (

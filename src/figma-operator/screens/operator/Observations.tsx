@@ -193,6 +193,15 @@ export function Observations() {
         }
       />
 
+      <div className="mb-4 flex flex-wrap justify-end">
+        <a
+          href="/operator/reports"
+          className="inline-flex min-h-10 items-center rounded-md border border-line-strong bg-white px-4 py-2 text-sm font-semibold text-brand hover:bg-bg"
+        >
+          Ekspor laporan observasi (PDF / Excel)
+        </a>
+      </div>
+
       <form
         aria-label="Filter observasi"
         onSubmit={(e) => e.preventDefault()}

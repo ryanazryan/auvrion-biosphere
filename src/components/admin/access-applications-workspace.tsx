@@ -133,7 +133,7 @@ export function AccessApplicationsWorkspace({
         </h1>
 
         <p className="mt-1 text-sm text-muted">
-          Tinjau permohonan akses pengguna Auvrion Biosphere.
+          Tinjau permohonan akses pengguna.
         </p>
       </div>
 
@@ -372,10 +372,6 @@ export function AccessApplicationsWorkspace({
       </div>
 
       {/* Development notice */}
-      <p className="mt-5 text-xs text-muted">
-        Workspace development AUVRION-LOCAL. Approval/penolakan dicatat di
-        database lokal; aktivasi akun dilakukan terpisah.
-      </p>
 
       {/* Application review drawer */}
       {selected && (

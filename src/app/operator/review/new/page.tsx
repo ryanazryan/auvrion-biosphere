@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import Link from "next/link";
 import { CaseIntakeForm } from "@/components/supervisor/CaseIntakeForm";
 import { PageHeading, Panel } from "@/components/supervisor/SupervisorElements";
@@ -43,7 +43,9 @@ export default async function NewReviewCasePage() {
     .where(
       and(
         eq(observations.organizationId, access.organizationId),
-        eq(observationSources.kind, "manual"),
+        inArray(observationSources.kind, ["manual", "listen_device"]),
+        eq(observationSources.isActive, true),
+        ne(observationSources.code, "WC009-MANUAL-DEV"),
         isNull(caseObservationLinks.id),
       ),
     )
@@ -66,7 +68,7 @@ export default async function NewReviewCasePage() {
       </Link>
       <PageHeading
         title="Buat Case dari observasi"
-        desc="Hubungkan satu observasi manual ke Case Received. Pemeriksaan Operator dan keputusan Supervisor dilakukan sebagai langkah terpisah."
+        desc="Pilih observasi lapangan atau rekaman LISTEN yang valid untuk ditinjau."
       />
       <div className="max-w-2xl">
         <Panel title="Intake Case">

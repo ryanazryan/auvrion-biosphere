@@ -1,6 +1,7 @@
+import { ingestionRecordings } from "@/server/db/wc017-device-recordings-schema";
 import "server-only";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { checkOperationalAccess } from "@/server/authorization/operational-access";
 import { getDb } from "@/server/db";
 import { userAccess } from "@/server/db/access-schema";
@@ -48,7 +49,11 @@ export async function createReviewCase(raw: unknown) {
     }
 
     const [observation] = await tx
-      .select({ id: observations.id, quality: observations.quality })
+      .select({
+        id: observations.id,
+        quality: observations.quality,
+        sourceKind: observationSources.kind,
+      })
       .from(observations)
       .innerJoin(
         observationSources,
@@ -61,12 +66,29 @@ export async function createReviewCase(raw: unknown) {
         and(
           eq(observations.id, input.observationId),
           eq(observations.organizationId, input.organizationId),
-          eq(observationSources.kind, "manual"),
+          inArray(observationSources.kind, ["manual", "listen_device"]),
+          eq(observationSources.isActive, true),
+          ne(observationSources.code, "WC009-MANUAL-DEV"),
         ),
       )
       .for("update")
       .limit(1);
     if (!observation) throw new CaseIntakeFailure(404, "OBSERVATION_NOT_FOUND");
+    // A LISTEN Case must point to an actual committed WC-017 receipt.
+    if (observation.sourceKind === "listen_device") {
+      const [receipt] = await tx
+        .select({ id: ingestionRecordings.id })
+        .from(ingestionRecordings)
+        .where(
+          and(
+            eq(ingestionRecordings.organizationId, input.organizationId),
+            eq(ingestionRecordings.observationId, observation.id),
+          ),
+        )
+        .limit(1);
+      if (!receipt)
+        throw new CaseIntakeFailure(422, "DEVICE_AUDIO_RECEIPT_REQUIRED");
+    }
     if (observation.quality === "invalid")
       throw new CaseIntakeFailure(
         422,

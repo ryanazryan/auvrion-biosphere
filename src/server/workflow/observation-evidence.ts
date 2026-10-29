@@ -8,6 +8,7 @@ import {
   observationSources,
   observations,
 } from "@/server/db/observation-domain-schema";
+import { ingestionRecordings } from "@/server/db/wc017-device-recordings-schema";
 
 /** A minimum-necessary, case-linked, org-scoped evidence projection.
  * NO coordinates, private URLs, audio, sensor credentials or raw payloads.
@@ -21,6 +22,11 @@ export type CaseObservationEvidence = {
   attribution: string | null;
   limitations: string[];
   hasCoordinates: boolean;
+  audioRecordings: Array<{
+    recordingId: string;
+    durationMs: number;
+    receivedAt: Date;
+  }>;
   measurements: Array<{
     id: string;
     kind: string;
@@ -79,10 +85,38 @@ export async function getCaseObservationEvidence(
       attribution: row.attribution,
       limitations: Array.isArray(row.limitations) ? row.limitations : [],
       measurements: [],
+      audioRecordings: [],
     });
   }
   if (result.size === 0) return result;
 
+  // Only committed receipt metadata; never return storageKey or raw audio.
+  const audioRows = await db
+    .select({
+      observationId: ingestionRecordings.observationId,
+      recordingId: ingestionRecordings.recordingId,
+      durationMs: ingestionRecordings.durationMs,
+      receivedAt: ingestionRecordings.createdAt,
+    })
+    .from(ingestionRecordings)
+    .where(
+      and(
+        eq(ingestionRecordings.organizationId, organizationId),
+        inArray(ingestionRecordings.observationId, [...result.keys()]),
+      ),
+    )
+    .orderBy(asc(ingestionRecordings.createdAt))
+    .limit(100);
+  for (const audio of audioRows) {
+    const item = result.get(audio.observationId);
+    if (item && item.audioRecordings.length < 4) {
+      item.audioRecordings.push({
+        recordingId: audio.recordingId,
+        durationMs: audio.durationMs,
+        receivedAt: audio.receivedAt,
+      });
+    }
+  }
   const measurementRows = await db
     .select({
       observationId: environmentalMeasurements.observationId,

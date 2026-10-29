@@ -168,6 +168,21 @@ export default async function RangerTaskDetail({
                           organizationId={access.organizationId}
                         />
                       )}
+                      {observation.linkReason && (
+                        <p className="mt-2 whitespace-pre-wrap rounded-lg bg-brand-50 p-3 text-xs text-ink">
+                          <strong>Ringkasan Operator:</strong>{" "}
+                          {observation.linkReason}
+                        </p>
+                      )}
+                      {observation.evidence?.audioRecordings.map((audio) => (
+                        <p
+                          key={audio.recordingId}
+                          className="mt-1 text-xs font-medium text-brand"
+                        >
+                          Bukti WAV · {audio.recordingId} ·{" "}
+                          {(audio.durationMs / 1000).toFixed(1)} detik
+                        </p>
+                      ))}
                       {observation.evidence && (
                         <div className="mt-2 space-y-1 rounded-md border border-line bg-bg p-2.5 text-xs leading-5">
                           <p>

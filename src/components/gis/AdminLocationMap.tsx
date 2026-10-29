@@ -20,10 +20,6 @@ export function AdminLocationMap({
     <section aria-label="Peta pencarian lokasi admin" className="space-y-3">
       <div>
         <h1 className="text-xl font-semibold text-ink">Peta Lokasi</h1>
-        <p className="mt-1 text-xs text-muted">
-          Cari lokasi, arahkan peta ke posisi perangkat, dan persiapkan pemetaan
-          IoT terverifikasi.
-        </p>
       </div>
       <div className="relative h-[min(68vh,700px)] min-h-[450px] overflow-hidden rounded-xl border border-line bg-bg">
         <GisMapCanvas
@@ -37,11 +33,6 @@ export function AdminLocationMap({
           onNavigate={setNavigationTarget}
         />
       </div>
-      <p className="text-xs text-muted">
-        Halaman ini hanya untuk navigasi peta. Tidak membocorkan observasi,
-        koordinat tugas, atau posisi IoT privat. Pemetaan perangkat memerlukan
-        endpoint yang disetujui dan terikat organisasi.
-      </p>
     </section>
   );
 }

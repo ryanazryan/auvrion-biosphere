@@ -47,7 +47,10 @@ type AudioItem = {
   blob: Blob;
   filename: string;
   seconds: number;
-  original: "manual_wav_upload" | "browser_microphone_simulation";
+  original:
+    | "manual_wav_upload"
+    | "browser_microphone_simulation"
+    | "device_recording";
 };
 
 function errText(code: string): string {
@@ -84,6 +87,43 @@ async function checkResponse(response: Response): Promise<unknown> {
     throw new Error(errText(code));
   }
   return data;
+}
+
+/** Load only authorized, integrity-checked private WAV; independent of AI. */
+async function fetchStoredWav(
+  organizationId: string,
+  observationId: string,
+  mediaId: string,
+): Promise<Blob> {
+  const url = `/api/observations/${encodeURIComponent(observationId)}/evidence/audio/${encodeURIComponent(mediaId)}?organizationId=${encodeURIComponent(organizationId)}`;
+  const response = await fetch(url, {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Rekaman tersimpan tidak dapat dibaca (${response.status}).`,
+    );
+  }
+  const blob = await response.blob();
+  if (blob.size < 44 || blob.size > MAX_BYTES) {
+    throw new Error("Ukuran WAV tidak valid.");
+  }
+  return blob;
+}
+
+function storedAudioItem(source: Source, blob: Blob): AudioItem {
+  return {
+    blob,
+    filename:
+      source.kind === "device_recording" ? "LISTEN-IoT.wav" : "Bukti-audio.wav",
+    // Canonical WC-010 PCM16 mono 16k WAV with a 44-byte header.
+    seconds: Math.max(0, (blob.size - 44) / 32000),
+    original:
+      source.kind === "device_recording"
+        ? "device_recording"
+        : "manual_wav_upload",
+  };
 }
 
 /** Canonical WC-010 audio: mono PCM16 at 16 kHz, capped to 30 seconds. */
@@ -170,6 +210,9 @@ export function BioacousticAnalysisPanel({
     string | null
   >(null);
   const [stored, setStored] = useState(false);
+  const [playbackLoadingId, setPlaybackLoadingId] = useState<string | null>(
+    null,
+  );
   const [microphones, setMicrophones] = useState<
     { id: string; label: string }[]
   >([]);
@@ -470,6 +513,36 @@ export function BioacousticAnalysisPanel({
     }
   };
 
+  const playStoredSource = async (source: Source) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy("preparing");
+    setPlaybackLoadingId(source.id);
+    setError("");
+    setResult(null);
+    try {
+      const blob = await fetchStoredWav(
+        organizationId,
+        observationId,
+        source.id,
+      );
+      setAudio(storedAudioItem(source, blob));
+      setSelectedStoredSource(source.id);
+      setSavedMediaId(source.id);
+      setStored(true);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Gagal memuat rekaman tersimpan.",
+      );
+    } finally {
+      busyRef.current = false;
+      setBusy(null);
+      setPlaybackLoadingId(null);
+    }
+  };
+
   const analyzeStoredSource = async (source: Source) => {
     if (busyRef.current) return;
     busyRef.current = true;
@@ -478,21 +551,11 @@ export function BioacousticAnalysisPanel({
     setResult(null);
     try {
       const base = `/api/observations/${encodeURIComponent(observationId)}`;
-      // Always request private WAV via the existing scoped and integrity-checked endpoint.
-      const wavResponse = await fetch(
-        `${base}/evidence/audio/${encodeURIComponent(source.id)}?organizationId=${encodeURIComponent(organizationId)}`,
-        {
-          cache: "no-store",
-          credentials: "same-origin",
-        },
+      const blob = await fetchStoredWav(
+        organizationId,
+        observationId,
+        source.id,
       );
-      if (!wavResponse.ok)
-        throw new Error(
-          `Rekaman tersimpan tidak dapat dibaca (${wavResponse.status}).`,
-        );
-      const blob = await wavResponse.blob();
-      if (blob.size < 44 || blob.size > MAX_BYTES)
-        throw new Error("Ukuran WAV tidak valid.");
       const response = await fetch(
         `${base}/bioacoustics/analyze?organizationId=${encodeURIComponent(organizationId)}`,
         {
@@ -510,15 +573,7 @@ export function BioacousticAnalysisPanel({
       ) {
         throw new Error("Respons model tidak valid.");
       }
-      setAudio({
-        blob,
-        filename:
-          source.kind === "device_recording"
-            ? "LISTEN-IoT.wav"
-            : "Bukti-audio.wav",
-        seconds: 0,
-        original: "manual_wav_upload",
-      });
+      setAudio(storedAudioItem(source, blob));
       setSelectedStoredSource(source.id);
       setSavedMediaId(source.id);
       setStored(true);
@@ -535,6 +590,11 @@ export function BioacousticAnalysisPanel({
 
   return (
     <div className="space-y-4 text-[13px] text-fg">
+      <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        Perch 2.0 tidak mengklasifikasikan ucapan manusia secara andal. Suara
+        manusia, aktivitas manusia, dan noise harus ditinjau melalui WAV;
+        kandidat satwa bukan konfirmasi spesies.
+      </p>
       <StoredRecordingList
         key={observationId}
         sources={discovery?.sources ?? null}
@@ -544,6 +604,9 @@ export function BioacousticAnalysisPanel({
         selectedId={selectedStoredSource}
         timeZone={timeZone}
         onAnalyze={(source) => void analyzeStoredSource(source)}
+        onPlay={(source) => void playStoredSource(source)}
+        playbackLoadingId={playbackLoadingId}
+        analyzing={busy === "analyzing"}
         onRefresh={() => setRecordingsRefresh((value) => value + 1)}
       />
       <details className="rounded-md border border-line bg-bg/40 p-3">
@@ -623,7 +686,9 @@ export function BioacousticAnalysisPanel({
               <p className="text-xs text-muted">
                 {audio.original === "browser_microphone_simulation"
                   ? "Mikrofon laptop"
-                  : "WAV lokal"}{" "}
+                  : audio.original === "device_recording"
+                    ? "IoT LISTEN"
+                    : "WAV lokal"}{" "}
                 ·
                 {` ${audio.seconds.toFixed(2)} dtk · ${(audio.blob.size / 1024).toFixed(1)} KiB · PCM16 mono 16 kHz`}
               </p>
@@ -687,11 +752,6 @@ export function BioacousticAnalysisPanel({
         stored={stored}
         filename={audio?.filename ?? null}
       />
-      <p className="border-t border-line pt-3 text-xs text-muted">
-        Perch memberikan kandidat suara biodiversitas, bukan detektor chainsaw,
-        tembakan, atau pelaku kriminal. Deteksi ancaman akustik memerlukan model
-        khusus yang diuji, disertai review manusia.
-      </p>
     </div>
   );
 }
