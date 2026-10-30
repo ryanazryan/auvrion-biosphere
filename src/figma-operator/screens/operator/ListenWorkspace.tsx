@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OperatorLayout } from "../../components/operator/OperatorLayout";
 import { useOperator } from "../../operator-context";
+import { ListenInstallationCard } from "./ListenInstallationCard";
+import { ListenRemoteControls } from "./ListenRemoteControls";
 import { ListenUsbControls } from "./ListenUsbControls";
 
 type Device = {
@@ -78,7 +80,7 @@ function quantity(n: number) {
 }
 
 /** Read-only fleet UI. It does not claim connectivity, persisted AI jobs, or real-time species detections. */
-export function ListenWorkspace() {
+export function ListenWorkspace({ deviceId }: { deviceId?: string }) {
   const { operator, timeZone } = useOperator();
   const org = operator.organizationId;
   const [fleet, setFleet] = useState<Fleet | null>(null);
@@ -86,7 +88,7 @@ export function ListenWorkspace() {
   const [fleetError, setFleetError] = useState("");
   const [filter, setFilter] = useState("");
   const [onlyActive, setOnlyActive] = useState(false);
-  const [chosenId, setChosenId] = useState<string | null>(null);
+  const chosenId = deviceId ?? null;
   const [history, setHistory] = useState<History | null>(null);
   const [historyError, setHistoryError] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -149,8 +151,11 @@ export function ListenWorkspace() {
     };
   }, [refresh]);
 
-  const selected =
-    fleet?.devices.find((d) => d.id === chosenId) ?? fleet?.devices[0] ?? null;
+  const selected = deviceId
+    ? (fleet?.devices.find((d) => d.id === deviceId) ?? null)
+    : (fleet?.devices.find((d) => d.id === chosenId) ??
+      fleet?.devices[0] ??
+      null);
   const selectedId = selected?.id ?? null;
   const visibleHistory = history?.deviceId === selectedId ? history : null;
   const snapshotAt = fleet?.checkedAt;
@@ -209,34 +214,44 @@ export function ListenWorkspace() {
 
   return (
     <OperatorLayout
-      path="/operator/listen"
+      path={
+        deviceId
+          ? `/operator/listen/${encodeURIComponent(deviceId)}`
+          : "/operator/listen"
+      }
       crumbs={[
         { label: "Ringkasan", href: "/operator/overview" },
-        { label: "Jaringan LISTEN" },
+        deviceId
+          ? { label: "Jaringan LISTEN", href: "/operator/listen" }
+          : { label: "Jaringan LISTEN" },
+        ...(deviceId ? [{ label: "Detail perangkat" }] : []),
       ]}
     >
       <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand">
-            Bioakustik · Jaringan sensor
-          </p>
-          <h1 className="text-2xl font-semibold text-ink">Jaringan LISTEN</h1>
-          <p className="max-w-3xl text-sm leading-6 text-muted">
-            Pantau perangkat terdaftar, penerimaan WAV, dan riwayat observasi.
-            Status jaringan berasal dari database organisasi, bukan simulasi
-            koneksi.
-          </p>
+          <h1 className="text-2xl font-semibold text-ink">
+            {deviceId ? "Detail perangkat LISTEN" : "Jaringan LISTEN"}
+          </h1>
+          {deviceId && (
+            <Link
+              href="/operator/listen"
+              className="text-sm font-medium text-brand underline-offset-2 hover:underline"
+            >
+              Kembali ke semua perangkat
+            </Link>
+          )}
         </div>
         <button
           type="button"
           onClick={() => void refresh()}
-          className="rounded-md border border-line px-3 py-2 text-sm font-medium text-fg hover:bg-bg"
+          className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800"
         >
           Segarkan data
         </button>
       </header>
+      <ListenRemoteControls deviceId={selectedId} />
 
-      <ListenUsbControls />
+      {deviceId && <ListenUsbControls deviceId={selectedId} />}
 
       {fleetError && (
         <p
@@ -285,15 +300,18 @@ export function ListenWorkspace() {
             <p className="mt-1 break-words text-lg font-semibold text-ink">
               {card.value}
             </p>
-            <p className="mt-1 text-xs leading-5 text-muted">{card.note}</p>
           </div>
         ))}
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(17rem,0.8fr)_minmax(0,1.5fr)]">
+      <div className="grid gap-5">
         <section
           aria-label="Daftar perangkat"
-          className="overflow-hidden rounded-lg border border-line bg-surface"
+          className={
+            deviceId
+              ? "hidden"
+              : "overflow-hidden rounded-lg border border-line bg-surface"
+          }
         >
           <header className="space-y-3 border-b border-line p-4">
             <div className="flex items-center justify-between gap-2">
@@ -344,12 +362,11 @@ export function ListenWorkspace() {
           ) : (
             <div className="max-h-[34rem] divide-y divide-line overflow-y-auto">
               {filtered.map((device) => (
-                <button
+                <Link
                   key={device.id}
-                  type="button"
-                  onClick={() => setChosenId(device.id)}
-                  aria-pressed={selectedId === device.id}
-                  className={`w-full space-y-2 px-4 py-3 text-left transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-brand ${selectedId === device.id ? "bg-brand-50" : ""}`}
+                  href={`/operator/listen/${encodeURIComponent(device.id)}`}
+                  aria-current={selectedId === device.id ? "page" : undefined}
+                  className={`block w-full space-y-2 px-4 py-3 text-left transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-brand ${selectedId === device.id ? "bg-brand-50" : ""}`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-semibold text-ink">
@@ -366,7 +383,7 @@ export function ListenWorkspace() {
                       ? dateLabel(device.lastReceivedAt, timeZone)
                       : "belum menerima WAV"}
                   </p>
-                </button>
+                </Link>
               ))}
             </div>
           )}
@@ -380,11 +397,13 @@ export function ListenWorkspace() {
 
         <section
           aria-label="Detail perangkat dan rekaman"
-          className="min-w-0 space-y-4"
+          className={deviceId ? "min-w-0 space-y-4" : "hidden"}
         >
           {!selected ? (
             <div className="rounded-lg border border-line bg-surface p-6 text-sm text-muted">
-              Pilih perangkat LISTEN untuk melihat data perekaman sebenarnya.
+              {deviceId
+                ? "Perangkat tidak ditemukan dalam cakupan organisasi Anda atau tidak termasuk 50 perangkat pertama."
+                : "Pilih perangkat LISTEN untuk melihat data perekaman sebenarnya."}
             </div>
           ) : (
             <>
@@ -396,9 +415,6 @@ export function ListenWorkspace() {
                     </h2>
                     <p className="text-sm text-muted">{selected.label}</p>
                   </div>
-                  <span className="rounded-md border border-line bg-bg px-2 py-1 text-xs font-medium text-muted">
-                    Koneksi: belum diketahui
-                  </span>
                 </div>
                 <dl className="mt-4 grid gap-3 border-t border-line pt-3 text-xs sm:grid-cols-2">
                   <div>
@@ -426,23 +442,14 @@ export function ListenWorkspace() {
                     </dd>
                   </div>
                 </dl>
-                <p className="mt-3 rounded-md bg-bg p-3 text-xs leading-5 text-muted">
-                  Belum ada heartbeat WC-017. Registrasi aktif dan receipt
-                  terbaru tidak membuktikan perangkat sedang online. Monitoring
-                  ini merupakan pembaruan data penerimaan, bukan live audio
-                  streaming.
-                </p>
               </div>
 
+              <ListenInstallationCard deviceId={selected.id} />
               <div className="overflow-hidden rounded-lg border border-line bg-surface">
                 <header className="border-b border-line px-4 py-3">
                   <h3 className="font-semibold text-ink">
                     Riwayat rekaman terima
                   </h3>
-                  <p className="mt-1 text-xs text-muted">
-                    20 receipt WC-017 terbaru untuk perangkat terpilih. Audio
-                    privat tetap dibuka melalui alur otorisasi terpisah.
-                  </p>
                 </header>
                 {historyError && (
                   <p role="alert" className="p-4 text-sm text-warn">
@@ -514,13 +521,6 @@ export function ListenWorkspace() {
                 <h3 className="font-semibold text-ink">
                   Analisis dan verifikasi
                 </h3>
-                <p className="mt-1 text-sm leading-6 text-muted">
-                  WC-023 sudah mendukung analisis Perch untuk WAV manusia yang
-                  terhubung ke observasi, tetapi receipt perangkat WC-017 belum
-                  mempunyai jalur replay AI persisten. Karenanya tidak ada hasil
-                  identifikasi spesies atau status job AI yang dibuat-buat di
-                  halaman ini.
-                </p>
                 {selected.latestObservationId && (
                   <Link
                     href={`/operator/observations/${encodeURIComponent(selected.latestObservationId)}`}
@@ -534,12 +534,6 @@ export function ListenWorkspace() {
           )}
         </section>
       </div>
-      <footer className="mt-5 text-xs leading-5 text-muted">
-        Snapshot server: {dateLabel(fleet?.checkedAt ?? null, timeZone)}. Semua
-        angka berasal dari maksimal 50 perangkat pertama. Fitur deteksi spesies
-        per-segmen, status online dari heartbeat, dan rekaman kontinu tetap
-        memerlukan implementasi dan pengujian terpisah.
-      </footer>
     </OperatorLayout>
   );
 }

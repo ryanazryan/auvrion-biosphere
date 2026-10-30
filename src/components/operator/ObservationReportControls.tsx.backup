@@ -1,0 +1,117 @@
+"use client";
+
+import { useState } from "react";
+
+const witaNow = new Date(Date.now() + 8 * 3600000);
+
+export function ObservationReportControls() {
+  const [period, setPeriod] = useState<"month" | "year">("month");
+  const [year, setYear] = useState(witaNow.getUTCFullYear());
+  const [month, setMonth] = useState(witaNow.getUTCMonth() + 1);
+  const [includeUncased, setIncludeUncased] = useState(false);
+
+  function href(format: "xlsx" | "pdf") {
+    const query = new URLSearchParams({
+      period,
+      year: String(year),
+      month: String(month),
+      format,
+      includeUncased: includeUncased ? "yes" : "no",
+    });
+    return `/api/operator/reports?${query.toString()}`;
+  }
+
+  return (
+    <section
+      className="space-y-4 rounded-xl border border-line bg-white p-5"
+      aria-labelledby="observation-report-title"
+    >
+      <div>
+        <h2
+          id="observation-report-title"
+          className="text-lg font-semibold text-ink"
+        >
+          Ekspor riwayat observasi & Case
+        </h2>
+        <p className="mt-1 text-sm leading-6 text-muted">
+          Laporan bulanan atau tahunan sesuai WITA. Data berasal dari database
+          organisasi Anda, bukan data contoh. Informasi rahasia dan koordinat
+          presisi tidak diekspor.
+        </p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <label className="text-xs font-medium text-muted">
+          Periode
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as "month" | "year")}
+            className="mt-1 block h-10 w-full rounded-md border border-line-strong bg-white px-3 text-sm text-ink"
+          >
+            <option value="month">Per bulan</option>
+            <option value="year">Per tahun</option>
+          </select>
+        </label>
+        <label className="text-xs font-medium text-muted">
+          Tahun
+          <input
+            type="number"
+            min={2020}
+            max={2100}
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="mt-1 block h-10 w-full rounded-md border border-line-strong bg-white px-3 text-sm text-ink"
+          />
+        </label>
+        <label className="text-xs font-medium text-muted">
+          Bulan
+          <select
+            disabled={period === "year"}
+            value={month}
+            onChange={(e) => setMonth(Number(e.target.value))}
+            className="mt-1 block h-10 w-full rounded-md border border-line-strong bg-white px-3 text-sm text-ink disabled:opacity-50"
+          >
+            {Array.from({ length: 12 }, (_, index) => {
+              const month = index + 1;
+              return (
+                <option key={`month-${month}`} value={month}>
+                  {new Intl.DateTimeFormat("id-ID", {
+                    month: "long",
+                  }).format(new Date(2026, index, 1))}
+                </option>
+              );
+            })}
+          </select>
+        </label>
+      </div>
+      <label className="flex items-start gap-3 text-sm text-fg">
+        <input
+          type="checkbox"
+          checked={includeUncased}
+          onChange={(e) => setIncludeUncased(e.target.checked)}
+          className="mt-1 accent-[#177e61]"
+        />
+        Sertakan observasi yang belum dibuat Case (default: hanya yang sudah
+        dibuat Case)
+      </label>
+      <div className="flex flex-wrap gap-3">
+        <a
+          href={href("xlsx")}
+          className="inline-flex min-h-10 items-center rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover"
+        >
+          Ekspor Excel (.xlsx)
+        </a>
+        <a
+          href={href("pdf")}
+          className="inline-flex min-h-10 items-center rounded-md border border-line-strong bg-white px-4 py-2 text-sm font-semibold text-brand hover:bg-bg"
+        >
+          Ekspor PDF
+        </a>
+      </div>
+      <p className="text-xs text-muted">
+        Berisi ID observasi, waktu diterima/diamati, sumber, domain, mode,
+        kualitas, Case terkait, dan status penanganan. Maksimum 5.000 baris per
+        permintaan.
+      </p>
+    </section>
+  );
+}

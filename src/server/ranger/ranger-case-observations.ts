@@ -26,6 +26,7 @@ export async function getAssignedCaseObservations(
       observedAt: observations.observedAt,
       receivedAt: observations.receivedAt,
       sourceCode: observationSources.code,
+      linkReason: caseObservationLinks.linkReason,
     })
     .from(caseObservationLinks)
     .innerJoin(

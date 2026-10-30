@@ -32,6 +32,7 @@ export default defineConfig({
     "./src/server/db/analytics-signal-schema.ts",
     "./src/server/db/wc017-device-persistence-schema.ts",
     "./src/server/db/wc017-device-recordings-schema.ts",
+    "./src/server/db/bioacoustic-analysis-schema.ts",
   ],
   out: "./drizzle",
   dbCredentials: { url: target.toString() },

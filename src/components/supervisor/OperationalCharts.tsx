@@ -153,7 +153,7 @@ function ReviewControl({
           onChange={(e) => setNote(e.target.value)}
           rows={2}
           maxLength={1500}
-          placeholder="Jelaskan dasar verifikasi, bukan hanya persetujuan AI."
+          placeholder="Jelaskan dasar verifikasi."
           className="mt-1 block w-full rounded-md border border-line bg-white p-2 text-xs"
         />
       </label>

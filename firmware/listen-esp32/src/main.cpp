@@ -14,6 +14,7 @@
 // Never commit the real Wi-Fi password.
 #include "listen_secrets.h"
 #include "device_sync.h"
+#include "listen_remote.h"
 #include <esp_system.h>
 
 // AUVRION BIOSPHERE - AB-WC-015
@@ -410,6 +411,8 @@ bool sdReady = false;
 bool rtcTrustedThisBoot = false;
 bool micReady = false;
 bool autoMonitoring = true;
+uint32_t remoteRevision = 0;
+uint32_t recordingIntervalSeconds = 300;
 unsigned long nextScheduledRecordingAt = 0;
 unsigned long lastAutoRecordingAt = 0;
 unsigned long nextMicRetryAt = 0;
@@ -420,10 +423,12 @@ uint8_t consecutiveActiveFrames = 0;
 constexpr uint16_t kMaxPendingWavs = 12;
 constexpr unsigned long kFirstScheduledMs = 15000UL;
 constexpr unsigned long kScheduledEveryMs = 300000UL;
+unsigned long scheduledEveryMs = kScheduledEveryMs;
 constexpr unsigned long kAcousticCooldownMs = 30000UL;
 constexpr float kAbsoluteRmsThreshold = 0.045f;
 constexpr float kNoiseMultiplier = 3.5f;
 unsigned long nextUploadAt = 0;
+unsigned long nextRemoteAt = 0;
 unsigned long nextReconnectAt = 0;
 unsigned long nextNtpAt = 0;
 constexpr unsigned long kSyncEveryMs = 60000UL;
@@ -547,7 +552,7 @@ void monitorAcoustics() {
       lastAutoRecordingAt = now;
       captureOneRecording();
     }
-    nextScheduledRecordingAt = millis() + kScheduledEveryMs;
+    nextScheduledRecordingAt = millis() + scheduledEveryMs;
     consecutiveActiveFrames = 0;
     return;
   }
@@ -563,8 +568,50 @@ void monitorAcoustics() {
           rms, threshold);
       lastAutoRecordingAt = now;
       captureOneRecording();
-      nextScheduledRecordingAt = millis() + kScheduledEveryMs;
+      nextScheduledRecordingAt = millis() + scheduledEveryMs;
     }
+  }
+}
+
+// Polling is outbound over verified HTTPS. Commands are durable and idempotent.
+// NVS revision is written last; a failed ACK will be retried without reapplying.
+void checkRemoteCommands() {
+  ListenRemoteCommand cmd;
+  if (!listenPollRemote(cmd, autoMonitoring, recordingIntervalSeconds) || !cmd.pending) return;
+  if (cmd.revision > remoteRevision) {
+    bool nextMonitoring = autoMonitoring;
+    if (cmd.action == "start") nextMonitoring = true;
+    if (cmd.action == "pause") nextMonitoring = false;
+    Preferences prefs;
+    if (!prefs.begin("listen-rec", false)) return;
+    // Save the desired settings BEFORE committing the remote command revision.
+    const bool saved = prefs.putBool("auto", nextMonitoring) > 0 &&
+        prefs.putUInt("every", cmd.intervalSeconds) > 0 &&
+        prefs.putUInt("remoteRev", cmd.revision) > 0;
+    prefs.end();
+    if (!saved) {
+      Serial.println("Remote: NVS write failed; command not acknowledged");
+      return;
+    }
+    const bool wasOn = autoMonitoring;
+    const uint32_t previousInterval = recordingIntervalSeconds;
+    autoMonitoring = nextMonitoring;
+    recordingIntervalSeconds = cmd.intervalSeconds;
+    scheduledEveryMs = static_cast<unsigned long>(recordingIntervalSeconds) * 1000UL;
+    remoteRevision = cmd.revision;
+    consecutiveActiveFrames = 0;
+    if ((autoMonitoring && !wasOn) || previousInterval != recordingIntervalSeconds) {
+      baselineFrames = 0;
+      lastAutoRecordingAt = millis();
+      nextScheduledRecordingAt = millis() + (autoMonitoring ? kFirstScheduledMs : scheduledEveryMs);
+    }
+    Serial.printf("Remote applied rev=%lu action=%s auto=%s interval=%lu sec\n",
+      static_cast<unsigned long>(remoteRevision), cmd.action.c_str(),
+      autoMonitoring ? "ON" : "OFF",
+      static_cast<unsigned long>(recordingIntervalSeconds));
+  }
+  if (cmd.revision == remoteRevision) {
+    listenAckRemote(remoteRevision, autoMonitoring, recordingIntervalSeconds);
   }
 }
 
@@ -577,6 +624,9 @@ void showStatus() {
   Serial.printf("WiFi: %s | UTC/NTP verified boot: %s | queue: %u\n",
                 WiFi.status() == WL_CONNECTED ? "connected" : "offline",
                 rtcTrustedThisBoot ? "yes" : "no", sdReady ? countListenPending() : 0);
+  Serial.printf("Remote interval: %lu sec | last applied rev: %lu\n",
+    static_cast<unsigned long>(recordingIntervalSeconds),
+    static_cast<unsigned long>(remoteRevision));
   Serial.printf("HTTPS device credentials configured: %s\n",
                 listenSyncConfigured() ? "yes" : "no");
   UtcTime time = {};
@@ -594,12 +644,18 @@ void setup() {
   Preferences settings;
   if (settings.begin("listen-rec", true)) {
     autoMonitoring = settings.getBool("auto", true);
+    remoteRevision = settings.getUInt("remoteRev", 0);
+    const uint32_t interval = settings.getUInt("every", 300);
+    if (interval == 60 || interval == 300 || interval == 900) {
+      recordingIntervalSeconds = interval;
+      scheduledEveryMs = static_cast<unsigned long>(interval) * 1000UL;
+    }
     settings.end();
   }
 
   Serial.begin(115200);
   delay(1500);
-  Serial.println("AUVRION BIOSPHERE | AB-WC-015 LISTEN device sync");
+  Serial.println("AUVRION BIOSPHERE | LISTEN device sync");
   Serial.println("Serial commands: r=record, u=upload, s=status, a=toggle auto");
   Wire.begin(RTC_SDA, RTC_SCL);
   Wire.setClock(100000);
@@ -624,6 +680,7 @@ void setup() {
   nextScheduledRecordingAt = millis() + kFirstScheduledMs;
   showStatus();
   nextUploadAt = millis() + 5000UL;
+  nextRemoteAt = millis() + 2000UL;
   nextReconnectAt = millis() + kReconnectEveryMs;
   nextNtpAt = millis() + kReconnectEveryMs;
 }
@@ -679,6 +736,10 @@ void loop() {
       static_cast<int32_t>(now - nextNtpAt) >= 0) {
     nextNtpAt = now + kReconnectEveryMs;
     rtcTrustedThisBoot = syncRtcFromNtp();
+  }
+  if (static_cast<int32_t>(now - nextRemoteAt) >= 0) {
+    nextRemoteAt = millis() + 15000UL;
+    checkRemoteCommands();
   }
   if (sdReady && static_cast<int32_t>(now - nextUploadAt) >= 0) {
     nextUploadAt = now + kSyncEveryMs;

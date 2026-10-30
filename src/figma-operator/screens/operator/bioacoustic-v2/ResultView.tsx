@@ -225,9 +225,18 @@ export function BioacousticResultView({
 }) {
   const [detail, setDetail] = useState<CandidateView | null>(null);
   const ranked = result ? rankCandidates(result.candidates) : [];
-  const biological = ranked.filter((item) => item.category !== "sound_event");
-  const events = ranked.filter((item) => item.category === "sound_event");
-  const primary = biological[0] ?? null;
+  const biological = ranked.filter(
+    (item) =>
+      item.category === "species_candidate" ||
+      item.category === "general_animal",
+  );
+
+  const events = ranked.filter(
+    (item) =>
+      item.category === "sound_event" || item.category === "unclassified",
+  );
+
+  const primary = ranked[0] ?? null;
   const scores = ranked.map((item) => item.modelScore);
 
   return (
@@ -239,7 +248,7 @@ export function BioacousticResultView({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-base font-semibold text-ink">
-            Identifikasi satwa berbantuan AI
+            Analisis suara Perch 2.0
           </h3>
           <p className="mt-1 text-xs text-muted">
             Kandidat dari Perch 2.0; model belum dikalibrasi untuk spesies
@@ -273,7 +282,7 @@ export function BioacousticResultView({
           <div className="grid gap-4 rounded-lg border border-line bg-bg/60 p-4 md:grid-cols-[minmax(0,1.2fr)_minmax(12rem,.8fr)]">
             <div>
               <p className="text-xs font-semibold text-brand">
-                Kandidat model dengan skor tertinggi
+                Label dengan skor tertinggi
               </p>
               <h4 className="mt-2 text-xl font-semibold text-ink">
                 {primary?.category === "species_candidate"
@@ -378,7 +387,12 @@ export function BioacousticResultView({
                   ["Analisis", localTime(result.analyzedAt)],
                   ["Evidence media ID", result.mediaId],
                   ["Audio SHA-256", result.audioSha256],
-                  ["Hasil AI", "Sementara; belum disimpan permanen"],
+                  [
+                    "Hasil AI",
+                    result.persistence === "stored_unverified"
+                      ? "Snapshot kandidat tersimpan; belum diverifikasi"
+                      : "Sementara; belum disimpan permanen",
+                  ],
                 ] as const
               ).map(([label, value]) => (
                 <div key={label} className="min-w-0">

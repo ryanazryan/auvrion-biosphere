@@ -83,9 +83,6 @@ export function OperatorIntelligence() {
           >
             Intelijen observasi
           </h2>
-          <p className="mt-1 text-xs text-muted">
-            Dihitung dari rekaman organisasi ini, bukan sensor atau AI simulasi.
-          </p>
         </div>
         <fieldset
           aria-label="Rentang grafik"
@@ -232,9 +229,6 @@ export function OperatorIntelligence() {
                   ))}
                 </ul>
               )}
-              <p className="mt-2 text-[11px] text-muted">
-                Jumlah unggahan tidak membuktikan perangkat masih online.
-              </p>
             </div>
           </div>
           {data.partial && (

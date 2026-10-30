@@ -131,7 +131,7 @@ export function RangerFindingForm({
             setError("");
             requestId.current = null;
           }}
-          placeholder="Tuliskan apa yang benar-benar diamati, keterbatasan verifikasi, dan rekomendasi. Jangan membuat klaim kejadian yang belum diperiksa."
+          placeholder="Tuliskan apa yang benar-benar diamati, keterbatasan verifikasi, dan rekomendasi."
           className="mt-2 block w-full rounded-md border border-line-strong p-3 text-sm focus-visible:outline-2 focus-visible:outline-brand"
         />
       </label>

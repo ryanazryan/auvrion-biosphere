@@ -298,7 +298,6 @@ export const auth = betterAuth({
       // regenerating recovery credentials.
       const blockedPaths = new Set([
         "/two-factor/disable",
-        "/two-factor/generate-backup-codes",
         "/two-factor/get-totp-uri",
         "/two-factor/view-backup-codes",
       ]);
@@ -307,6 +306,31 @@ export const auth = betterAuth({
         throw new APIError("FORBIDDEN", {
           message: "SECURITY_FACTOR_CHANGE_NOT_AVAILABLE",
         });
+      }
+
+      // Regeneration requires current-session MFA, fresh TOTP verification,
+      // approved account/grants, and Better Auth's password verification.
+      // The stock endpoint rotates and invalidates all previous backup codes.
+      if (ctx.path === "/two-factor/generate-backup-codes") {
+        if (!ctx.headers) {
+          throw new APIError("UNAUTHORIZED", { message: "SESSION_REQUIRED" });
+        }
+        const signed = await auth.api.getSession({ headers: ctx.headers });
+        if (!signed) {
+          throw new APIError("UNAUTHORIZED", { message: "SESSION_REQUIRED" });
+        }
+        await assertPasskeyAccountAllowed({
+          id: signed.user.id,
+          email: signed.user.email,
+          emailVerified: signed.user.emailVerified,
+        });
+        const mfa = { sessionId: signed.session.id, userId: signed.user.id };
+        if (
+          !(await hasMfaSessionAssurance(mfa)) ||
+          !(await hasRecentMfaAssurance(mfa))
+        ) {
+          throw new APIError("FORBIDDEN", { message: "RECENT_TOTP_REQUIRED" });
+        }
       }
 
       if (

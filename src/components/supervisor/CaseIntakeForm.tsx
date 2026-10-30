@@ -69,8 +69,8 @@ export function CaseIntakeForm({
   if (!observations.length) {
     return (
       <p className="rounded-md border border-line bg-bg px-4 py-3 text-sm text-muted">
-        Belum ada observasi yang dapat dihubungkan. Catat observasi manual
-        melalui menu Observasi, lalu kembali ke sini.
+        Belum ada observasi yang dapat dihubungkan. Buat observasi atau gunakan
+        rekaman LISTEN yang sudah diterima, kemudian kembali ke sini.
       </p>
     );
   }
@@ -98,7 +98,7 @@ export function CaseIntakeForm({
           maxLength={160}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Tinjau observasi lingkungan dari sumber manual"
+          placeholder="Tinjau rekaman LISTEN atau observasi lapangan"
           className="mt-1.5 w-full rounded-md border border-line-strong bg-white p-2.5 text-sm"
         />
       </label>
@@ -111,7 +111,7 @@ export function CaseIntakeForm({
           rows={4}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Tuliskan alasan review dan ketidakpastian; jangan menyatakan kebakaran atau spesies terkonfirmasi."
+          placeholder="Ringkas bukti WAV, dugaan sumber suara, hasil analisis AI (jika tersedia), dan ketidakpastiannya."
           className="mt-1.5 w-full rounded-md border border-line-strong bg-white p-2.5 text-sm"
         />
       </label>

@@ -11,7 +11,10 @@ import {
 } from "react";
 import { AirQualityControl } from "@/components/gis/AirQualityControl";
 import { MapLocationControls } from "@/components/gis/MapLocationControls";
-import type { MapNavigationTarget } from "@/components/gis/map-navigation";
+import type {
+  ApprovedIotMapPoint,
+  MapNavigationTarget,
+} from "@/components/gis/map-navigation";
 import * as I from "@/figma-operator/components/icons";
 import { OperatorLayout } from "@/figma-operator/components/operator/OperatorLayout";
 import {
@@ -150,6 +153,9 @@ export function GisWorkspace() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hotspots, setHotspots] = useState<HotspotPoint[]>([]);
   const [airQualitySites, setAirQualitySites] = useState<AirQualitySite[]>([]);
+  const [approvedIotLocations, setApprovedIotLocations] = useState<
+    ApprovedIotMapPoint[]
+  >([]);
   const [navigationTarget, setNavigationTarget] =
     useState<MapNavigationTarget | null>(null);
   const [pickedMapLocation, setPickedMapLocation] = useState<{
@@ -236,6 +242,38 @@ export function GisWorkspace() {
     return () => abort.abort();
     // `key` is the canonical serialized input; `params` is re-created only with input changes.
   }, [params, refresh]);
+
+  useEffect(() => {
+    void refresh;
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const params = new URLSearchParams({
+          organizationId: operator.organizationId,
+        });
+        const response = await fetch(
+          `/api/operator/listen/locations?${params}`,
+          {
+            credentials: "same-origin",
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = (await response.json()) as {
+          items?: ApprovedIotMapPoint[];
+        };
+        if (!controller.signal.aborted)
+          setApprovedIotLocations(
+            Array.isArray(result.items) ? result.items : [],
+          );
+      } catch {
+        if (!controller.signal.aborted) setApprovedIotLocations([]);
+      }
+    };
+    void load();
+    return () => controller.abort();
+  }, [operator.organizationId, refresh]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -570,6 +608,11 @@ export function GisWorkspace() {
                       const sourcePoint = approvedPoint(row);
                       const canCenter =
                         sourcePoint !== null && hasApprovedBasemap;
+                      const installation = approvedIotLocations.find(
+                        (point) =>
+                          (point as { sourceCode?: string }).sourceCode ===
+                          row.source.code,
+                      );
                       return (
                         <article
                           key={row.id}
@@ -648,6 +691,26 @@ export function GisWorkspace() {
                                   <I.MapPin className="size-3.5" />
                                   Pusatkan di peta
                                 </button>
+                                {installation && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedId(row.id);
+                                      setNavigationTarget({
+                                        latitude: installation.latitude,
+                                        longitude: installation.longitude,
+                                        label: installation.label,
+                                        kind: "device",
+                                        request: Date.now(),
+                                      });
+                                      setMobileView("map");
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand-50 px-2.5 py-2 text-[11px] font-medium text-brand hover:bg-brand-100"
+                                  >
+                                    <I.MapPin className="size-3.5" />
+                                    Lihat lokasi alat
+                                  </button>
+                                )}
                                 <a
                                   href={`/operator/observations/${encodeURIComponent(row.id)}`}
                                   className="inline-flex items-center gap-1.5 rounded-md border border-line-strong bg-white px-2.5 py-2 text-[11px] text-ink hover:bg-bg"
@@ -704,6 +767,16 @@ export function GisWorkspace() {
                 onPickedLocationChange={setPickedMapLocation}
                 selectedTimeZone={INDONESIA_TIME_ZONES[timeZone]}
                 navigationTarget={navigationTarget}
+                approvedIotLocations={
+                  filters.domain === "environmental_risk" ||
+                  filters.quality ||
+                  filters.sourceId ||
+                  filters.zoneId ||
+                  filters.from ||
+                  filters.to
+                    ? []
+                    : approvedIotLocations
+                }
               />
               {/* AB-WC-011-PIN-AQI-UX-20261028 */}
               <MapLocationControls
@@ -788,12 +861,36 @@ export function GisWorkspace() {
                     <span className="text-ink">
                       {formatFullDate(selected.receivedAt, timeZone)}
                     </span>
-                    <span className="text-muted">Zona</span>
+                    <span className="text-muted">Zona observasi</span>
                     <span className="text-ink">{getZoneName(selected)}</span>
-                    <span className="text-muted">Lokasi</span>
+                    <span className="text-muted">Lokasi observasi</span>
                     <span className="text-ink">
                       <LocationText row={selected} />
                     </span>
+                    {approvedIotLocations
+                      .filter(
+                        (point) =>
+                          (point as { sourceCode?: string }).sourceCode ===
+                          selected.source.code,
+                      )
+                      .map((point) => (
+                        <div
+                          key={point.id}
+                          className="col-span-2 grid grid-cols-2 gap-y-1 border-t border-line pt-2"
+                        >
+                          <span className="text-muted">
+                            Lokasi alat (pemasangan)
+                          </span>
+                          <span className="font-medium text-ink">
+                            {point.label}
+                          </span>
+                          <span className="text-muted">Zona alat</span>
+                          <span className="text-ink">
+                            {(point as { zoneName?: string | null }).zoneName ??
+                              "Belum ada zona operasional"}
+                          </span>
+                        </div>
+                      ))}
                   </div>
                   <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
                     <a

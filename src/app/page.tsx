@@ -2,10 +2,13 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { LogoutButton } from "@/components/auth/logout-button";
+import { getMfaAssuranceState } from "@/server/auth/mfa-assurance-store";
 import { getCurrentSession } from "@/server/auth/session";
+import { checkAccountAccess } from "@/server/authorization/account-access";
 import { checkAdminAccess } from "@/server/authorization/admin-access";
 import { checkOperationalAccess } from "@/server/authorization/operational-access";
 import { getDb } from "@/server/db";
+import { user } from "@/server/db/auth-schema";
 import { organizations, roleGrants } from "@/server/db/grants-schema";
 import { getRoleHomeCandidates } from "@/server/navigation/role-home";
 
@@ -66,6 +69,30 @@ export default async function HomePage() {
       candidate.role,
     );
     if (access.allowed) redirect(candidate.href);
+  }
+
+  // A login session can outlive the explicit MFA assurance (8h).
+  // Do not turn an active Ranger (or other operational) grant into a vague
+  // "Workspace unavailable" page when a secure reauthentication is required.
+  if (assignments.length > 0) {
+    const accountAccess = await checkAccountAccess();
+    if (accountAccess.allowed) {
+      const state = await getMfaAssuranceState({
+        sessionId: currentSession.session.id,
+        userId: currentSession.user.id,
+      });
+      const [identity] = await db
+        .select({ totpEnabled: user.twoFactorEnabled })
+        .from(user)
+        .where(eq(user.id, currentSession.user.id))
+        .limit(1);
+      if (
+        state === "expired" ||
+        (state === "missing" && identity?.totpEnabled === true)
+      ) {
+        redirect("/session-expired");
+      }
+    }
   }
 
   // Existing safe fallback for pending/unsupported roles. Do not grant broad access.

@@ -45,6 +45,9 @@ type Props = {
   selectedId: string | null;
   timeZone: string;
   onAnalyze: (source: RecordingSource) => void;
+  onPlay: (source: RecordingSource) => void;
+  playbackLoadingId: string | null;
+  analyzing: boolean;
   onRefresh: () => void;
 };
 
@@ -57,6 +60,9 @@ export function StoredRecordingList({
   selectedId,
   timeZone,
   onAnalyze,
+  onPlay,
+  playbackLoadingId,
+  analyzing,
   onRefresh,
 }: Props) {
   const [filter, setFilter] = useState<RecordingFilter>("all");
@@ -172,16 +178,28 @@ export function StoredRecordingList({
                         : "Manual"}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onAnalyze(source)}
-                    disabled={busy || recording}
-                    className="mt-3 w-full rounded-md bg-brand px-3 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
-                  >
-                    {busy && selectedId === source.id
-                      ? "Menganalisis…"
-                      : "Analisis Perch"}
-                  </button>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onPlay(source)}
+                      disabled={busy || recording}
+                      className="rounded-md border border-line px-3 py-2 text-xs font-semibold text-ink hover:bg-bg disabled:opacity-50"
+                    >
+                      {playbackLoadingId === source.id
+                        ? "Memuat WAV…"
+                        : "Buka WAV"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onAnalyze(source)}
+                      disabled={busy || recording}
+                      className="rounded-md bg-brand px-3 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                    >
+                      {analyzing && selectedId === source.id
+                        ? "Menganalisis…"
+                        : "Analisis Perch"}
+                    </button>
+                  </div>
                 </li>
               );
             })}

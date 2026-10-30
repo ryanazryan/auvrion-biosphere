@@ -582,11 +582,15 @@ export function GisMapCanvas({
   useEffect(() => {
     if (!hotspotLayerReady || !HAS_APPROVED_BASEMAP) return;
     const map = mapRef.current;
-    const source = map?.getSource("auvrion-nasa-hotspots") as
+    if (!map?.isStyleLoaded()) {
+      return;
+    }
+
+    const source = map.getSource("auvrion-nasa-hotspots") as
       | import("maplibre-gl").GeoJSONSource
       | undefined;
-    if (!map || !source) {
-      console.error("AUVRION_HOTSPOTS_SOURCE_MISSING");
+
+    if (!source) {
       return;
     }
     const layerIds = [

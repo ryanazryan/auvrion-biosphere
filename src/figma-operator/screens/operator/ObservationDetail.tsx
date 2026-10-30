@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback } from "react";
 import { ObservationLocationSummary } from "@/components/gis/ObservationLocationSummary";
 import { ObservationSignalForm } from "@/components/operator/ObservationSignalForm";
@@ -145,6 +146,16 @@ function ObservationBody({ observation: o }: { observation: Observation }) {
             <h1 className="text-2xl font-semibold tracking-tight text-ink">
               {observationTitle}
             </h1>
+            {!isSimulation &&
+              o.quality !== "invalid" &&
+              sourceCode !== "WC009-MANUAL-DEV" && (
+                <Link
+                  href="/operator/review/new"
+                  className="inline-flex rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+                >
+                  Buat Case untuk Supervisor
+                </Link>
+              )}
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
               <span>

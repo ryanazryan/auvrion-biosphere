@@ -16,7 +16,7 @@ export type RawInference = {
   mediaId: string;
   audioSha256: string;
   analyzedAt: string;
-  persistence: "ephemeral_result";
+  persistence: "ephemeral_result" | "stored_unverified";
 };
 export type CandidateView = RawCandidate & {
   category:
@@ -65,6 +65,13 @@ const EVENTS = new Set([
   "speech",
   "noise",
   "mechanisms",
+  "engine",
+  "vehicle",
+  "human_group_actions",
+  "domestic_sounds_and_home_sounds",
+  "chainsaw",
+  "gunshot",
+  "gun_shot",
 ]);
 /** Only label-pattern recognition, never an authoritative taxonomic lookup. */
 const LATIN_BINOMIAL = /^[A-Z][a-z-]+ [a-z][a-z-]+$/;
