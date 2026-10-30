@@ -767,7 +767,16 @@ export function GisWorkspace() {
                 onPickedLocationChange={setPickedMapLocation}
                 selectedTimeZone={INDONESIA_TIME_ZONES[timeZone]}
                 navigationTarget={navigationTarget}
-                approvedIotLocations={approvedIotLocations}
+                approvedIotLocations={
+                  filters.domain === "environmental_risk" ||
+                  filters.quality ||
+                  filters.sourceId ||
+                  filters.zoneId ||
+                  filters.from ||
+                  filters.to
+                    ? []
+                    : approvedIotLocations
+                }
               />
               {/* AB-WC-011-PIN-AQI-UX-20261028 */}
               <MapLocationControls

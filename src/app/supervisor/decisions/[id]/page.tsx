@@ -12,6 +12,7 @@ import {
   StatusChip,
   shortId,
 } from "@/components/supervisor/SupervisorElements";
+import { SupervisorPerchReview } from "@/components/supervisor/SupervisorPerchReview";
 import {
   formatEvidenceTime,
   formatMeasurementValue,
@@ -89,7 +90,7 @@ export default async function SupervisorCaseDetail({
         desc={`Case ${shortId(c.id)} · versi ${c.version} · dibuat ${dateTime(c.createdAt)}`}
         action={<StatusChip status={c.status} />}
       />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-5">
           <Panel title={`Observasi terkait · ${observations.length}`}>
             {!observations.length ? (
@@ -98,33 +99,6 @@ export default async function SupervisorCaseDetail({
               <ul className="divide-y divide-line">
                 {observations.map((o) => (
                   <li key={o.id} className="px-4 py-3">
-                    {o.evidence?.sourceKind === "listen_device" && (
-                      <section
-                        className="mt-3 rounded-md border border-line bg-white p-3"
-                        aria-label="Rekaman audio LISTEN untuk Supervisor"
-                      >
-                        <p className="text-xs font-semibold text-ink">
-                          Bukti audio asli LISTEN
-                        </p>
-                        <p className="mt-1 text-xs text-muted">
-                          Lokasi pemasangan perangkat:{" "}
-                          {installationLabels.get(o.id) ??
-                            "Belum terverifikasi atau belum disetujui untuk ditampilkan"}
-                        </p>
-                        <p className="mt-1 text-xs text-muted">
-                          Lokasi sumber suara atau satwa belum dapat dipastikan
-                          hanya dari posisi mikrofon.
-                        </p>
-                        <ListenAudioPlayer
-                          src={`/api/supervisor/cases/${c.id}/observations/${o.id}/audio`}
-                          title={`Putar rekaman LISTEN ${o.sourceCode}`}
-                        />
-                        <p className="mt-1 text-xs text-muted">
-                          Audio disediakan dari penyimpanan privat setelah
-                          autentikasi, MFA, dan pemeriksaan tautan Case.
-                        </p>
-                      </section>
-                    )}
                     <p className="text-sm font-semibold text-ink">
                       {o.domain === "biodiversity"
                         ? "Biodiversitas"
@@ -135,9 +109,59 @@ export default async function SupervisorCaseDetail({
                       Kualitas: {o.quality} · diterima {dateTime(o.receivedAt)}{" "}
                       · diamati {dateTime(o.observedAt)}
                     </p>
-                    <p className="mt-1 whitespace-pre-wrap text-xs text-muted">
-                      {o.linkReason}
-                    </p>
+                    {o.evidence?.sourceKind === "listen_device" && (
+                      <section
+                        aria-label="Tinjauan bukti LISTEN"
+                        className="mt-4 space-y-3"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl bg-bg px-4 py-3">
+                          <div>
+                            <p className="text-xs font-semibold text-ink">
+                              Lokasi pemasangan
+                            </p>
+                            <p className="mt-1 text-sm text-ink">
+                              {installationLabels.get(o.id) ??
+                                "Belum disetujui untuk ditampilkan"}
+                            </p>
+                          </div>
+                          <p className="max-w-sm text-[11px] leading-5 text-muted">
+                            Posisi mikrofon bukan koordinat pasti keberadaan
+                            satwa atau sumber suara.
+                          </p>
+                        </div>
+                        <ListenAudioPlayer
+                          src={`/api/supervisor/cases/${c.id}/observations/${o.id}/audio`}
+                          title={`Rekaman ${o.sourceCode}`}
+                        />
+                        <SupervisorPerchReview
+                          caseId={c.id}
+                          observationId={o.id}
+                        />
+                      </section>
+                    )}
+                    <section
+                      className="mt-4 rounded-xl border border-line bg-white p-4"
+                      aria-label="Ringkasan operator"
+                    >
+                      <h3 className="text-sm font-semibold text-ink">
+                        Ringkasan dari Operator
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-6 text-muted">
+                        {o.linkReason.length > 250
+                          ? `${o.linkReason.slice(0, 250).trimEnd()}…`
+                          : o.linkReason}
+                      </p>
+                      {o.linkReason.length > 250 && (
+                        <details className="mt-3 border-t border-line pt-3">
+                          <summary className="cursor-pointer text-xs font-semibold text-brand">
+                            Baca alasan lengkap
+                          </summary>
+                          <p className="mt-3 whitespace-pre-wrap text-[13px] leading-6 text-muted">
+                            {o.linkReason}
+                          </p>
+                        </details>
+                      )}
+                    </section>
                     {o.domain === "biodiversity" && (
                       <p className="mt-2 rounded-lg bg-brand-50 p-2 text-xs text-ink">
                         Audio dapat berisi ucapan manusia, noise, atau satwa.
@@ -161,66 +185,68 @@ export default async function SupervisorCaseDetail({
                       </p>
                     ))}
                     {o.evidence && (
-                      <div className="mt-3 space-y-2 rounded-md border border-line bg-bg p-3 text-xs leading-5">
-                        <p className="font-semibold text-ink">
-                          Bukti observasi untuk keputusan
-                        </p>
-                        <p>
-                          Asal: {sourceKindLabel(o.evidence.sourceKind)} ·{" "}
-                          {ingestionModeLabel(o.evidence.ingestionMode)}
-                        </p>
-                        <p>
-                          ID rekaman sumber:{" "}
-                          {o.evidence.sourceRecordId ?? "Tidak tersedia"}
-                        </p>
-                        <p>
-                          Metode akuisisi:{" "}
-                          {o.evidence.acquisitionMethod ?? "Belum diketahui"}
-                        </p>
-                        {o.evidence.measurements.length > 0 && (
-                          <ul className="space-y-1 border-t border-line pt-2">
-                            {o.evidence.measurements.map((m) => (
-                              <li key={m.id}>
-                                {m.kind === "air_temperature"
-                                  ? "Suhu udara"
-                                  : m.kind === "relative_humidity"
-                                    ? "Kelembapan relatif"
-                                    : m.kind === "pm2_5"
-                                      ? "PM2.5"
-                                      : m.kind}
-                                : {formatMeasurementValue(m.measuredValue)}{" "}
-                                {m.unit}
-                                {" · "}
-                                {formatEvidenceTime(m.measuredAt, "WITA")}
-                                {" · kualitas: "}
-                                {m.quality}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        {o.evidence.attribution && (
-                          <p>Atribusi: {o.evidence.attribution}</p>
-                        )}
-                        {o.evidence.limitations.length > 0 && (
-                          <div className="border-t border-line pt-2">
-                            <p className="font-medium">Keterbatasan sumber</p>
-                            <ul className="list-disc pl-4">
-                              {[...new Set(o.evidence.limitations)].map(
-                                (note) => (
-                                  <li key={note}>{note}</li>
-                                ),
-                              )}
+                      <details className="mt-4 rounded-xl border border-line bg-white text-xs">
+                        <summary className="cursor-pointer px-4 py-3 font-semibold text-ink">
+                          Detail teknis, sumber & provenans
+                        </summary>
+                        <div className="space-y-2 border-t border-line px-4 py-3 leading-5">
+                          <p>
+                            Asal: {sourceKindLabel(o.evidence.sourceKind)} ·{" "}
+                            {ingestionModeLabel(o.evidence.ingestionMode)}
+                          </p>
+                          <p>
+                            ID rekaman sumber:{" "}
+                            {o.evidence.sourceRecordId ?? "Tidak tersedia"}
+                          </p>
+                          <p>
+                            Metode akuisisi:{" "}
+                            {o.evidence.acquisitionMethod ?? "Belum diketahui"}
+                          </p>
+                          {o.evidence.measurements.length > 0 && (
+                            <ul className="space-y-1 border-t border-line pt-2">
+                              {o.evidence.measurements.map((m) => (
+                                <li key={m.id}>
+                                  {m.kind === "air_temperature"
+                                    ? "Suhu udara"
+                                    : m.kind === "relative_humidity"
+                                      ? "Kelembapan relatif"
+                                      : m.kind === "pm2_5"
+                                        ? "PM2.5"
+                                        : m.kind}
+                                  : {formatMeasurementValue(m.measuredValue)}{" "}
+                                  {m.unit}
+                                  {" · "}
+                                  {formatEvidenceTime(m.measuredAt, "WITA")}
+                                  {" · kualitas: "}
+                                  {m.quality}
+                                </li>
+                              ))}
                             </ul>
-                          </div>
-                        )}
-                        <p className="text-muted">
-                          {o.evidence.hasCoordinates
-                            ? "Titik tersimpan, koordinat presisi dilindungi."
-                            : "Titik belum diketahui."}{" "}
-                          Zona operasional adalah area tugas, bukan koordinat
-                          kejadian terverifikasi.
-                        </p>
-                      </div>
+                          )}
+                          {o.evidence.attribution && (
+                            <p>Atribusi: {o.evidence.attribution}</p>
+                          )}
+                          {o.evidence.limitations.length > 0 && (
+                            <div className="border-t border-line pt-2">
+                              <p className="font-medium">Keterbatasan sumber</p>
+                              <ul className="list-disc pl-4">
+                                {[...new Set(o.evidence.limitations)].map(
+                                  (note) => (
+                                    <li key={note}>{note}</li>
+                                  ),
+                                )}
+                              </ul>
+                            </div>
+                          )}
+                          <p className="text-muted">
+                            {o.evidence.hasCoordinates
+                              ? "Titik tersimpan, koordinat presisi dilindungi."
+                              : "Titik belum diketahui."}{" "}
+                            Zona operasional adalah area tugas, bukan koordinat
+                            kejadian terverifikasi.
+                          </p>
+                        </div>
+                      </details>
                     )}
                   </li>
                 ))}
@@ -246,7 +272,14 @@ export default async function SupervisorCaseDetail({
                       Versi {e.fromVersion} → {e.toVersion} ·{" "}
                       {dateTime(e.createdAt)}
                     </p>
-                    <p className="mt-2 text-[13px] leading-6">{e.reason}</p>
+                    <details className="mt-2 rounded-lg bg-bg px-3 py-2">
+                      <summary className="cursor-pointer text-xs font-medium text-brand">
+                        Alasan keputusan · lihat detail
+                      </summary>
+                      <p className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-muted">
+                        {e.reason}
+                      </p>
+                    </details>
                   </li>
                 ))}
               </ol>

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { getCurrentSession } from "@/server/auth/session";
 import { checkAccountAccess } from "@/server/authorization/account-access";
 import { checkOperationalAccess } from "@/server/authorization/operational-access";
@@ -326,7 +326,12 @@ export async function listWorkspaceZones(organizationId: string) {
       name: operationalZones.name,
     })
     .from(operationalZones)
-    .where(eq(operationalZones.organizationId, organizationId))
+    .where(
+      and(
+        eq(operationalZones.organizationId, organizationId),
+        ne(operationalZones.code, "WC013-DEMO"),
+      ),
+    )
     .orderBy(asc(operationalZones.code))
     .limit(100);
 }

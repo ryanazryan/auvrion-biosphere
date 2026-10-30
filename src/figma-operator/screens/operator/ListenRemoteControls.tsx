@@ -492,10 +492,6 @@ export function ListenRemoteControls({
           {error}
         </p>
       )}
-      <p className="mt-3 text-xs text-muted">
-        Status tombol mengikuti konfirmasi ESP32. Jeda tidak menghapus WAV yang
-        sudah menunggu unggahan.
-      </p>
     </section>
   );
 }

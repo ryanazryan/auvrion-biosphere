@@ -111,7 +111,7 @@ export function CaseIntakeForm({
           rows={4}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Ringkas bukti WAV, dugaan sumber suara, hasil analisis AI (jika tersedia), dan ketidakpastiannya. Label AI bukan verifikasi spesies."
+          placeholder="Ringkas bukti WAV, dugaan sumber suara, hasil analisis AI (jika tersedia), dan ketidakpastiannya."
           className="mt-1.5 w-full rounded-md border border-line-strong bg-white p-2.5 text-sm"
         />
       </label>

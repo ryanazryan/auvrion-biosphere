@@ -277,7 +277,7 @@ export function EnvironmentalAdvisory({
             }
             className="rounded-md px-2.5 py-1.5 font-medium text-brand hover:bg-brand-50"
           >
-            ✧ Tanya AI
+            Tanya AI
           </button>
         </div>
         {expanded && (

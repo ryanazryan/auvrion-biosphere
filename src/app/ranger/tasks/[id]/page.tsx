@@ -1,23 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ObservationLocationMap } from "@/components/gis/ObservationLocationMap";
-import { RangerIcon } from "@/components/ranger/RangerIcons";
+import { RangerTaskEvidenceSummary } from "@/components/ranger/RangerTaskEvidenceSummary";
+import { RangerTaskLocationMap } from "@/components/ranger/RangerTaskLocationMap";
 import {
   formattedDate,
   Heading,
-  InfoCard,
   RangerStatus,
   SafetyPanel,
   taskCode,
   taskZone,
 } from "@/components/ranger/RangerViews";
 import { TaskActionPanel } from "@/components/ranger/TaskActionPanel";
-import {
-  formatEvidenceTime,
-  formatMeasurementValue,
-  ingestionModeLabel,
-  sourceKindLabel,
-} from "@/figma-operator/gis/observation-evidence-display";
 import { getAssignedCaseObservations } from "@/server/ranger/ranger-case-observations";
 import { isTaskUuid } from "@/server/ranger/ranger-task-query";
 import { getMyRangerTask } from "@/server/ranger/ranger-task-service";
@@ -29,9 +22,9 @@ const STEPS = [
   "Diterima",
   "Di lapangan",
   "Diajukan",
-  "Dievaluasi Supervisor",
+  "Dievaluasi",
 ];
-const stepByStatus: Record<string, number> = {
+const currentStep: Record<string, number> = {
   assigned: 1,
   accepted: 2,
   in_progress: 3,
@@ -40,6 +33,7 @@ const stepByStatus: Record<string, number> = {
   completed: 5,
   cancelled: 1,
 };
+
 export default async function RangerTaskDetail({
   params,
 }: {
@@ -51,225 +45,173 @@ export default async function RangerTaskDetail({
   if (!access.allowed) return null;
   const task = await getMyRangerTask(access.organizationId, access.userId, id);
   if (!task) notFound();
-  const caseObservations = await getAssignedCaseObservations(
+  const observations = await getAssignedCaseObservations(
     access.organizationId,
     access.userId,
     id,
   );
-  if (!caseObservations) notFound();
-  const step = stepByStatus[task.status] ?? 1;
-  const zone = taskZone(task.instructions);
+  if (!observations) notFound();
+  const step = currentStep[task.status] ?? 1;
+  const parsedZone = taskZone(task.instructions);
+  const instructionText = task.instructions
+    ?.replace(/^Operational zone:\s*[^\r\n]+\s*/m, "")
+    .trim();
+
   return (
-    <>
+    <main className="mx-auto w-full min-w-0 max-w-[1380px] space-y-4 pb-12">
       <Link
         href="/ranger/tasks"
-        className="mb-4 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
+        className="inline-flex items-center gap-2 text-xs font-semibold text-brand hover:underline"
       >
-        <RangerIcon name="chevron-left" className="size-3.5" />
-        Tugas Saya
+        <span aria-hidden="true">←</span> Kembali ke Tugas Saya
       </Link>
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <Heading
-          title={task.title}
-          eyebrow={`${taskCode(task.id)} · Tugas lapangan`}
-          note={`Ditugaskan ${formattedDate(task.assignedAt)} WITA`}
-        />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <Heading
+            title={task.title}
+            eyebrow={`${taskCode(task.id)} · Verifikasi operasional`}
+            note={`Ditugaskan ${formattedDate(task.assignedAt)} WITA`}
+          />
+        </div>
         <RangerStatus status={task.status} />
       </div>
       <section
-        aria-label="Tahap tugas"
-        className="mb-5 rounded-lg border border-line bg-white p-3.5 sm:p-4"
+        aria-label="Progres tugas"
+        className="rounded-xl border border-line bg-white p-3 sm:p-4"
       >
-        <p className="mb-2 text-[13px] font-medium text-ink sm:hidden">
-          {STEPS[step - 1]} · Tahap {step} dari {STEPS.length}
+        <p className="mb-2 text-xs font-medium text-muted">
+          {STEPS[step - 1]} · Tahap {step} dari 5
         </p>
-        <ol className="grid grid-cols-5 gap-2.5">
+        <ol className="grid grid-cols-5 gap-1.5 sm:gap-2">
           {STEPS.map((label, i) => (
             <li
               key={label}
               aria-label={`${label}${i < step ? ", tercapai" : ""}`}
             >
               <div
-                className={`h-1 rounded-full ${i < step ? "bg-brand" : "bg-line"}`}
+                className={`h-1.5 rounded-full ${i < step ? "bg-brand" : "bg-line"}`}
               />
-              <span className="mt-1.5 hidden text-[11px] text-muted sm:block">
+              <span className="mt-1 hidden text-[11px] text-muted md:block">
                 {label}
               </span>
             </li>
           ))}
         </ol>
       </section>
-      <div className="space-y-5">
-        <SafetyPanel safety={task.safetyNotes} />
-        <InfoCard
-          title="Penugasan"
-          icon={<RangerIcon name="file" className="size-4 text-muted" />}
-        >
-          <dl className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <dt className="text-xs text-muted">Area kerja</dt>
-              <dd className="mt-1 font-medium">
-                {zone ?? "Sesuai instruksi Supervisor"}
-              </dd>
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
+        <div className="min-w-0 space-y-4">
+          <section className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-line bg-white p-4">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                Area penugasan
+              </p>
+              <p className="mt-2 text-sm font-semibold text-ink">
+                {parsedZone ?? "Mengambil lokasi dari penugasan"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-line bg-white p-4">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                Observasi terkait
+              </p>
+              <p className="mt-2 text-sm font-semibold text-ink">
+                {observations.length} observasi
+              </p>
               <p className="mt-1 text-xs text-muted">
-                Operational Zone adalah area kerja penugasan, bukan pin
-                koordinat observasi.
+                {observations.some(
+                  (item) => item.evidence?.audioRecordings.length,
+                )
+                  ? "Bukti WAV tersedia"
+                  : "Belum ada bukti audio LISTEN"}
               </p>
             </div>
-            <div>
-              <dt className="text-xs text-muted">Ditugaskan</dt>
-              <dd className="mt-1">{formattedDate(task.assignedAt)} WITA</dd>
+          </section>
+          <RangerTaskLocationMap
+            organizationId={access.organizationId}
+            taskId={task.id}
+          />
+          <RangerTaskEvidenceSummary
+            observations={observations}
+            taskId={task.id}
+            organizationId={access.organizationId}
+          />
+          <section className="rounded-xl border border-line bg-white">
+            <div className="border-b border-line px-4 py-3">
+              <h2 className="text-sm font-semibold text-ink">
+                Instruksi Supervisor
+              </h2>
             </div>
-            <div>
-              <dt className="text-xs text-muted">Referensi Case</dt>
-              <dd className="mt-1 font-mono text-xs">
-                {task.caseId.slice(0, 8)}…
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted">Versi</dt>
-              <dd className="mt-1 tabular-nums">{task.version}</dd>
-            </div>
-          </dl>
-        </InfoCard>
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_290px]">
-          <div className="space-y-5">
-            <InfoCard title="Instruksi Supervisor">
-              <p className="whitespace-pre-wrap">
-                {task.instructions?.trim() ||
-                  "Instruksi belum tersedia. Hubungi Supervisor."}
-              </p>
-            </InfoCard>
-            <InfoCard title="Bukti dan observasi">
-              {caseObservations.length === 0 ? (
-                <p className="text-[13px] text-muted">
-                  Belum ada observasi aktif yang ditautkan pada Case ini.
-                </p>
-              ) : (
-                <ol className="divide-y divide-line">
-                  {caseObservations.map((observation) => (
-                    <li
-                      key={observation.id}
-                      className="py-3 first:pt-0 last:pb-0"
-                    >
-                      <p className="text-[13px] font-medium text-ink">
-                        Observasi {observation.id.slice(0, 8)}…
-                      </p>
-                      <p className="mt-1 text-xs text-muted">
-                        {observation.domain} · {observation.quality} ·{" "}
-                        {observation.sourceCode}
-                      </p>
-                      <p className="mt-1 text-xs text-muted">
-                        Diterima {formattedDate(observation.receivedAt)} WITA
-                      </p>
-                      {observation.domain === "environmental_risk" && (
-                        <ObservationLocationMap
-                          observationId={observation.id}
-                          organizationId={access.organizationId}
-                        />
-                      )}
-                      {observation.linkReason && (
-                        <p className="mt-2 whitespace-pre-wrap rounded-lg bg-brand-50 p-3 text-xs text-ink">
-                          <strong>Ringkasan Operator:</strong>{" "}
-                          {observation.linkReason}
-                        </p>
-                      )}
-                      {observation.evidence?.audioRecordings.map((audio) => (
-                        <p
-                          key={audio.recordingId}
-                          className="mt-1 text-xs font-medium text-brand"
-                        >
-                          Bukti WAV · {audio.recordingId} ·{" "}
-                          {(audio.durationMs / 1000).toFixed(1)} detik
-                        </p>
-                      ))}
-                      {observation.evidence && (
-                        <div className="mt-2 space-y-1 rounded-md border border-line bg-bg p-2.5 text-xs leading-5">
-                          <p>
-                            Sumber:{" "}
-                            {sourceKindLabel(observation.evidence.sourceKind)} ·{" "}
-                            {ingestionModeLabel(
-                              observation.evidence.ingestionMode,
-                            )}
-                          </p>
-                          {observation.evidence.measurements.map((m) => (
-                            <p key={m.id}>
-                              {m.kind === "air_temperature"
-                                ? "Suhu udara"
-                                : m.kind === "relative_humidity"
-                                  ? "Kelembapan relatif"
-                                  : m.kind === "pm2_5"
-                                    ? "PM2.5"
-                                    : m.kind}
-                              : {formatMeasurementValue(m.measuredValue)}{" "}
-                              {m.unit}
-                              {" · "}
-                              {formatEvidenceTime(m.measuredAt, "WITA")}
-                            </p>
-                          ))}
-                          {[...new Set(observation.evidence.limitations)]
-                            .slice(0, 3)
-                            .map((note) => (
-                              <p key={note} className="text-muted">
-                                Batasan: {note}
-                              </p>
-                            ))}
-                          <p className="text-muted">
-                            Tidak ada koordinat presisi atau berkas privat dalam
-                            ringkasan ini. Hubungi Supervisor jika tugas
-                            membutuhkan akses lokasi khusus.
-                          </p>
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </InfoCard>
-            <InfoCard
-              title="Riwayat tugas"
-              icon={<RangerIcon name="clock" className="size-4 text-muted" />}
-            >
-              <ol className="border-l border-line pl-4">
-                <li>
-                  <span className="block text-[13px] font-medium">
-                    Tugas ditugaskan kepada Anda.
-                  </span>
-                  <span className="mt-1 block text-xs text-muted">
-                    {formattedDate(task.assignedAt)} WITA
-                  </span>
-                </li>
-              </ol>
-            </InfoCard>
-          </div>
-          <aside>
-            <div className="space-y-3">
-              {task.status === "in_progress" && (
-                <Link
-                  href={`/ranger/tasks/${task.id}/findings/new`}
-                  className="block rounded-md bg-brand-50 px-4 py-3 text-center text-sm font-semibold text-brand"
-                >
-                  Catat temuan lapangan →
-                </Link>
-              )}
-              <TaskActionPanel
-                key={`${task.id}:${task.version}`}
-                taskId={task.id}
-                organizationId={access.organizationId}
-                status={task.status}
-                version={task.version}
-                actor="ranger"
-              />
-              <Link
-                href={`/ranger/tasks/${task.id}/history`}
-                className="block rounded-md border border-line bg-white px-4 py-3 text-center text-sm font-semibold text-brand"
-              >
-                Lihat audit & temuan →
-              </Link>
-            </div>
-          </aside>
+            <p className="whitespace-pre-wrap px-4 py-3 text-[13px] leading-6 text-fg">
+              {instructionText ||
+                "Instruksi belum tersedia. Hubungi Supervisor."}
+            </p>
+            <details className="border-t border-line px-4 py-3">
+              <summary className="cursor-pointer text-xs font-semibold text-brand">
+                Buka arahan keselamatan
+              </summary>
+              <div className="mt-3">
+                <SafetyPanel safety={task.safetyNotes} />
+              </div>
+            </details>
+          </section>
+          <details className="rounded-xl border border-line bg-white px-4 py-3">
+            <summary className="cursor-pointer text-xs font-semibold text-brand">
+              Referensi dan detail teknis tugas
+            </summary>
+            <dl className="mt-3 grid gap-2 text-xs text-muted sm:grid-cols-2">
+              <div>
+                <dt>Case</dt>
+                <dd className="mt-1 break-all font-mono">{task.caseId}</dd>
+              </div>
+              <div>
+                <dt>Task</dt>
+                <dd className="mt-1 break-all font-mono">{task.id}</dd>
+              </div>
+              <div>
+                <dt>Versi</dt>
+                <dd className="mt-1">{task.version}</dd>
+              </div>
+              <div>
+                <dt>Ditugaskan</dt>
+                <dd className="mt-1">{formattedDate(task.assignedAt)} WITA</dd>
+              </div>
+            </dl>
+          </details>
         </div>
+        <aside className="min-w-0 space-y-3 lg:sticky lg:top-24">
+          <section className="space-y-3 rounded-xl border border-line bg-white p-4">
+            <div>
+              <h2 className="text-sm font-semibold text-ink">
+                Tindakan Ranger
+              </h2>
+              <p className="mt-1 text-xs text-muted">
+                Gunakan bukti dan peta sebagai dasar keputusan Anda.
+              </p>
+            </div>
+            {task.status === "in_progress" && (
+              <Link
+                href={`/ranger/tasks/${task.id}/findings/new`}
+                className="block rounded-lg bg-brand-50 px-3 py-3 text-center text-sm font-semibold text-brand"
+              >
+                Catat temuan lapangan →
+              </Link>
+            )}
+            <TaskActionPanel
+              key={`${task.id}:${task.version}`}
+              taskId={task.id}
+              organizationId={access.organizationId}
+              status={task.status}
+              version={task.version}
+              actor="ranger"
+            />
+            <Link
+              href={`/ranger/tasks/${task.id}/history`}
+              className="block rounded-lg border border-line bg-white px-3 py-3 text-center text-sm font-semibold text-brand"
+            >
+              Riwayat audit & temuan →
+            </Link>
+          </section>
+        </aside>
       </div>
-    </>
+    </main>
   );
 }

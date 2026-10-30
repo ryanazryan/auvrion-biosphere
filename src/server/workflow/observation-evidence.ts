@@ -23,6 +23,7 @@ export type CaseObservationEvidence = {
   limitations: string[];
   hasCoordinates: boolean;
   audioRecordings: Array<{
+    mediaId: string;
     recordingId: string;
     durationMs: number;
     receivedAt: Date;
@@ -94,6 +95,7 @@ export async function getCaseObservationEvidence(
   const audioRows = await db
     .select({
       observationId: ingestionRecordings.observationId,
+      mediaId: ingestionRecordings.id,
       recordingId: ingestionRecordings.recordingId,
       durationMs: ingestionRecordings.durationMs,
       receivedAt: ingestionRecordings.createdAt,
@@ -111,6 +113,7 @@ export async function getCaseObservationEvidence(
     const item = result.get(audio.observationId);
     if (item && item.audioRecordings.length < 4) {
       item.audioRecordings.push({
+        mediaId: audio.mediaId,
         recordingId: audio.recordingId,
         durationMs: audio.durationMs,
         receivedAt: audio.receivedAt,

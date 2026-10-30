@@ -284,12 +284,6 @@ export function ListenMonitor() {
               administrasi untuk inventaris lengkap.
             </p>
           )}
-          <footer className="border-t border-line px-4 py-3 text-xs leading-5 text-muted">
-            Koneksi langsung belum dapat dipastikan tanpa heartbeat. Registrasi
-            aktif bukan status online; penerimaan WAV tidak membuktikan
-            perangkat masih terhubung. Hasil AI Perch tidak otomatis menjadi
-            temuan terverifikasi.
-          </footer>
         </>
       ) : (
         <div className="px-4 py-7 text-sm text-muted">

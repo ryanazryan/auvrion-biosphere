@@ -229,9 +229,6 @@ export function OperatorIntelligence() {
                   ))}
                 </ul>
               )}
-              <p className="mt-2 text-[11px] text-muted">
-                Jumlah unggahan tidak membuktikan perangkat masih online.
-              </p>
             </div>
           </div>
           {data.partial && (

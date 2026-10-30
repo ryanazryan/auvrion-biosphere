@@ -393,9 +393,11 @@ export function BioacousticSignalViewer({
           onSeek={seek}
         />
       )}
-      <div className="border-t border-white/10 p-3">
-        <h4 className="text-xs font-semibold">Linimasa deteksi AI</h4>
-        {timed.length && signal ? (
+
+      {timed.length > 0 && signal && (
+        <div className="border-t border-white/10 p-3">
+          <h4 className="text-xs font-semibold">Linimasa deteksi AI</h4>
+
           <div className="relative mt-2 h-10 rounded bg-white/10">
             {timed.map((c) => (
               <button
@@ -404,21 +406,24 @@ export function BioacousticSignalViewer({
                 onClick={() => seek((c.startMs ?? 0) / 1000)}
                 className="absolute top-1 h-8 overflow-hidden rounded bg-amber-600/80 px-2 text-left text-[10px] text-white"
                 style={{
-                  left: `${Math.max(0, (c.startMs ?? 0) / 1000 / signal.duration) * 100}%`,
-                  width: `${Math.max(1, (((c.endMs ?? 0) - (c.startMs ?? 0)) / 1000 / signal.duration) * 100)}%`,
+                  left: `${
+                    Math.max(0, (c.startMs ?? 0) / 1000 / signal.duration) * 100
+                  }%`,
+                  width: `${Math.max(
+                    1,
+                    (((c.endMs ?? 0) - (c.startMs ?? 0)) /
+                      1000 /
+                      signal.duration) *
+                      100,
+                  )}%`,
                 }}
               >
                 {c.label}
               </button>
             ))}
           </div>
-        ) : (
-          <p className="mt-2 rounded border border-dashed border-white/20 px-3 py-2 text-xs text-[#a9c8c1]">
-            Lokasi waktu vokalisasi belum tersedia dari model. Tidak ada segmen
-            deteksi yang dibuat-buat.
-          </p>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }

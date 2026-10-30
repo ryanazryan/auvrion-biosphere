@@ -224,6 +224,38 @@ export async function transitionApprovedCase(raw: unknown) {
         .returning({ id: domainTasks.id });
       if (!task) throw new WorkflowFailure(500, "TASK_CREATION_FAILED");
       taskId = task.id;
+      // AUVRION_RANGER_PATCH_20261030: immutable location snapshot for future tasks.
+      await tx.execute(sql`
+        INSERT INTO ranger_task_location_snapshots (
+          task_id, organization_id, zone_id, geometry_version_id,
+          source_device_id, location_label, latitude, longitude, verified_at
+        )
+        SELECT ${task.id}, ${command.organizationId}, z.id, g.id,
+               inst.device_id, inst.location_label, inst.latitude, inst.longitude, inst.verified_at
+        FROM operational_zones z
+        LEFT JOIN LATERAL (
+          SELECT gv.id FROM zone_geometry_versions gv
+          WHERE gv.zone_id=z.id AND gv.organization_id=z.organization_id
+          ORDER BY gv.geometry_version DESC LIMIT 1
+        ) g ON true
+        LEFT JOIN LATERAL (
+          SELECT ir.device_id, l.location_label, l.latitude, l.longitude, l.verified_at
+          FROM case_observation_links col
+          JOIN observations o ON o.id=col.observation_id
+            AND o.organization_id=col.organization_id
+          JOIN ingestion_recordings ir ON ir.observation_id=o.id
+            AND ir.organization_id=o.organization_id
+          JOIN listen_device_installations l ON l.device_id=ir.device_id
+            AND l.organization_id=ir.organization_id
+          WHERE col.case_id=${command.caseId}
+            AND col.organization_id=${command.organizationId}
+            AND col.unlinked_at IS NULL AND o.domain='biodiversity'
+            AND l.disclosure_approved=true AND l.verified_at <= now()
+          ORDER BY l.verified_at DESC LIMIT 1
+        ) inst ON true
+        WHERE z.id=${assignment.zoneId} AND z.organization_id=${command.organizationId}
+        ON CONFLICT (task_id) DO NOTHING
+      `);
       await tx.insert(taskAssignments).values({
         organizationId: command.organizationId,
         taskId,

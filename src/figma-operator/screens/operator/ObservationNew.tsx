@@ -865,7 +865,6 @@ export function ObservationNew() {
             <Section
               n={4}
               title="Pengukuran lingkungan"
-              desc="Opsional. Masukkan nilai seperti tercatat; jangan dikonversi atau diperkirakan."
             >
               {f.measurements.length === 0 && (
                 <p className="text-[13px] text-muted">Belum ada pengukuran.</p>

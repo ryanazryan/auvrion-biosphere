@@ -41,7 +41,7 @@ type Inference = {
   mediaId: string;
   audioSha256: string;
   analyzedAt: string;
-  persistence: "ephemeral_result";
+  persistence: "ephemeral_result" | "stored_unverified";
 };
 type AudioItem = {
   blob: Blob;
@@ -590,11 +590,6 @@ export function BioacousticAnalysisPanel({
 
   return (
     <div className="space-y-4 text-[13px] text-fg">
-      <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-        Perch 2.0 tidak mengklasifikasikan ucapan manusia secara andal. Suara
-        manusia, aktivitas manusia, dan noise harus ditinjau melalui WAV;
-        kandidat satwa bukan konfirmasi spesies.
-      </p>
       <StoredRecordingList
         key={observationId}
         sources={discovery?.sources ?? null}
@@ -733,7 +728,9 @@ export function BioacousticAnalysisPanel({
         {stored && (
           <p className="text-xs text-muted">
             WAV telah tersimpan secara privat dan terhubung ke observasi ini.
-            Hasil AI belum disimpan permanen.
+            {result?.persistence === "stored_unverified"
+              ? "Kandidat analisis tersimpan dan dapat ditinjau Supervisor (belum terverifikasi)."
+              : "Hasil AI belum disimpan permanen."}
           </p>
         )}
         {error && (
