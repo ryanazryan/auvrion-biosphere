@@ -5,11 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import {
-  BellIcon,
-  CloseIcon,
-  LogoutIcon,
-} from "@/components/admin/admin-icons";
+import { AdminNotificationBell } from "@/components/admin/AdminNotificationBell";
+import { CloseIcon, LogoutIcon } from "@/components/admin/admin-icons";
 import { AdminSidebarNavigation } from "@/components/admin/admin-sidebar-navigation";
 import { SidebarToggleIcon } from "@/components/ui/SidebarToggleIcon";
 import { useModalDrawerFocus } from "@/hooks/use-modal-drawer-focus";
@@ -326,15 +323,8 @@ export function AdminShell({
               {organizationName}
             </span>
 
-            {/* Notification icon */}
-            <span
-              title="Notifikasi"
-              className="grid size-9 shrink-0 place-items-center text-muted"
-            >
-              <BellIcon className="size-4.5" />
-
-              <span className="sr-only">Tidak ada notifikasi baru</span>
-            </span>
+            {/* Admin notifications: accessible and backed by the existing endpoint. */}
+            <AdminNotificationBell />
 
             {/* Profile menu */}
             <div className="relative">

@@ -134,9 +134,6 @@ export function ListenMonitor() {
           >
             Pemantauan LISTEN
           </h2>
-          <p className="mt-1 text-xs text-muted">
-            Perangkat terdaftar dan rekaman WC-017 yang benar-benar diterima
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded border border-line px-2 py-1 text-xs text-muted">

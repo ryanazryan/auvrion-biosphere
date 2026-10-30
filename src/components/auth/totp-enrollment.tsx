@@ -163,7 +163,7 @@ export function TotpEnrollment() {
             </div>
             <p className="text-xs leading-5 text-muted">
               QR berisi kunci rahasia. Jangan kirim tangkapan layar, unggah,
-              atau bagikan kode ini. QR dibuat lokal di browser.
+              atau bagikan kode ini.
             </p>
             <details className="text-sm">
               <summary className="cursor-pointer font-medium">

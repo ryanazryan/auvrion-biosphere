@@ -10,23 +10,15 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
 let pool: Pool | undefined;
 function db(): Pool {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_NOT_CONFIGURED");
-  }
-
-  if (!pool) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      max: 3,
-    });
-  }
-
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_NOT_CONFIGURED");
+  pool ??= new Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
   return pool;
 }
 
-/** A human-admin verified installation point, NEVER a wildlife detection. */
+/** A human-admin verified device installation point, never a wildlife detection. */
 export async function POST(request: Request) {
   if (!trustedOrigin(request)) return reply({ error: "INVALID_ORIGIN" }, 403);
   const body = await readBounded(request);
@@ -63,6 +55,7 @@ export async function POST(request: Request) {
     typeof body.disclosureApproved !== "boolean"
   )
     return reply({ error: "INVALID_REQUEST" }, 400);
+
   const access = await checkAdminAccess(body.organizationId, "manage_devices");
   if (!access.allowed) return reply({ error: access.reason }, access.status);
   try {
@@ -99,7 +92,7 @@ export async function POST(request: Request) {
   }
 }
 
-/** Enumerates active LISTEN devices under the Admin's manage_devices capability. */
+/** Admin-scoped installation list. Exact location is never exposed to Operator by this route. */
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const organizationId = params.get("organizationId");
@@ -108,9 +101,9 @@ export async function GET(request: Request) {
     !UUID.test(organizationId) ||
     params.size !== 1 ||
     params.getAll("organizationId").length !== 1
-  ) {
+  )
     return reply({ error: "INVALID_REQUEST" }, 400);
-  }
+
   const access = await checkAdminAccess(organizationId, "manage_devices");
   if (!access.allowed) return reply({ error: access.reason }, access.status);
   try {
@@ -121,17 +114,13 @@ export async function GET(request: Request) {
       location_label: string | null;
       latitude: number | null;
       longitude: number | null;
+      verified_at: Date | null;
       verification_method: string | null;
       disclosure_approved: boolean | null;
     }>(
-      `SELECT d.id,
-              s.code,
-              s.label,
-              l.location_label,
-              l.latitude,
-              l.longitude,
-              l.verification_method,
-              l.disclosure_approved
+      `SELECT d.id, s.code, s.label, l.location_label,
+              l.latitude, l.longitude, l.verified_at,
+              l.verification_method, l.disclosure_approved
          FROM ingestion_devices d
          JOIN observation_sources s
            ON s.id = d.source_id
@@ -154,6 +143,7 @@ export async function GET(request: Request) {
         locationLabel: row.location_label,
         latitude: row.latitude,
         longitude: row.longitude,
+        verifiedAt: row.verified_at?.toISOString() ?? null,
         verificationMethod: row.verification_method,
         disclosureApproved: row.disclosure_approved === true,
       })),

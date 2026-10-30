@@ -415,9 +415,6 @@ export function ListenWorkspace({ deviceId }: { deviceId?: string }) {
                     </h2>
                     <p className="text-sm text-muted">{selected.label}</p>
                   </div>
-                  <span className="rounded-md border border-line bg-bg px-2 py-1 text-xs font-medium text-muted">
-                    Status jaringan pada panel remote di atas
-                  </span>
                 </div>
                 <dl className="mt-4 grid gap-3 border-t border-line pt-3 text-xs sm:grid-cols-2">
                   <div>

@@ -1,11 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import {
-  ListenDeviceIllustration,
-  PreventDeviceIllustration,
-} from "@/components/admin/device-provisioning-illustrations";
 import { OperatorLayout } from "@/figma-operator/components/operator/OperatorLayout";
 import { useOperator } from "@/figma-operator/operator-context";
 
@@ -19,14 +16,21 @@ type Device = {
 };
 type Fleet = { devices: Device[]; truncated: boolean };
 
+const ILLUSTRATIONS = {
+  listen: "/device-illustrations/listen-device.png",
+  prevent: "/device-illustrations/prevent-device.png",
+} as const;
+
 function IsometricDevice({ kind }: { kind: "listen" | "prevent" }) {
   return (
-    <div className="flex h-56 items-center justify-center overflow-hidden rounded-xl bg-[#f7faf8] p-3 [&_svg]:max-h-full [&_svg]:max-w-full">
-      {kind === "listen" ? (
-        <ListenDeviceIllustration />
-      ) : (
-        <PreventDeviceIllustration />
-      )}
+    <div className="flex h-56 items-center justify-center overflow-hidden rounded-xl bg-[#f7faf8] p-3">
+      <Image
+        src={ILLUSTRATIONS[kind]}
+        width={340}
+        height={220}
+        alt={`Ilustrasi konsep perangkat Auvrion ${kind === "listen" ? "LISTEN" : "PREVENT"}`}
+        className="h-full w-full object-contain"
+      />
     </div>
   );
 }
@@ -79,11 +83,11 @@ export function IotHubWorkspace() {
   }, [refresh]);
 
   const devices = fleet?.devices ?? [];
-  const total = devices.reduce((sum, d) => sum + d.recordingCount, 0);
+  const total = devices.reduce((sum, device) => sum + device.recordingCount, 0);
   const received = devices.reduce<string | null>(
-    (latest, d) =>
-      d.lastReceivedAt && (!latest || d.lastReceivedAt > latest)
-        ? d.lastReceivedAt
+    (latest, device) =>
+      device.lastReceivedAt && (!latest || device.lastReceivedAt > latest)
+        ? device.lastReceivedAt
         : latest,
     null,
   );
@@ -94,8 +98,15 @@ export function IotHubWorkspace() {
         ? "Asia/Jayapura"
         : "Asia/Makassar";
   const receivedLabel = received
-    ? `${new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: zone }).format(new Date(received))} ${timeZone}`
+    ? `${new Intl.DateTimeFormat("id-ID", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: zone,
+      }).format(new Date(received))} ${timeZone}`
     : "Belum ada";
+
   return (
     <OperatorLayout path="/operator/iot" crumbs={[{ label: "Alat IoT" }]}>
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -188,16 +199,18 @@ export function IotHubWorkspace() {
           <p className="text-sm text-muted">Belum ada perangkat terdaftar.</p>
         ) : fleet ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {devices.slice(0, 6).map((d) => (
+            {devices.slice(0, 6).map((device) => (
               <Link
-                key={d.id}
-                href={`/operator/listen/${encodeURIComponent(d.id)}`}
+                key={device.id}
+                href={`/operator/listen/${encodeURIComponent(device.id)}`}
                 className="rounded-xl border border-line bg-[#f6faf8] p-4 hover:border-emerald-500 hover:bg-emerald-50"
               >
-                <p className="font-semibold text-ink">{d.code}</p>
-                <p className="mt-1 truncate text-xs text-muted">{d.label}</p>
+                <p className="font-semibold text-ink">{device.code}</p>
+                <p className="mt-1 truncate text-xs text-muted">
+                  {device.label}
+                </p>
                 <p className="mt-3 text-xs font-semibold text-emerald-800">
-                  {d.recordingCount} WAV diterima
+                  {device.recordingCount} WAV diterima
                 </p>
               </Link>
             ))}

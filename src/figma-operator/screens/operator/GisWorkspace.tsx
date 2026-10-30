@@ -608,6 +608,11 @@ export function GisWorkspace() {
                       const sourcePoint = approvedPoint(row);
                       const canCenter =
                         sourcePoint !== null && hasApprovedBasemap;
+                      const installation = approvedIotLocations.find(
+                        (point) =>
+                          (point as { sourceCode?: string }).sourceCode ===
+                          row.source.code,
+                      );
                       return (
                         <article
                           key={row.id}
@@ -686,6 +691,26 @@ export function GisWorkspace() {
                                   <I.MapPin className="size-3.5" />
                                   Pusatkan di peta
                                 </button>
+                                {installation && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedId(row.id);
+                                      setNavigationTarget({
+                                        latitude: installation.latitude,
+                                        longitude: installation.longitude,
+                                        label: installation.label,
+                                        kind: "device",
+                                        request: Date.now(),
+                                      });
+                                      setMobileView("map");
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand-50 px-2.5 py-2 text-[11px] font-medium text-brand hover:bg-brand-100"
+                                  >
+                                    <I.MapPin className="size-3.5" />
+                                    Lihat lokasi alat
+                                  </button>
+                                )}
                                 <a
                                   href={`/operator/observations/${encodeURIComponent(row.id)}`}
                                   className="inline-flex items-center gap-1.5 rounded-md border border-line-strong bg-white px-2.5 py-2 text-[11px] text-ink hover:bg-bg"
