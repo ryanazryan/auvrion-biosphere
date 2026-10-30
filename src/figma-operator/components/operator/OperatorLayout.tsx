@@ -41,6 +41,13 @@ const NAV: Item[] = [
       p !== "/operator/observations/new",
   },
   {
+    href: "/operator/iot",
+    label: "Alat IoT",
+    icon: <I.Gauge />,
+    active: (p) =>
+      p.startsWith("/operator/iot") || p.startsWith("/operator/listen"),
+  },
+  {
     href: "/operator/map",
     label: "Peta Observasi",
     icon: <I.MapPin />,

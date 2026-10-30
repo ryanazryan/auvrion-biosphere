@@ -134,9 +134,6 @@ export function ListenMonitor() {
           >
             Pemantauan LISTEN
           </h2>
-          <p className="mt-1 text-xs text-muted">
-            Perangkat terdaftar dan rekaman WC-017 yang benar-benar diterima
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded border border-line px-2 py-1 text-xs text-muted">
@@ -287,12 +284,6 @@ export function ListenMonitor() {
               administrasi untuk inventaris lengkap.
             </p>
           )}
-          <footer className="border-t border-line px-4 py-3 text-xs leading-5 text-muted">
-            Koneksi langsung belum dapat dipastikan tanpa heartbeat. Registrasi
-            aktif bukan status online; penerimaan WAV tidak membuktikan
-            perangkat masih terhubung. Hasil AI Perch tidak otomatis menjadi
-            temuan terverifikasi.
-          </footer>
         </>
       ) : (
         <div className="px-4 py-7 text-sm text-muted">

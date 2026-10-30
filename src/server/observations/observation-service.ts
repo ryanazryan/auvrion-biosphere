@@ -10,6 +10,7 @@ import {
   isNotNull,
   lte,
   type SQL,
+  sql,
 } from "drizzle-orm";
 
 import { getDb } from "@/server/db";
@@ -201,6 +202,10 @@ const publicSelection = {
 export async function listScopedObservations(filter: ListObservationsInput) {
   const conditions: SQL[] = [
     eq(observations.organizationId, filter.organizationId),
+    sql`NOT EXISTS (SELECT 1 FROM observation_sources AS development_source
+      WHERE development_source.id = ${observations.sourceId}
+      AND development_source.organization_id = ${observations.organizationId}
+      AND development_source.code = 'WC009-MANUAL-DEV')`,
   ];
   if (filter.domain) conditions.push(eq(observations.domain, filter.domain));
   if (filter.sourceId)

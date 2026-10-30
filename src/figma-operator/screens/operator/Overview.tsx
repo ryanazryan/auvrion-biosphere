@@ -5,6 +5,7 @@ import { OperatorIntelligence } from "@/figma-operator/components/operator/Opera
 import { ListenMonitor } from "@/figma-operator/demo/ListenMonitor";
 import * as I from "../../components/icons";
 import { OperatorLayout } from "../../components/operator/OperatorLayout";
+import { OperatorLiveClock } from "../../components/operator/OperatorLiveClock";
 import {
   DomainLabel,
   ErrorState,
@@ -181,37 +182,14 @@ export function Overview() {
               </dl>
               <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5 text-xs text-muted">
                 <span className="shrink-0">Zona waktu</span>
-                <span className="shrink-0 whitespace-nowrap rounded-md border border-line bg-bg px-2 py-1 font-medium text-fg">
-                  {timeZone} (UTC+
-                  {timeZone === "WIB" ? "7" : timeZone === "WITA" ? "8" : "9"})
-                </span>
+                <OperatorLiveClock timeZone={timeZone} />
               </div>
             </Panel>
-            <Panel
-              title="Kesehatan sumber"
-              aside={
-                <span className="rounded border border-line px-1.5 py-px text-xs text-muted">
-                  Tidak tersedia
-                </span>
-              }
-            >
+            <Panel title="Aktivitas Operator">
               <p className="text-[13px] leading-5 text-muted">
-                Status koneksi langsung belum tersedia. Hanya rekaman tersimpan
-                yang dihitung.
+                Tinjau observasi, periksa rekaman LISTEN, dan buat Case untuk
+                ditindaklanjuti Supervisor.
               </p>
-            </Panel>
-            <Panel title="Lingkup peran operator">
-              <ul className="space-y-1.5 text-[13px] leading-5 text-muted">
-                <li>
-                  Memantau, menelusuri, dan mencatat observasi manual dalam
-                  organisasi Anda.
-                </li>
-                <li>
-                  Domain &ldquo;Risiko lingkungan&rdquo; bukan konfirmasi
-                  kebakaran. Penilaian, penugasan, dan keputusan akhir dilakukan
-                  supervisor.
-                </li>
-              </ul>
             </Panel>
           </aside>
         </div>

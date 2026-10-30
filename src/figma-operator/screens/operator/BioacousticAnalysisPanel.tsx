@@ -6,6 +6,7 @@ import { MicrophonePicker } from "./bioacoustic-v2/MicrophonePicker";
 import { startMicrophoneMeter } from "./bioacoustic-v2/microphone";
 import { BioacousticResultView } from "./bioacoustic-v2/ResultView";
 import { BioacousticSignalViewer } from "./bioacoustic-v2/SignalViewer";
+import { StoredRecordingList } from "./StoredRecordingList";
 
 /** WC-023 Slice 03A — Figma-aligned UI with REAL WC-010 persistence and Perch inference. */
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -40,13 +41,16 @@ type Inference = {
   mediaId: string;
   audioSha256: string;
   analyzedAt: string;
-  persistence: "ephemeral_result";
+  persistence: "ephemeral_result" | "stored_unverified";
 };
 type AudioItem = {
   blob: Blob;
   filename: string;
   seconds: number;
-  original: "manual_wav_upload" | "browser_microphone_simulation";
+  original:
+    | "manual_wav_upload"
+    | "browser_microphone_simulation"
+    | "device_recording";
 };
 
 function errText(code: string): string {
@@ -83,6 +87,43 @@ async function checkResponse(response: Response): Promise<unknown> {
     throw new Error(errText(code));
   }
   return data;
+}
+
+/** Load only authorized, integrity-checked private WAV; independent of AI. */
+async function fetchStoredWav(
+  organizationId: string,
+  observationId: string,
+  mediaId: string,
+): Promise<Blob> {
+  const url = `/api/observations/${encodeURIComponent(observationId)}/evidence/audio/${encodeURIComponent(mediaId)}?organizationId=${encodeURIComponent(organizationId)}`;
+  const response = await fetch(url, {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Rekaman tersimpan tidak dapat dibaca (${response.status}).`,
+    );
+  }
+  const blob = await response.blob();
+  if (blob.size < 44 || blob.size > MAX_BYTES) {
+    throw new Error("Ukuran WAV tidak valid.");
+  }
+  return blob;
+}
+
+function storedAudioItem(source: Source, blob: Blob): AudioItem {
+  return {
+    blob,
+    filename:
+      source.kind === "device_recording" ? "LISTEN-IoT.wav" : "Bukti-audio.wav",
+    // Canonical WC-010 PCM16 mono 16k WAV with a 44-byte header.
+    seconds: Math.max(0, (blob.size - 44) / 32000),
+    original:
+      source.kind === "device_recording"
+        ? "device_recording"
+        : "manual_wav_upload",
+  };
 }
 
 /** Canonical WC-010 audio: mono PCM16 at 16 kHz, capped to 30 seconds. */
@@ -151,10 +192,11 @@ export function BioacousticAnalysisPanel({
 }: {
   observationId: string;
 }) {
-  const { operator } = useOperator();
+  const { operator, timeZone } = useOperator();
   const organizationId = operator.organizationId;
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
   const [discoveryError, setDiscoveryError] = useState(false);
+  const [recordingsRefresh, setRecordingsRefresh] = useState(0);
   const [audio, setAudio] = useState<AudioItem | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
@@ -164,7 +206,13 @@ export function BioacousticAnalysisPanel({
   const [error, setError] = useState("");
   const [result, setResult] = useState<Inference | null>(null);
   const [savedMediaId, setSavedMediaId] = useState<string | null>(null);
+  const [selectedStoredSource, setSelectedStoredSource] = useState<
+    string | null
+  >(null);
   const [stored, setStored] = useState(false);
+  const [playbackLoadingId, setPlaybackLoadingId] = useState<string | null>(
+    null,
+  );
   const [microphones, setMicrophones] = useState<
     { id: string; label: string }[]
   >([]);
@@ -202,6 +250,7 @@ export function BioacousticAnalysisPanel({
   }, []);
 
   useEffect(() => {
+    void recordingsRefresh;
     const controller = new AbortController();
     setDiscovery(null);
     setDiscoveryError(false);
@@ -225,7 +274,7 @@ export function BioacousticAnalysisPanel({
         if (!controller.signal.aborted) setDiscoveryError(true);
       });
     return () => controller.abort();
-  }, [observationId, organizationId]);
+  }, [observationId, organizationId, recordingsRefresh]);
 
   useEffect(() => {
     if (!audio) {
@@ -261,6 +310,7 @@ export function BioacousticAnalysisPanel({
     setError("");
     setResult(null);
     setSavedMediaId(null);
+    setSelectedStoredSource(null);
     setStored(false);
     setBusy("preparing");
     uploadKeyRef.current = crypto.randomUUID();
@@ -463,102 +513,190 @@ export function BioacousticAnalysisPanel({
     }
   };
 
+  const playStoredSource = async (source: Source) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy("preparing");
+    setPlaybackLoadingId(source.id);
+    setError("");
+    setResult(null);
+    try {
+      const blob = await fetchStoredWav(
+        organizationId,
+        observationId,
+        source.id,
+      );
+      setAudio(storedAudioItem(source, blob));
+      setSelectedStoredSource(source.id);
+      setSavedMediaId(source.id);
+      setStored(true);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Gagal memuat rekaman tersimpan.",
+      );
+    } finally {
+      busyRef.current = false;
+      setBusy(null);
+      setPlaybackLoadingId(null);
+    }
+  };
+
+  const analyzeStoredSource = async (source: Source) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy("analyzing");
+    setError("");
+    setResult(null);
+    try {
+      const base = `/api/observations/${encodeURIComponent(observationId)}`;
+      const blob = await fetchStoredWav(
+        organizationId,
+        observationId,
+        source.id,
+      );
+      const response = await fetch(
+        `${base}/bioacoustics/analyze?organizationId=${encodeURIComponent(organizationId)}`,
+        {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mediaId: source.id }),
+        },
+      );
+      const analysis = (await checkResponse(response)) as Inference;
+      if (
+        analysis.verification !== "unverified" ||
+        !Array.isArray(analysis.candidates)
+      ) {
+        throw new Error("Respons model tidak valid.");
+      }
+      setAudio(storedAudioItem(source, blob));
+      setSelectedStoredSource(source.id);
+      setSavedMediaId(source.id);
+      setStored(true);
+      setResult(analysis);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Analisis rekaman gagal.",
+      );
+    } finally {
+      busyRef.current = false;
+      setBusy(null);
+    }
+  };
+
   return (
     <div className="space-y-4 text-[13px] text-fg">
-      <p className="text-xs leading-5 text-muted">
-        Upload dari laptop atau rekam mikrofon. WAV akan disimpan melalui
-        evidence privat WC-010, lalu dianalisis oleh worker Perch lokal. Ini
-        bukan data ESP32 atau observasi lapangan terverifikasi.
-      </p>
-      <div className="rounded-md border border-line bg-bg/40 p-3 space-y-3">
-        <h3 className="font-semibold text-ink">
-          Sumber Audio — LISTEN Simulator
-        </h3>
-        <label className="block rounded-md border border-dashed border-line bg-surface p-4 text-center cursor-pointer hover:border-brand">
-          <span className="font-medium text-brand">Unggah WAV</span>
-          <span className="mt-1 block text-xs text-muted">
-            PCM16 (dikonversi browser) · maksimal 10 MiB dan 30 detik
-          </span>
-          <input
-            aria-label="Pilih WAV"
-            type="file"
-            accept=".wav,audio/wav,audio/x-wav"
-            onChange={choose}
-            disabled={!!busy || recording}
-            className="mt-2 block w-full text-xs text-muted file:rounded file:border file:border-line file:bg-surface file:px-2 file:py-1"
-          />
-        </label>
-        <div className="grid gap-2 rounded-md border border-line bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,.7fr)]">
-          <MicrophonePicker
-            devices={microphones}
-            selected={selectedMic}
-            disabled={recording || !!busy}
-            onSelect={setSelectedMic}
-          />
-          <fieldset
-            className="min-w-0 space-y-1"
-            aria-label="Level mikrofon saat merekam"
-          >
-            <p className="text-xs text-muted">Level input mikrofon (RMS)</p>
-            <div className="h-2.5 overflow-hidden rounded-full bg-bg">
-              <div
-                className="h-full rounded-full bg-brand transition-[width]"
-                style={{ width: `${Math.min(100, micLevel * 500)}%` }}
-              />
-            </div>
-            <p className="text-xs text-muted">
-              {recording
-                ? `Sinyal: ${micLevel.toFixed(5)}`
-                : "Mulai merekam untuk melihat sinyal"}
-            </p>
-            {recording && micLevel < 0.001 && (
-              <p className="text-xs text-warn">
-                Input hampir senyap. Cek pilihan perangkat.
+      <StoredRecordingList
+        key={observationId}
+        sources={discovery?.sources ?? null}
+        error={discoveryError}
+        busy={busy !== null}
+        recording={recording}
+        selectedId={selectedStoredSource}
+        timeZone={timeZone}
+        onAnalyze={(source) => void analyzeStoredSource(source)}
+        onPlay={(source) => void playStoredSource(source)}
+        playbackLoadingId={playbackLoadingId}
+        analyzing={busy === "analyzing"}
+        onRefresh={() => setRecordingsRefresh((value) => value + 1)}
+      />
+      <details className="rounded-md border border-line bg-bg/40 p-3">
+        <summary className="cursor-pointer font-semibold text-ink">
+          Unggah WAV / uji mikrofon laptop
+        </summary>
+        <div className="mt-3 space-y-3">
+          <label className="block rounded-md border border-dashed border-line bg-surface p-4 text-center cursor-pointer hover:border-brand">
+            <span className="font-medium text-brand">Unggah WAV</span>
+            <span className="mt-1 block text-xs text-muted">
+              PCM16 (dikonversi browser) · maksimal 10 MiB dan 30 detik
+            </span>
+            <input
+              aria-label="Pilih WAV"
+              type="file"
+              accept=".wav,audio/wav,audio/x-wav"
+              onChange={choose}
+              disabled={!!busy || recording}
+              className="mt-2 block w-full text-xs text-muted file:rounded file:border file:border-line file:bg-surface file:px-2 file:py-1"
+            />
+          </label>
+          <div className="grid gap-2 rounded-md border border-line bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,.7fr)]">
+            <MicrophonePicker
+              devices={microphones}
+              selected={selectedMic}
+              disabled={recording || !!busy}
+              onSelect={setSelectedMic}
+            />
+            <fieldset
+              className="min-w-0 space-y-1"
+              aria-label="Level mikrofon saat merekam"
+            >
+              <p className="text-xs text-muted">Level input mikrofon (RMS)</p>
+              <div className="h-2.5 overflow-hidden rounded-full bg-bg">
+                <div
+                  className="h-full rounded-full bg-brand transition-[width]"
+                  style={{ width: `${Math.min(100, micLevel * 500)}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted">
+                {recording
+                  ? `Sinyal: ${micLevel.toFixed(5)}`
+                  : "Mulai merekam untuk melihat sinyal"}
               </p>
-            )}
-          </fieldset>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled={!!busy || recording}
-            onClick={() => void startMicrophone()}
-            className="rounded-md border border-line bg-surface px-3 py-2 font-medium text-ink disabled:opacity-50"
-          >
-            Rekam mikrofon laptop
-          </button>
-          {recording && (
+              {recording && micLevel < 0.001 && (
+                <p className="text-xs text-warn">
+                  Input hampir senyap. Cek pilihan perangkat.
+                </p>
+              )}
+            </fieldset>
+          </div>
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={stopMicrophone}
-              className="rounded-md border border-line px-3 py-2 font-medium text-warn"
+              disabled={!!busy || recording}
+              onClick={() => void startMicrophone()}
+              className="rounded-md border border-line bg-surface px-3 py-2 font-medium text-ink disabled:opacity-50"
             >
-              Stop rekaman
+              Rekam mikrofon laptop
             </button>
-          )}
-          <span aria-live="polite" className="text-xs text-muted">
-            {recording ? "● Merekam (maks. 20 detik)" : "Mode uji"}
-          </span>
-        </div>
-        {audio && (
-          <div className="rounded-md border border-line bg-surface p-3 space-y-2">
-            <p className="font-medium break-all">{audio.filename}</p>
-            <p className="text-xs text-muted">
-              {audio.original === "browser_microphone_simulation"
-                ? "Mikrofon laptop"
-                : "WAV lokal"}{" "}
-              ·
-              {` ${audio.seconds.toFixed(2)} dtk · ${(audio.blob.size / 1024).toFixed(1)} KiB · PCM16 mono 16 kHz`}
-            </p>
-            {previewUrl && (
-              <span className="text-xs text-muted">
-                Gunakan pemutar waveform di bawah untuk mendengar dan meninjau
-                rekaman.
-              </span>
+            {recording && (
+              <button
+                type="button"
+                onClick={stopMicrophone}
+                className="rounded-md border border-line px-3 py-2 font-medium text-warn"
+              >
+                Stop rekaman
+              </button>
             )}
+            <span aria-live="polite" className="text-xs text-muted">
+              {recording ? "● Merekam (maks. 20 detik)" : "Mode uji"}
+            </span>
           </div>
-        )}
-      </div>
+          {audio && (
+            <div className="rounded-md border border-line bg-surface p-3 space-y-2">
+              <p className="font-medium break-all">{audio.filename}</p>
+              <p className="text-xs text-muted">
+                {audio.original === "browser_microphone_simulation"
+                  ? "Mikrofon laptop"
+                  : audio.original === "device_recording"
+                    ? "IoT LISTEN"
+                    : "WAV lokal"}{" "}
+                ·
+                {` ${audio.seconds.toFixed(2)} dtk · ${(audio.blob.size / 1024).toFixed(1)} KiB · PCM16 mono 16 kHz`}
+              </p>
+              {previewUrl && (
+                <span className="text-xs text-muted">
+                  Gunakan pemutar waveform di bawah untuk mendengar dan meninjau
+                  rekaman.
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </details>
       {audio && previewUrl && (
         <BioacousticSignalViewer
           blob={audio.blob}
@@ -571,7 +709,9 @@ export function BioacousticAnalysisPanel({
         <h3 className="font-semibold text-ink">Kontrol analisis</h3>
         <button
           type="button"
-          disabled={!audio || !!busy || recording}
+          disabled={
+            !audio || !!busy || recording || selectedStoredSource !== null
+          }
           onClick={() => void saveAndAnalyze()}
           className="rounded-md bg-brand px-4 py-2 font-medium text-white disabled:opacity-50"
         >
@@ -588,7 +728,9 @@ export function BioacousticAnalysisPanel({
         {stored && (
           <p className="text-xs text-muted">
             WAV telah tersimpan secara privat dan terhubung ke observasi ini.
-            Hasil AI belum disimpan permanen.
+            {result?.persistence === "stored_unverified"
+              ? "Kandidat analisis tersimpan dan dapat ditinjau Supervisor (belum terverifikasi)."
+              : "Hasil AI belum disimpan permanen."}
           </p>
         )}
         {error && (
@@ -607,13 +749,6 @@ export function BioacousticAnalysisPanel({
         stored={stored}
         filename={audio?.filename ?? null}
       />
-      <section className="border-t border-line pt-3 text-xs text-muted">
-        {!discovery && !discoveryError
-          ? "Memuat rekaman tersimpan..."
-          : discoveryError
-            ? "Metadata sumber audio belum dapat diambil."
-            : `Sumber audio terdaftar untuk observasi ini: ${discovery?.sources.length ?? 0}.`}
-      </section>
     </div>
   );
 }

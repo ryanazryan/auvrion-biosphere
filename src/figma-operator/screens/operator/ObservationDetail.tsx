@@ -1,13 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback } from "react";
-import { ObservationLocationMap } from "@/components/gis/ObservationLocationMap";
+import { ObservationLocationSummary } from "@/components/gis/ObservationLocationSummary";
+import { ObservationSignalForm } from "@/components/operator/ObservationSignalForm";
 import { EnvironmentalAdvisory } from "@/figma-operator/demo/EnvironmentalAdvisory";
 import { openOperatorAssistant } from "@/figma-operator/demo/OperatorAssistant";
 import { formatReadableDateTime } from "@/figma-operator/gis/format-readable-date";
 import { formatMeasurementValue } from "@/figma-operator/gis/observation-evidence-display";
 
-import * as I from "../../components/icons";
 import { OperatorLayout } from "../../components/operator/OperatorLayout";
 import {
   DomainLabel,
@@ -93,7 +94,7 @@ function ObservationBody({ observation: o }: { observation: Observation }) {
   }
 
   if (!o.provenance.licenseNote) {
-    unknowns.push("Catatan lisensi belum tersedia melalui API.");
+    unknowns.push("Catatan lisensi belum dicantumkan oleh sumber.");
   }
 
   if (o.provenance.limitations.length === 0) {
@@ -145,6 +146,16 @@ function ObservationBody({ observation: o }: { observation: Observation }) {
             <h1 className="text-2xl font-semibold tracking-tight text-ink">
               {observationTitle}
             </h1>
+            {!isSimulation &&
+              o.quality !== "invalid" &&
+              sourceCode !== "WC009-MANUAL-DEV" && (
+                <Link
+                  href="/operator/review/new"
+                  className="inline-flex rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+                >
+                  Buat Case untuk Supervisor
+                </Link>
+              )}
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
               <span>
@@ -339,6 +350,13 @@ function ObservationBody({ observation: o }: { observation: Observation }) {
             </Panel>
           )}
 
+          <Panel title="Indikasi lapangan (anotasi manusia)">
+            <ObservationSignalForm
+              observationId={o.id}
+              organizationId={o.organizationId}
+            />
+          </Panel>
+
           {/* Provenans */}
           <Panel title="Provenans">
             <dl>
@@ -354,16 +372,20 @@ function ObservationBody({ observation: o }: { observation: Observation }) {
                 {o.provenance.licenseNote ? (
                   o.provenance.licenseNote
                 ) : (
-                  <Unknown>Belum tersedia melalui API</Unknown>
+                  <Unknown>Tidak dicantumkan oleh sumber</Unknown>
                 )}
               </KV>
 
               <KV k="Keterbatasan">
-                {o.provenance.limitations.length > 0 ? (
+                {o.provenance.limitations.some(
+                  (item) => item.trim() && item.trim() !== "-",
+                ) ? (
                   <ul className="list-disc space-y-1 pl-4">
-                    {o.provenance.limitations.map((limitation) => (
-                      <li key={limitation}>{limitation}</li>
-                    ))}
+                    {o.provenance.limitations
+                      .filter((item) => item.trim() && item.trim() !== "-")
+                      .map((limitation) => (
+                        <li key={limitation}>{limitation}</li>
+                      ))}
                   </ul>
                 ) : (
                   <Unknown>Belum ada keterbatasan yang dicatat</Unknown>
@@ -382,57 +404,32 @@ function ObservationBody({ observation: o }: { observation: Observation }) {
               <p className="text-[13px] leading-5 text-muted">
                 {QUALITY[o.quality].desc}
               </p>
+              <p className="border-t border-line pt-3 text-xs leading-5 text-muted">
+                Mode data: {MODE[o.ingestionMode]}. Peninjauan Case dan indikasi
+                tidak otomatis mengubah kualitas pengukuran atau hasil audio.
+              </p>
+              {o.quality === "unreviewed" && (
+                <a
+                  href="/operator/review"
+                  className="inline-block text-xs font-medium text-brand hover:underline"
+                >
+                  Buka antrean review
+                </a>
+              )}
             </div>
           </Panel>
 
-          <Panel title="Lokasi observasi">
-            {o.domain === "environmental_risk" && o.location.hasCoordinates && (
-              <ObservationLocationMap
-                observationId={o.id}
-                organizationId={o.organizationId}
-              />
-            )}
-            {o.location.hasCoordinates ? (
-              <div className="flex items-start gap-3">
-                <I.Lock className="mt-0.5 size-4 shrink-0 text-muted" />
-
-                <div className="space-y-2">
-                  <p className="text-[13px] font-semibold text-ink">
-                    Koordinat tersimpan
-                  </p>
-
-                  <p className="text-xs leading-5 text-muted">
-                    Titik lokasi tersedia di server. Koordinat presisi tidak
-                    disertakan dalam respons detail observasi.
-                  </p>
-
-                  <div className="rounded-md border border-line bg-bg px-3 py-2">
-                    <p className="text-xs font-medium text-fg">
-                      Akses lokasi terbatas
-                    </p>
-
-                    <p className="mt-1 text-xs leading-5 text-muted">
-                      Pembukaan titik pada peta memerlukan otorisasi lokasi
-                      khusus.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-start gap-3">
-                <I.MapPin className="mt-0.5 size-4 shrink-0 text-warn" />
-
-                <div>
-                  <p className="text-[13px] font-semibold text-ink">
-                    Lokasi tidak diketahui
-                  </p>
-
-                  <p className="mt-1 text-xs leading-5 text-muted">
-                    {o.location.unknownReason ?? "Tidak dicatat"}
-                  </p>
-                </div>
-              </div>
-            )}
+          <Panel title="Lokasi">
+            <ObservationLocationSummary
+              organizationId={o.organizationId}
+              observationId={o.id}
+              domain={o.domain}
+              hasCoordinates={o.location.hasCoordinates}
+              unknownReason={o.location.unknownReason}
+              acquisitionMethod={o.provenance.acquisitionMethod}
+              sourceMethod={source?.acquisitionMethod ?? null}
+              sourceCode={sourceCode}
+            />
           </Panel>
 
           <Panel title="Catatan data">

@@ -3,6 +3,11 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type {
+  ApprovedIotMapPoint,
+  MapNavigationTarget,
+} from "@/components/gis/map-navigation";
+import { isValidIndonesiaCoordinate } from "@/components/gis/map-navigation";
 import type { GisRecord } from "@/figma-operator/gis/client";
 import { approvedPoint } from "@/figma-operator/gis/client";
 import {
@@ -10,6 +15,10 @@ import {
   type IndonesiaTimeZone,
 } from "@/figma-operator/gis/format-time";
 import type { HotspotPoint } from "@/figma-operator/gis/hotspots";
+import {
+  installOpenFreeMapPoiFallback,
+  isOpenFreeMapLiberty,
+} from "@/figma-operator/gis/openfreemap-missing-icons";
 import {
   formatBrightness,
   formatConfidence,
@@ -20,6 +29,7 @@ import type { AirQualitySite } from "@/server/gis/air-quality-contract";
 const STYLE_URL = process.env.NEXT_PUBLIC_AUVRION_BASEMAP_STYLE_URL?.trim();
 const ATTRIBUTION = process.env.NEXT_PUBLIC_AUVRION_BASEMAP_ATTRIBUTION?.trim();
 const HAS_APPROVED_BASEMAP = Boolean(STYLE_URL && ATTRIBUTION);
+const NO_IOT_LOCATIONS: readonly ApprovedIotMapPoint[] = [];
 
 /** The Figma schematic is only a LOCAL backdrop. It NEVER hosts real/synthetic observation markers. */
 const LOCAL_SCHEMATIC_PREVIEW =
@@ -36,6 +46,8 @@ export function GisMapCanvas({
   airQualitySites = [],
   onPickedLocationChange,
   selectedTimeZone = "Asia/Makassar",
+  navigationTarget = null,
+  approvedIotLocations = NO_IOT_LOCATIONS,
 }: {
   rows: GisRecord[];
   selected: string | null;
@@ -49,6 +61,10 @@ export function GisMapCanvas({
   /** Explicit, approved pan action; never inferred from normal list selection. */
   focusTarget?: { id: string; request: number } | null;
   selectedTimeZone?: IndonesiaTimeZone;
+  /** User-initiated viewport navigation; never persisted as an observation. */
+  navigationTarget?: MapNavigationTarget | null;
+  /** Future-only: server-authorized coordinates with verified disclosure. */
+  approvedIotLocations?: readonly ApprovedIotMapPoint[];
 }) {
   const containerRef = useRef<HTMLElement>(null);
   const mapRef = useRef<import("maplibre-gl").Map | null>(null);
@@ -75,6 +91,8 @@ export function GisMapCanvas({
   const pickedLocationRef = useRef(pickedLocation);
   pickedLocationRef.current = pickedLocation;
   const pickedMarkerRef = useRef<import("maplibre-gl").Marker | null>(null);
+  const navigationMarkerRef = useRef<import("maplibre-gl").Marker | null>(null);
+  const iotMarkersRef = useRef<import("maplibre-gl").Marker[]>([]);
 
   useEffect(() => {
     for (const [id, button] of markerButtons.current) {
@@ -135,6 +153,12 @@ export function GisMapCanvas({
           maxPitch: 0,
         });
         mapRef.current = map;
+        // OpenFreeMap Liberty's upstream sprite lacks some POI icons. Supply
+        // visible neutral fallback markers, never silent transparent pixels.
+        // Does not affect third-party styles, observation pins, NASA or AQI layers.
+        if (!schematic && isOpenFreeMapLiberty(STYLE_URL)) {
+          installOpenFreeMapPoiFallback(map);
+        }
         map.on("click", (event) => {
           const activeMap = map;
           if (
@@ -196,17 +220,22 @@ export function GisMapCanvas({
               paint: {
                 "circle-radius": 16,
                 "circle-color": [
-                  "step",
-                  ["get", "aqi"],
-                  "#27965f",
-                  51,
-                  "#c49620",
-                  101,
-                  "#d66a27",
-                  151,
-                  "#bc3636",
-                  201,
-                  "#893875",
+                  "case",
+                  ["<", ["get", "aqi"], 0],
+                  "#64748b",
+                  [
+                    "step",
+                    ["get", "aqi"],
+                    "#27965f",
+                    51,
+                    "#c49620",
+                    101,
+                    "#d66a27",
+                    151,
+                    "#bc3636",
+                    201,
+                    "#893875",
+                  ],
                 ],
                 "circle-opacity": 0.92,
                 "circle-stroke-color": "#fff",
@@ -218,6 +247,7 @@ export function GisMapCanvas({
               type: "symbol",
               source: "auvrion-model-air-quality",
               layout: {
+                "text-font": ["Noto Sans Regular"],
                 "text-field": ["get", "aqiLabel"],
                 "text-size": 11,
                 "text-allow-overlap": true,
@@ -237,7 +267,7 @@ export function GisMapCanvas({
               const panel = document.createElement("div");
               panel.className = "space-y-1 text-xs";
               const heading = document.createElement("strong");
-              heading.textContent = `${String(props.name ?? "Lokasi")} · US AQI ${String(props.aqiLabel ?? "—")}`;
+              heading.textContent = `${String(props.name ?? "Lokasi")} · ${Number(props.aqi) < 0 ? "US AQI tidak tersedia" : `US AQI ${String(props.aqiLabel ?? "—")}`}`;
               const particles = document.createElement("p");
               particles.textContent = `PM2.5 ${String(props.pm25 ?? "—")} · PM10 ${String(props.pm10 ?? "—")} µg/m³`;
               const stamp = document.createElement("p");
@@ -291,6 +321,7 @@ export function GisMapCanvas({
               source: "auvrion-nasa-hotspots",
               filter: ["has", "point_count"],
               layout: {
+                "text-font": ["Noto Sans Regular"],
                 "text-field": ["get", "point_count_abbreviated"],
                 "text-size": 11,
               },
@@ -357,8 +388,7 @@ export function GisMapCanvas({
               const caution = document.createElement("p");
               caution.className =
                 "border-t border-[#dbe4df] pt-1 text-[#64766c]";
-              caution.textContent =
-                "Status lapangan: belum diverifikasi. Kecerahan I4 bukan suhu udara.";
+              caution.textContent = "Status lapangan: belum diverifikasi.";
               content.append(caution);
               new lib.Popup({ maxWidth: "320px", closeButton: true })
                 .setLngLat([longitude, latitude])
@@ -428,11 +458,97 @@ export function GisMapCanvas({
       for (const marker of markers) marker.remove();
       pickedMarkerRef.current?.remove();
       pickedMarkerRef.current = null;
+      navigationMarkerRef.current?.remove();
+      navigationMarkerRef.current = null;
+      for (const marker of iotMarkersRef.current) marker.remove();
+      iotMarkersRef.current = [];
       buttons.clear();
       mapRef.current = null;
       map?.remove();
     };
   }, [points, retryKey]);
+
+  // AB-WC-011-PIN-AQI-UX-20261028
+  // Explicit search/GPS navigation. Read GPS only after user permission and click.
+  useEffect(() => {
+    const map = mapRef.current;
+    // Clear is distinct from closing the search panel.
+    navigationMarkerRef.current?.remove();
+    navigationMarkerRef.current = null;
+    if (!mapLoaded || !HAS_APPROVED_BASEMAP || !navigationTarget) return;
+    if (
+      !map ||
+      !isValidIndonesiaCoordinate(
+        navigationTarget.latitude,
+        navigationTarget.longitude,
+      )
+    )
+      return;
+    let cancelled = false;
+    void import("maplibre-gl")
+      .then((lib) => {
+        if (cancelled || mapRef.current !== map) return;
+        navigationMarkerRef.current?.remove();
+        navigationMarkerRef.current = new lib.Marker({
+          color: navigationTarget.kind === "device" ? "#2563eb" : "#20785f",
+        })
+          .setLngLat([navigationTarget.longitude, navigationTarget.latitude])
+          .setPopup(
+            new lib.Popup({ offset: 22 }).setText(
+              navigationTarget.label.slice(0, 210),
+            ),
+          )
+          .addTo(map);
+        map.flyTo({
+          center: [navigationTarget.longitude, navigationTarget.latitude],
+          zoom: Math.max(10, map.getZoom()),
+          duration: 550,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [navigationTarget, mapLoaded]);
+
+  // Only trusted backend data may populate these future IoT locations.
+  // A registered device is NOT automatically online or geolocated.
+  useEffect(() => {
+    for (const marker of iotMarkersRef.current) marker.remove();
+    iotMarkersRef.current = [];
+    if (!mapLoaded || !HAS_APPROVED_BASEMAP) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const approved = approvedIotLocations.filter(
+      (point) =>
+        point.verifiedLocation === true &&
+        point.disclosureApproved === true &&
+        isValidIndonesiaCoordinate(point.latitude, point.longitude) &&
+        Number.isFinite(Date.parse(point.observedAtUtc)) &&
+        typeof point.label === "string",
+    );
+    let cancelled = false;
+    void import("maplibre-gl")
+      .then((lib) => {
+        if (cancelled || mapRef.current !== map) return;
+        iotMarkersRef.current = approved.slice(0, 200).map((point) =>
+          new lib.Marker({ color: "#7c3aed" })
+            .setLngLat([point.longitude, point.latitude])
+            .setPopup(
+              new lib.Popup({ offset: 20 }).setText(
+                `${point.label.slice(0, 100)} · Lokasi tercatat: ${point.observedAtUtc}. Status online tidak diketahui.`,
+              ),
+            )
+            .addTo(map),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      for (const marker of iotMarkersRef.current) marker.remove();
+      iotMarkersRef.current = [];
+    };
+  }, [approvedIotLocations, mapLoaded]);
 
   // Repaint model AQI without resetting current map viewport or private observation markers.
   useEffect(() => {
@@ -450,8 +566,8 @@ export function GisMapCanvas({
         },
         properties: {
           name: site.name,
-          aqi: site.usAqi,
-          aqiLabel: String(site.usAqi),
+          aqi: site.usAqi ?? -1,
+          aqiLabel: site.usAqi === null ? "PM" : String(site.usAqi),
           pm25: site.pm25 === null ? "—" : String(site.pm25),
           pm10: site.pm10 === null ? "—" : String(site.pm10),
           modelTimeUtc: site.modelTimeUtc ?? "tidak tersedia",
@@ -465,11 +581,15 @@ export function GisMapCanvas({
   useEffect(() => {
     if (!hotspotLayerReady || !HAS_APPROVED_BASEMAP) return;
     const map = mapRef.current;
-    const source = map?.getSource("auvrion-nasa-hotspots") as
+    if (!map?.isStyleLoaded()) {
+      return;
+    }
+
+    const source = map.getSource("auvrion-nasa-hotspots") as
       | import("maplibre-gl").GeoJSONSource
       | undefined;
-    if (!map || !source) {
-      console.error("AUVRION_HOTSPOTS_SOURCE_MISSING");
+
+    if (!source) {
       return;
     }
     const layerIds = [

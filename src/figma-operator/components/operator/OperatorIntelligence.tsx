@@ -83,9 +83,6 @@ export function OperatorIntelligence() {
           >
             Intelijen observasi
           </h2>
-          <p className="mt-1 text-xs text-muted">
-            Dihitung dari rekaman organisasi ini, bukan sensor atau AI simulasi.
-          </p>
         </div>
         <fieldset
           aria-label="Rentang grafik"
@@ -191,7 +188,7 @@ export function OperatorIntelligence() {
                   <b className="text-fg">{data.domains.biodiversity ?? 0}</b>
                 </span>
                 <span>
-                  Risiko:{" "}
+                  Risiko Lingkungan:{" "}
                   <b className="text-fg">
                     {data.domains.environmental_risk ?? 0}
                   </b>
@@ -202,9 +199,6 @@ export function OperatorIntelligence() {
               <p className="text-xs font-semibold">Perlu peninjauan</p>
               <p className="mt-1 text-2xl font-semibold text-ink">
                 {data.unreviewedAllTime}
-              </p>
-              <p className="text-xs text-muted">
-                Observasi belum ditinjau, seluruh waktu
               </p>
             </div>
             <div>
@@ -232,9 +226,6 @@ export function OperatorIntelligence() {
                   ))}
                 </ul>
               )}
-              <p className="mt-2 text-[11px] text-muted">
-                Jumlah unggahan tidak membuktikan perangkat masih online.
-              </p>
             </div>
           </div>
           {data.partial && (

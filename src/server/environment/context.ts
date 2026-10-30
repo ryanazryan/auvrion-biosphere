@@ -7,6 +7,7 @@ import {
   parseBoundingBox,
   parseFirms,
 } from "./contracts";
+import type { PointForecast } from "./point-weather";
 export type Source<T> =
   | { state: "available"; retrievedAtUtc: string; data: T }
   | {
@@ -18,6 +19,7 @@ export type EnvironmentalContext = {
   retrievedAtUtc: string;
   bmkg: Source<BmkgData>;
   nasa: Source<FirmsData>;
+  pointForecast?: PointForecast;
   sources: { bmkg: string; nasa: string };
   limitations: string[];
 };

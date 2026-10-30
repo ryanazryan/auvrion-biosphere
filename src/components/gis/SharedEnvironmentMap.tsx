@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import type { GisRecord } from "@/figma-operator/gis/client";
 import type {
   HotspotPoint,
@@ -9,7 +9,6 @@ import type {
 } from "@/figma-operator/gis/hotspots";
 import { GisMapCanvas } from "@/figma-operator/screens/operator/GisMapCanvas";
 import type { AirQualitySite } from "@/server/gis/air-quality-contract";
-
 import { AirQualityControl } from "./AirQualityControl";
 import { IslandSelector } from "./IslandSelector";
 import {
@@ -18,6 +17,8 @@ import {
   islandBounds,
   islandHotspots,
 } from "./island-regions";
+import { MapLocationControls } from "./MapLocationControls";
+import type { MapNavigationTarget } from "./map-navigation";
 
 const EMPTY_GIS_ROWS: GisRecord[] = [];
 
@@ -34,11 +35,15 @@ export function SharedEnvironmentMap({
   workspaceRole: "supervisor" | "ranger";
 }) {
   const [island, setIsland] = useState<IslandRegion>("kalimantan");
+  const [days, setDays] = useState<HotspotsPayload["days"]>(2);
+  const [hotspotRetry, setHotspotRetry] = useState(0);
+  const [navigationTarget, setNavigationTarget] =
+    useState<MapNavigationTarget | null>(null);
   const [hotspotEnabled, setHotspotEnabled] = useState(true);
 
   const [allHotspots, setAllHotspots] = useState<HotspotPoint[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [truncated, setTruncated] = useState(false);
 
   const requestSeq = useRef(0);
@@ -50,25 +55,27 @@ export function SharedEnvironmentMap({
   } | null>(null);
 
   useEffect(() => {
+    void hotspotRetry; // Intentionally force refetch when Retry is clicked.
     const seq = ++requestSeq.current;
     const controller = new AbortController();
 
     if (!basemapConfigured || !hotspotEnabled) {
       setAllHotspots([]);
       setLoading(false);
-      setError(false);
+      setError(null);
       setTruncated(false);
 
       return () => controller.abort();
     }
 
     setLoading(true);
-    setError(false);
+    setError(null);
+    setAllHotspots([]);
 
     const qs = new URLSearchParams({
       organizationId,
-      regionId: "indonesia",
-      days: "1",
+      regionId: island,
+      days: String(days),
     });
 
     void (async () => {
@@ -80,7 +87,7 @@ export function SharedEnvironmentMap({
         });
 
         if (!response.ok) {
-          throw new Error("NASA_HOTSPOTS_UNAVAILABLE");
+          throw new Error(`NASA_HOTSPOTS_HTTP_${response.status}`);
         }
 
         const result = (await response.json()) as HotspotsPayload;
@@ -90,7 +97,8 @@ export function SharedEnvironmentMap({
         }
 
         if (
-          result.regionId !== "indonesia" ||
+          result.regionId !== island ||
+          result.days !== days ||
           !Array.isArray(result.features)
         ) {
           throw new Error("INVALID_PAYLOAD");
@@ -98,14 +106,16 @@ export function SharedEnvironmentMap({
 
         setTruncated(result.truncated);
         setAllHotspots(result.features);
-      } catch {
+      } catch (cause) {
         if (controller.signal.aborted || seq !== requestSeq.current) {
           return;
         }
 
         setAllHotspots([]);
         setTruncated(false);
-        setError(true);
+        setError(
+          cause instanceof Error ? cause.message : "NETWORK_UNAVAILABLE",
+        );
       } finally {
         if (!controller.signal.aborted && seq === requestSeq.current) {
           setLoading(false);
@@ -114,7 +124,7 @@ export function SharedEnvironmentMap({
     })();
 
     return () => controller.abort();
-  }, [organizationId, hotspotEnabled]);
+  }, [organizationId, hotspotEnabled, island, days, hotspotRetry]);
 
   const focusBounds = useMemo(() => islandBounds(island), [island]);
 
@@ -149,6 +159,22 @@ export function SharedEnvironmentMap({
             className="w-44 max-w-[calc(100vw-2rem)]"
           />
 
+          <div className="min-w-[130px]">
+            <SelectMenu
+              label="Periode hotspot satelit"
+              value={String(days)}
+              options={[
+                { value: "1", label: "1 hari" },
+                { value: "2", label: "2 hari" },
+                { value: "5", label: "5 hari" },
+              ]}
+              onChange={(value) => {
+                const next = Number(value);
+                if (next === 1 || next === 2 || next === 5) setDays(next);
+              }}
+            />
+          </div>
+
           <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-line bg-white px-3 text-xs font-medium">
             <input
               type="checkbox"
@@ -176,6 +202,19 @@ export function SharedEnvironmentMap({
           hotspotBounds={focusBounds}
           airQualitySites={airQuality}
           onPickedLocationChange={setPin}
+          navigationTarget={navigationTarget}
+        />
+        {/* AB-WC-011-PIN-AQI-UX-20261028 */}
+        <MapLocationControls
+          organizationId={organizationId}
+          onNavigate={(target) => {
+            setNavigationTarget(target);
+            setPin(
+              target
+                ? { latitude: target.latitude, longitude: target.longitude }
+                : null,
+            );
+          }}
         />
 
         {/* Ringkasan hotspot berada di dalam peta. */}
@@ -195,8 +234,17 @@ export function SharedEnvironmentMap({
                   Data satelit tidak tersedia
                 </p>
                 <p className="text-[11px] text-muted">
-                  Coba nonaktifkan dan aktifkan kembali.
+                  {error === "NASA_HOTSPOTS_HTTP_503"
+                    ? "Layanan FIRMS tidak dapat dimuat. Coba periode lebih singkat atau pulau yang lebih kecil."
+                    : `Permintaan gagal (${error}). Coba lagi.`}
                 </p>
+                <button
+                  type="button"
+                  className="pointer-events-auto text-[11px] font-semibold text-brand underline"
+                  onClick={() => setHotspotRetry((value) => value + 1)}
+                >
+                  Coba lagi
+                </button>
               </div>
             ) : (
               <div className="space-y-1">
@@ -205,7 +253,7 @@ export function SharedEnvironmentMap({
                 </p>
 
                 <p className="text-[11px] text-muted">
-                  {islandLabel} · NASA FIRMS · 1 hari
+                  {islandLabel} · NASA FIRMS · {days} hari
                 </p>
 
                 {truncated && (

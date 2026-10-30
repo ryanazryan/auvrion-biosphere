@@ -22,6 +22,19 @@ type ExternalContext = {
         };
       }
     | { state: "unavailable"; reason: string };
+  pointForecast?:
+    | {
+        state: "available";
+        provider: "Open-Meteo";
+        retrievedAtUtc: string;
+        validAtUtc: string;
+        temperatureC: number | null;
+        humidityPct: number | null;
+        precipitationMm: number | null;
+        windKmh: number | null;
+        precision: "rounded_0_1_degree";
+      }
+    | { state: "unavailable"; reason: string };
   nasa:
     | {
         state: "available";
@@ -87,6 +100,11 @@ export function EnvironmentalAdvisory({
   }));
   const bmkgOk = external?.bmkg.state === "available";
   const nasaOk = external?.nasa.state === "available";
+  const pointOk = external?.pointForecast?.state === "available";
+  const pointData =
+    external?.pointForecast?.state === "available"
+      ? external.pointForecast
+      : null;
   const bmkgData =
     external?.bmkg.state === "available" ? external.bmkg.data : null;
 
@@ -109,15 +127,15 @@ export function EnvironmentalAdvisory({
         <span className="rounded bg-bg px-2 py-0.5 text-xs text-muted">
           {status === "loading"
             ? "Memuat data resmi"
-            : bmkgOk || nasaOk
+            : bmkgOk || nasaOk || pointOk
               ? "Data referensi tersedia"
               : "Data belum tersedia"}
         </span>
       </header>
       <div className="px-4 py-3.5 text-[13px] leading-5">
         <p className="text-muted">
-          BMKG · NASA FIRMS · Referensi wilayah, bukan kondisi pasti lokasi
-          observasi.
+          Prakiraan cuaca · NASA FIRMS · Referensi lingkungan, bukan kondisi
+          sensor IoT maupun bukti kebakaran.
         </p>
         {external && (
           <p className="mt-1 text-xs text-muted">
@@ -145,7 +163,8 @@ export function EnvironmentalAdvisory({
               </p>
             ) : (
               <p className="mt-1 text-muted">
-                Prakiraan belum tersedia. Ini bukan pembacaan sensor.
+                ADM4 titik ini belum dipetakan ke wilayah BMKG yang
+                terverifikasi, atau layanan sedang tidak tersedia.
               </p>
             )}
           </div>
@@ -172,6 +191,50 @@ export function EnvironmentalAdvisory({
             )}
           </div>
         </div>
+        {pointData && (
+          <div className="mt-3 rounded-md border border-line bg-bg p-3">
+            <p className="font-semibold">Prakiraan titik — Open-Meteo</p>
+            <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+              <span>
+                Suhu:{" "}
+                {pointData.temperatureC === null
+                  ? "—"
+                  : `${pointData.temperatureC} °C`}
+              </span>
+              <span>
+                Kelembapan:{" "}
+                {pointData.humidityPct === null
+                  ? "—"
+                  : `${pointData.humidityPct}%`}
+              </span>
+              <span>
+                Hujan per jam:{" "}
+                {pointData.precipitationMm === null
+                  ? "—"
+                  : `${pointData.precipitationMm} mm`}
+              </span>
+              <span>
+                Angin:{" "}
+                {pointData.windKmh === null
+                  ? "—"
+                  : `${pointData.windKmh} km/jam`}
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              Berlaku: {formatEvidenceTime(pointData.validAtUtc, timeZone)} ·
+              Model cuaca untuk koordinat yang dibulatkan 0,1°, bukan prakiraan
+              resmi BMKG dan bukan kondisi persis di titik sensor.
+            </p>
+          </div>
+        )}
+        {external?.bmkg.state !== "available" &&
+          !pointData &&
+          status === "available" && (
+            <p className="mt-3 text-xs text-muted">
+              Prakiraan titik juga belum tersedia dari penyedia. Tidak
+              menggunakan nilai pengganti.
+            </p>
+          )}
         {facts.length > 0 && (
           <div className="mt-3 rounded-md border border-line p-3">
             <p className="mb-2 font-medium">
@@ -214,7 +277,7 @@ export function EnvironmentalAdvisory({
             }
             className="rounded-md px-2.5 py-1.5 font-medium text-brand hover:bg-brand-50"
           >
-            ✧ Tanya AI
+            Tanya AI
           </button>
         </div>
         {expanded && (
@@ -241,9 +304,21 @@ export function EnvironmentalAdvisory({
               </a>{" "}
               · {nasaOk ? "Tersedia" : "Belum tersedia"}
             </p>
+            <p>
+              <a
+                href="https://open-meteo.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-brand underline"
+              >
+                Open-Meteo — model cuaca berbasis lokasi
+              </a>{" "}
+              · {pointOk ? "Tersedia" : "Belum tersedia"}
+            </p>
             <p className="text-muted">
               Waktu pengambilan referensi berbeda dari waktu observasi maupun
-              waktu akuisisi satelit.
+              waktu akuisisi satelit. Ketersediaan satu sumber tidak mewakili
+              sumber lain.
             </p>
           </div>
         )}

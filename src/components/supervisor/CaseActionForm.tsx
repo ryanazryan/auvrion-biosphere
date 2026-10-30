@@ -191,16 +191,16 @@ export function CaseActionForm({
                     value: allowed ?? "",
                     label:
                       currentCase.status === "received"
-                        ? "AB-TR-010 · Mulai review"
-                        : "AB-TR-011 · Kirim ke Supervisor",
+                        ? "Mulai peninjauan"
+                        : "Kirim kepada Supervisor",
                   },
                 ]
               : [
                   {
                     value: "AB-TR-012",
-                    label: "AB-TR-012 · Pantau tanpa penugasan",
+                    label: "Pantau tanpa penugasan",
                   },
-                  { value: "AB-TR-013", label: "AB-TR-013 · Tugaskan Ranger" },
+                  { value: "AB-TR-013", label: "Tugaskan Ranger" },
                 ]
           }
           onChange={(value) => {

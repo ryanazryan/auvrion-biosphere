@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { ObservationPointPicker } from "@/components/gis/ObservationPointPicker";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import * as I from "../../components/icons";
 import { OperatorLayout } from "../../components/operator/OperatorLayout";
@@ -804,6 +805,16 @@ export function ObservationNew() {
                         />
                       </Field>
                     </div>
+                    <ObservationPointPicker
+                      latitude={f.latitude}
+                      longitude={f.longitude}
+                      onChange={(point) =>
+                        upd({
+                          latitude: String(point.latitude),
+                          longitude: String(point.longitude),
+                        })
+                      }
+                    />
                     <p className="mt-2 flex gap-1.5 text-xs text-muted">
                       <I.Lock className="mt-px size-3.5 shrink-0" />
                       Koordinat disimpan server tetapi tidak ditampilkan kembali
@@ -851,11 +862,7 @@ export function ObservationNew() {
           </Section>
 
           {f.domain === "environmental_risk" ? (
-            <Section
-              n={4}
-              title="Pengukuran lingkungan"
-              desc="Opsional. Masukkan nilai seperti tercatat; jangan dikonversi atau diperkirakan."
-            >
+            <Section n={4} title="Pengukuran lingkungan">
               {f.measurements.length === 0 && (
                 <p className="text-[13px] text-muted">Belum ada pengukuran.</p>
               )}

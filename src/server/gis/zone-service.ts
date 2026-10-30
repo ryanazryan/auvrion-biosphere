@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import { getDb } from "@/server/db";
 import { operationalZones } from "@/server/db/operations-domain-schema";
 
@@ -13,7 +13,12 @@ export async function listScopedZones(organizationId: string) {
       name: operationalZones.name,
     })
     .from(operationalZones)
-    .where(eq(operationalZones.organizationId, organizationId))
+    .where(
+      and(
+        eq(operationalZones.organizationId, organizationId),
+        ne(operationalZones.code, "WC013-DEMO"),
+      ),
+    )
     .orderBy(asc(operationalZones.name))
     .limit(200);
 

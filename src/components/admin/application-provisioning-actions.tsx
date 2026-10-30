@@ -124,7 +124,7 @@ export function ApplicationProvisioningActions({
       )}
       {accessStatus === "pending_activation" && invitationUsedAt && (
         <p className="mt-3 text-sm text-muted">
-          Password dibuat. Menunggu penyelesaian TOTP.
+          Password dibuat. Penyelesaian TOTP.
         </p>
       )}
       {error && (

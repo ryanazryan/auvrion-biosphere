@@ -29,18 +29,84 @@ const STATUS: Record<Status, { label: string; cls: string }> = {
     cls: "bg-[#f3f6f4] text-[#506057]",
   },
   email_verified: {
-    label: "Menunggu Peninjauan",
+    label: "Peninjauan",
     cls: "bg-warn-50 text-warn",
   },
   approved: {
-    label: "Lolos tinjauan",
-    cls: "bg-brand-50 text-brand",
+    label: "Penetapan role",
+    cls: "bg-warn-50 text-warn",
   },
   rejected: {
     label: "Ditolak",
     cls: "bg-danger-50 text-danger",
   },
 };
+
+type DisplayStatus =
+  | Status
+  | "awaiting_role"
+  | "awaiting_activation"
+  | "awaiting_mfa"
+  | "account_active"
+  | "account_disabled";
+
+const DISPLAY_STATUS: Record<DisplayStatus, { label: string; cls: string }> = {
+  ...STATUS,
+  awaiting_role: {
+    label: "Penetapan role",
+    cls: "bg-warn-50 text-warn",
+  },
+  awaiting_activation: {
+    label: "Aktivasi akun",
+    cls: "bg-warn-50 text-warn",
+  },
+  awaiting_mfa: {
+    label: "Penyelesaian MFA",
+    cls: "bg-warn-50 text-warn",
+  },
+  account_active: {
+    label: "Akun aktif",
+    cls: "bg-brand-50 text-brand",
+  },
+  account_disabled: {
+    label: "Akun dinonaktifkan",
+    cls: "bg-danger-50 text-danger",
+  },
+};
+
+function getDisplayStatus(record: Application): DisplayStatus {
+  if (record.status !== "approved") return record.status;
+  if (record.accessStatus === "active") return "account_active";
+  if (record.accessStatus === "disabled") return "account_disabled";
+  if (record.accessStatus === "pending_activation") {
+    return record.invitationUsedAt ? "awaiting_mfa" : "awaiting_activation";
+  }
+  return "awaiting_role";
+}
+
+function getActionLabel(record: Application): string {
+  if (record.status === "approved") {
+    if (record.accessStatus === null) return "Tetapkan role";
+    if (record.accessStatus === "pending_activation") return "Kelola aktivasi";
+    return "Lihat akun";
+  }
+  return record.status === "rejected" ? "Lihat keputusan" : "Tinjau";
+}
+
+const FILTER_OPTIONS: { value: DisplayStatus | "all"; label: string }[] = [
+  { value: "all", label: "Semua status" },
+  { value: "submitted", label: STATUS.submitted.label },
+  { value: "email_verified", label: STATUS.email_verified.label },
+  { value: "awaiting_role", label: DISPLAY_STATUS.awaiting_role.label },
+  {
+    value: "awaiting_activation",
+    label: DISPLAY_STATUS.awaiting_activation.label,
+  },
+  { value: "awaiting_mfa", label: DISPLAY_STATUS.awaiting_mfa.label },
+  { value: "account_active", label: DISPLAY_STATUS.account_active.label },
+  { value: "account_disabled", label: DISPLAY_STATUS.account_disabled.label },
+  { value: "rejected", label: STATUS.rejected.label },
+];
 
 const PAGE_SIZE = 6;
 
@@ -67,7 +133,7 @@ export function AccessApplicationsWorkspace({
   adminEmail: string;
 }) {
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<Status | "all">("all");
+  const [status, setStatus] = useState<DisplayStatus | "all">("all");
   const [sort, setSort] = useState<"new" | "old">("new");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Application | null>(null);
@@ -94,7 +160,7 @@ export function AccessApplicationsWorkspace({
     return records
       .filter(
         (record) =>
-          (status === "all" || record.status === status) &&
+          (status === "all" || getDisplayStatus(record) === status) &&
           `${record.applicantName} ${record.email}`
             .toLowerCase()
             .includes(term),
@@ -114,14 +180,19 @@ export function AccessApplicationsWorkspace({
     currentPage * PAGE_SIZE,
   );
 
-  const total = (kind: Status) =>
-    records.filter((record) => record.status === kind).length;
+  const countDisplayStatus = (kind: DisplayStatus) =>
+    records.filter((record) => getDisplayStatus(record) === kind).length;
 
   const stats = [
-    ["Menunggu Peninjauan", total("email_verified")],
-    ["Lolos tinjauan", total("approved")],
-    ["Ditolak", total("rejected")],
-    ["Total Permohonan", records.length],
+    ["Menunggu peninjauan", countDisplayStatus("email_verified")],
+    ["Penetapan role", countDisplayStatus("awaiting_role")],
+    [
+      "Menunggu aktivasi / MFA",
+      countDisplayStatus("awaiting_activation") +
+        countDisplayStatus("awaiting_mfa"),
+    ],
+    ["Akun aktif", countDisplayStatus("account_active")],
+    ["Total permohonan", records.length],
   ] as const;
 
   return (
@@ -133,12 +204,12 @@ export function AccessApplicationsWorkspace({
         </h1>
 
         <p className="mt-1 text-sm text-muted">
-          Tinjau permohonan akses pengguna Auvrion Biosphere.
+          Pantau verifikasi, persetujuan, penetapan role, dan aktivasi akun.
         </p>
       </div>
 
       {/* Summary statistics */}
-      <dl className="mb-5 grid grid-cols-2 gap-2 lg:grid-cols-4">
+      <dl className="mb-5 grid grid-cols-2 gap-2 lg:grid-cols-5">
         {stats.map(([label, number]) => (
           <div
             key={label}
@@ -179,13 +250,7 @@ export function AccessApplicationsWorkspace({
             setPage(1);
           }}
           className="lg:w-52"
-          options={[
-            { value: "all", label: "Semua status" },
-            ...(Object.keys(STATUS) as Status[]).map((key) => ({
-              value: key,
-              label: STATUS[key].label,
-            })),
-          ]}
+          options={FILTER_OPTIONS}
         />
 
         <SelectMenu
@@ -266,8 +331,8 @@ export function AccessApplicationsWorkspace({
 
                 <td className="px-4 py-3">
                   <span
-                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${
-                      STATUS[record.status].cls
+                    className={`inline-flex max-w-full items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium ${
+                      DISPLAY_STATUS[getDisplayStatus(record)].cls
                     }`}
                   >
                     <span
@@ -275,7 +340,7 @@ export function AccessApplicationsWorkspace({
                       aria-hidden="true"
                     />
 
-                    {STATUS[record.status].label}
+                    {DISPLAY_STATUS[getDisplayStatus(record)].label}
                   </span>
                 </td>
 
@@ -285,7 +350,7 @@ export function AccessApplicationsWorkspace({
                     onClick={() => setSelected(record)}
                     className="font-semibold text-brand hover:underline"
                   >
-                    Tinjau
+                    {getActionLabel(record)}
                   </button>
                 </td>
               </tr>
@@ -309,11 +374,11 @@ export function AccessApplicationsWorkspace({
               </div>
 
               <span
-                className={`rounded-md px-2 py-1 text-xs ${
-                  STATUS[record.status].cls
+                className={`max-w-[50%] rounded-md px-2 py-1 text-xs ${
+                  DISPLAY_STATUS[getDisplayStatus(record)].cls
                 }`}
               >
-                {STATUS[record.status].label}
+                {DISPLAY_STATUS[getDisplayStatus(record)].label}
               </span>
             </div>
 
@@ -326,7 +391,7 @@ export function AccessApplicationsWorkspace({
               onClick={() => setSelected(record)}
               className="mt-3 w-full rounded-md border border-line-strong p-2.5 text-sm font-semibold text-brand"
             >
-              Tinjau
+              {getActionLabel(record)}
             </button>
           </li>
         ))}
@@ -370,12 +435,6 @@ export function AccessApplicationsWorkspace({
           </button>
         </div>
       </div>
-
-      {/* Development notice */}
-      <p className="mt-5 text-xs text-muted">
-        Workspace development AUVRION-LOCAL. Approval/penolakan dicatat di
-        database lokal; aktivasi akun dilakukan terpisah.
-      </p>
 
       {/* Application review drawer */}
       {selected && (
@@ -430,7 +489,7 @@ export function AccessApplicationsWorkspace({
             <dl className="mt-8 space-y-4 text-sm">
               {(
                 [
-                  ["Status", STATUS[selected.status].label],
+                  ["Status", DISPLAY_STATUS[getDisplayStatus(selected)].label],
                   ["Diajukan", formatted(selected.createdAt)],
                   ["Email terverifikasi", formatted(selected.emailVerifiedAt)],
                   [
@@ -460,6 +519,14 @@ export function AccessApplicationsWorkspace({
                 </div>
               )}
             </dl>
+
+            {selected.status === "approved" &&
+              selected.accessStatus === null && (
+                <p className="mt-5 rounded-lg border border-warn/30 bg-warn-50 p-3 text-sm text-ink">
+                  Permohonan telah disetujui, tetapi role dan undangan aktivasi
+                  belum disiapkan. Pilih role pada bagian di bawah ini.
+                </p>
+              )}
 
             {/* Real PostgreSQL approval/rejection actions */}
             {selected.status === "approved" ? (

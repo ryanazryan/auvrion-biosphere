@@ -59,7 +59,7 @@ export function ListenDemoObservation() {
           }
           className="rounded-md border border-line px-3 py-2 text-sm font-medium text-brand hover:bg-brand-50"
         >
-          ✧ Tanya AI
+          Tanya AI
         </button>
       </header>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">

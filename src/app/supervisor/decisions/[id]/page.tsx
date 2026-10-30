@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ObservationLocationMap } from "@/components/gis/ObservationLocationMap";
 import { CaseActionForm } from "@/components/supervisor/CaseActionForm";
+import { ListenAudioPlayer } from "@/components/supervisor/ListenAudioPlayer";
 import {
   dateTime,
   Empty,
@@ -11,6 +12,7 @@ import {
   StatusChip,
   shortId,
 } from "@/components/supervisor/SupervisorElements";
+import { SupervisorPerchReview } from "@/components/supervisor/SupervisorPerchReview";
 import {
   formatEvidenceTime,
   formatMeasurementValue,
@@ -18,12 +20,34 @@ import {
   sourceKindLabel,
 } from "@/figma-operator/gis/observation-evidence-display";
 import { isUuid } from "@/server/workflow/approved-case-policy";
+import { getApprovedListenInstallationLabels } from "@/server/workflow/listen-installations";
 import {
   findWorkspaceAccess,
   getWorkspaceCase,
   listEligibleRangers,
   listWorkspaceZones,
 } from "@/server/workflow/workspace-queries";
+
+const CASE_TRANSITION_LABELS: Record<string, string> = {
+  "AB-TR-010": "Mulai peninjauan",
+  "AB-TR-011": "Kirim kepada Supervisor",
+  "AB-TR-012": "Pantau tanpa penugasan",
+  "AB-TR-013": "Tugaskan Ranger",
+};
+const CASE_STATUS_LABELS: Record<string, string> = {
+  received: "Diterima",
+  under_review: "Dalam peninjauan",
+  awaiting_decision: "Menunggu keputusan",
+  monitoring: "Dalam pemantauan",
+  assigned: "Ditugaskan",
+  closed: "Selesai",
+};
+function readableCaseTransition(id: string) {
+  return CASE_TRANSITION_LABELS[id] ?? "Perubahan status";
+}
+function readableCaseStatus(status: string) {
+  return CASE_STATUS_LABELS[status] ?? "Status lainnya";
+}
 
 export const dynamic = "force-dynamic";
 export default async function SupervisorCaseDetail({
@@ -38,6 +62,12 @@ export default async function SupervisorCaseDetail({
   const detail = await getWorkspaceCase(a.organizationId, id);
   if (!detail) notFound();
   const { record: c, observations, events, tasks } = detail;
+  const installationLabels = await getApprovedListenInstallationLabels(
+    a.organizationId,
+    observations
+      .filter((o) => o.evidence?.sourceKind === "listen_device")
+      .map((o) => o.id),
+  );
   const [rangers, zones] =
     c.status === "awaiting_decision"
       ? await Promise.all([
@@ -60,7 +90,7 @@ export default async function SupervisorCaseDetail({
         desc={`Case ${shortId(c.id)} · versi ${c.version} · dibuat ${dateTime(c.createdAt)}`}
         action={<StatusChip status={c.status} />}
       />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-5">
           <Panel title={`Observasi terkait · ${observations.length}`}>
             {!observations.length ? (
@@ -79,81 +109,145 @@ export default async function SupervisorCaseDetail({
                       Kualitas: {o.quality} · diterima {dateTime(o.receivedAt)}{" "}
                       · diamati {dateTime(o.observedAt)}
                     </p>
-                    <p className="mt-1 text-xs text-muted">{o.linkReason}</p>
+                    {o.evidence?.sourceKind === "listen_device" && (
+                      <section
+                        aria-label="Tinjauan bukti LISTEN"
+                        className="mt-4 space-y-3"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl bg-bg px-4 py-3">
+                          <div>
+                            <p className="text-xs font-semibold text-ink">
+                              Lokasi pemasangan
+                            </p>
+                            <p className="mt-1 text-sm text-ink">
+                              {installationLabels.get(o.id) ??
+                                "Belum disetujui untuk ditampilkan"}
+                            </p>
+                          </div>
+                          <p className="max-w-sm text-[11px] leading-5 text-muted">
+                            Posisi mikrofon bukan koordinat pasti keberadaan
+                            satwa atau sumber suara.
+                          </p>
+                        </div>
+                        <ListenAudioPlayer
+                          src={`/api/supervisor/cases/${c.id}/observations/${o.id}/audio`}
+                          title={`Rekaman ${o.sourceCode}`}
+                        />
+                        <SupervisorPerchReview
+                          caseId={c.id}
+                          observationId={o.id}
+                        />
+                      </section>
+                    )}
+                    <section
+                      className="mt-4 rounded-xl border border-line bg-white p-4"
+                      aria-label="Ringkasan operator"
+                    >
+                      <h3 className="text-sm font-semibold text-ink">
+                        Ringkasan dari Operator
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-6 text-muted">
+                        {o.linkReason.length > 250
+                          ? `${o.linkReason.slice(0, 250).trimEnd()}…`
+                          : o.linkReason}
+                      </p>
+                      {o.linkReason.length > 250 && (
+                        <details className="mt-3 border-t border-line pt-3">
+                          <summary className="cursor-pointer text-xs font-semibold text-brand">
+                            Baca alasan lengkap
+                          </summary>
+                          <p className="mt-3 whitespace-pre-wrap text-[13px] leading-6 text-muted">
+                            {o.linkReason}
+                          </p>
+                        </details>
+                      )}
+                    </section>
+                    {o.domain === "biodiversity" && (
+                      <p className="mt-2 rounded-lg bg-brand-50 p-2 text-xs text-ink">
+                        Audio dapat berisi ucapan manusia, noise, atau satwa.
+                        Hasil Perch adalah kandidat belum diverifikasi; gunakan
+                        ringkasan Operator untuk menentukan tindakan.
+                      </p>
+                    )}
                     {o.domain === "environmental_risk" && (
                       <ObservationLocationMap
                         observationId={o.id}
                         organizationId={a.organizationId}
                       />
                     )}
+                    {o.evidence?.audioRecordings.map((audio) => (
+                      <p
+                        key={audio.recordingId}
+                        className="mt-2 text-xs font-medium text-brand"
+                      >
+                        Bukti WAV diterima · {audio.recordingId} ·{" "}
+                        {(audio.durationMs / 1000).toFixed(1)} detik
+                      </p>
+                    ))}
                     {o.evidence && (
-                      <div className="mt-3 space-y-2 rounded-md border border-line bg-bg p-3 text-xs leading-5">
-                        <p className="font-semibold text-ink">
-                          Bukti observasi untuk keputusan
-                        </p>
-                        <p>
-                          Asal: {sourceKindLabel(o.evidence.sourceKind)} ·{" "}
-                          {ingestionModeLabel(o.evidence.ingestionMode)}
-                        </p>
-                        <p>
-                          ID rekaman sumber:{" "}
-                          {o.evidence.sourceRecordId ?? "Tidak tersedia"}
-                        </p>
-                        <p>
-                          Metode akuisisi:{" "}
-                          {o.evidence.acquisitionMethod ?? "Belum diketahui"}
-                        </p>
-                        {o.evidence.measurements.length > 0 && (
-                          <ul className="space-y-1 border-t border-line pt-2">
-                            {o.evidence.measurements.map((m) => (
-                              <li key={m.id}>
-                                {m.kind === "air_temperature"
-                                  ? "Suhu udara"
-                                  : m.kind === "relative_humidity"
-                                    ? "Kelembapan relatif"
-                                    : m.kind === "pm2_5"
-                                      ? "PM2.5"
-                                      : m.kind}
-                                : {formatMeasurementValue(m.measuredValue)}{" "}
-                                {m.unit}
-                                {" · "}
-                                {formatEvidenceTime(m.measuredAt, "WITA")}
-                                {" · kualitas: "}
-                                {m.quality}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        {o.evidence.attribution && (
-                          <p>Atribusi: {o.evidence.attribution}</p>
-                        )}
-                        {o.evidence.limitations.length > 0 && (
-                          <div className="border-t border-line pt-2">
-                            <p className="font-medium">Keterbatasan sumber</p>
-                            <ul className="list-disc pl-4">
-                              {[...new Set(o.evidence.limitations)].map(
-                                (note) => (
-                                  <li key={note}>{note}</li>
-                                ),
-                              )}
+                      <details className="mt-4 rounded-xl border border-line bg-white text-xs">
+                        <summary className="cursor-pointer px-4 py-3 font-semibold text-ink">
+                          Detail teknis, sumber & provenans
+                        </summary>
+                        <div className="space-y-2 border-t border-line px-4 py-3 leading-5">
+                          <p>
+                            Asal: {sourceKindLabel(o.evidence.sourceKind)} ·{" "}
+                            {ingestionModeLabel(o.evidence.ingestionMode)}
+                          </p>
+                          <p>
+                            ID rekaman sumber:{" "}
+                            {o.evidence.sourceRecordId ?? "Tidak tersedia"}
+                          </p>
+                          <p>
+                            Metode akuisisi:{" "}
+                            {o.evidence.acquisitionMethod ?? "Belum diketahui"}
+                          </p>
+                          {o.evidence.measurements.length > 0 && (
+                            <ul className="space-y-1 border-t border-line pt-2">
+                              {o.evidence.measurements.map((m) => (
+                                <li key={m.id}>
+                                  {m.kind === "air_temperature"
+                                    ? "Suhu udara"
+                                    : m.kind === "relative_humidity"
+                                      ? "Kelembapan relatif"
+                                      : m.kind === "pm2_5"
+                                        ? "PM2.5"
+                                        : m.kind}
+                                  : {formatMeasurementValue(m.measuredValue)}{" "}
+                                  {m.unit}
+                                  {" · "}
+                                  {formatEvidenceTime(m.measuredAt, "WITA")}
+                                  {" · kualitas: "}
+                                  {m.quality}
+                                </li>
+                              ))}
                             </ul>
-                          </div>
-                        )}
-                        <p className="text-muted">
-                          {o.evidence.hasCoordinates
-                            ? "Titik tersimpan, koordinat presisi dilindungi."
-                            : "Titik belum diketahui."}{" "}
-                          Zona operasional adalah area tugas, bukan koordinat
-                          kejadian terverifikasi.
-                        </p>
-                      </div>
+                          )}
+                          {o.evidence.attribution && (
+                            <p>Atribusi: {o.evidence.attribution}</p>
+                          )}
+                          {o.evidence.limitations.length > 0 && (
+                            <div className="border-t border-line pt-2">
+                              <p className="font-medium">Keterbatasan sumber</p>
+                              <ul className="list-disc pl-4">
+                                {[...new Set(o.evidence.limitations)].map(
+                                  (note) => (
+                                    <li key={note}>{note}</li>
+                                  ),
+                                )}
+                              </ul>
+                            </div>
+                          )}
+                          <p className="text-muted">
+                            {o.evidence.hasCoordinates
+                              ? "Titik tersimpan, koordinat presisi dilindungi."
+                              : "Titik belum diketahui."}{" "}
+                            Zona operasional adalah area tugas, bukan koordinat
+                            kejadian terverifikasi.
+                          </p>
+                        </div>
+                      </details>
                     )}
-                    <p className="mt-1 text-xs text-muted">
-                      Akses titik presisi dibatasi sesuai kebijakan lokasi dan
-                      tautan Case. BMKG/NASA pada halaman Operator adalah
-                      referensi wilayah, bukan pengukuran sensor dari observasi
-                      ini.
-                    </p>
                   </li>
                 ))}
               </ul>
@@ -170,13 +264,22 @@ export default async function SupervisorCaseDetail({
                     className="px-4 py-3"
                   >
                     <p className="text-[13px] font-semibold text-ink">
-                      {e.transitionId} · {e.fromStatus} → {e.toStatus}
+                      {readableCaseTransition(e.transitionId)} ·{" "}
+                      {readableCaseStatus(e.fromStatus)} →{" "}
+                      {readableCaseStatus(e.toStatus)}
                     </p>
                     <p className="mt-1 text-xs text-muted">
                       Versi {e.fromVersion} → {e.toVersion} ·{" "}
                       {dateTime(e.createdAt)}
                     </p>
-                    <p className="mt-2 text-[13px] leading-6">{e.reason}</p>
+                    <details className="mt-2 rounded-lg bg-bg px-3 py-2">
+                      <summary className="cursor-pointer text-xs font-medium text-brand">
+                        Alasan keputusan · lihat detail
+                      </summary>
+                      <p className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-muted">
+                        {e.reason}
+                      </p>
+                    </details>
                   </li>
                 ))}
               </ol>

@@ -6,6 +6,7 @@ import { type ReactNode, useCallback, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { SidebarBrandImage } from "@/components/branding/SidebarBrandImage";
 import { SidebarToggleIcon } from "@/components/ui/SidebarToggleIcon";
+import { WorkspaceNotifications } from "@/components/workspace/WorkspaceNotifications";
 import * as I from "@/figma-operator/components/icons";
 import { useModalDrawerFocus } from "@/hooks/use-modal-drawer-focus";
 import { useSidebarSwipeClose } from "@/hooks/use-sidebar-swipe-close";
@@ -16,6 +17,11 @@ const groups = [
     pages: [
       { href: "/supervisor/overview", label: "Ringkasan", icon: I.Grid },
       { href: "/supervisor/map", label: "Peta lingkungan", icon: I.Route },
+      {
+        href: "/supervisor/analytics",
+        label: "Analitik operasional",
+        icon: I.Grid,
+      },
     ],
   },
   {
@@ -274,6 +280,7 @@ export function SupervisorShell({
               <li className="truncate font-semibold text-fg">{currentLabel}</li>
             </ol>
           </nav>
+          <WorkspaceNotifications workspaceRole="supervisor" />
         </header>
 
         <main className="mx-auto max-w-[1400px] px-4 py-6 pb-16 sm:px-6 lg:px-8">

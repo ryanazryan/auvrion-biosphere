@@ -2,7 +2,8 @@ import { and, eq, isNull } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
-
+import { RecoveryCodesManager } from "@/components/account/RecoveryCodesManager";
+import { SessionManager } from "@/components/account/SessionManager";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { PasskeyManager } from "@/components/auth/PasskeyManager";
 import * as I from "@/figma-operator/components/icons";
@@ -395,11 +396,12 @@ export default async function AccountSecurityPage() {
             </Section>
 
             <Section id="pemulihan" title="Kode pemulihan">
+              <RecoveryCodesManager />
               <div className={PANEL}>
                 <Row
                   icon={<I.Lock />}
                   title="Kode pemulihan disimpan secara pribadi"
-                  description="Kode baru ditampilkan saat enrollment TOTP. Kode yang pernah disimpan tidak ditampilkan ulang pada halaman ini."
+                  description="Kode baru ditampilkan saat pendaftaran autentikator atau regenerasi yang terverifikasi. Kode lama tidak ditampilkan ulang."
                 />
                 <div className="border-t border-line bg-[#fbfcfb] px-5 py-3 text-xs leading-5 text-muted">
                   Pemakaian kode pemulihan saat login masih memerlukan alur yang
@@ -438,6 +440,7 @@ export default async function AccountSecurityPage() {
                       : "MFA sesi belum terverifikasi."
                   }
                 />
+                <SessionManager />
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-4 sm:px-5">
                   <span className="flex items-center gap-2 text-[13px] font-semibold text-ink">
                     <I.LogOut className="size-4 text-muted" /> Keluar dari akun

@@ -5,36 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import {
-  BellIcon,
-  CloseIcon,
-  GearIcon,
-  GridIcon,
-  InboxIcon,
-  LogoutIcon,
-  ShieldIcon,
-  UsersIcon,
-} from "@/components/admin/admin-icons";
+import { AdminNotificationBell } from "@/components/admin/AdminNotificationBell";
+import { CloseIcon, LogoutIcon } from "@/components/admin/admin-icons";
+import { AdminSidebarNavigation } from "@/components/admin/admin-sidebar-navigation";
 import { SidebarToggleIcon } from "@/components/ui/SidebarToggleIcon";
 import { useModalDrawerFocus } from "@/hooks/use-modal-drawer-focus";
 import { useSidebarSwipeClose } from "@/hooks/use-sidebar-swipe-close";
 import { authClient } from "@/lib/auth-client";
-
-const NAV_ITEMS = [
-  { label: "Ringkasan", icon: GridIcon, soon: true },
-  {
-    label: "Permohonan Akses",
-    icon: InboxIcon,
-    href: "/admin/access-applications",
-  },
-  {
-    label: "Pengguna & Hak Akses",
-    icon: UsersIcon,
-    href: "/admin/access-users",
-  },
-  { label: "Keamanan", icon: ShieldIcon, href: "/account/security" },
-  { label: "Pengaturan", icon: GearIcon, soon: true },
-] as const;
 
 function Brand({ collapsed = false }: { collapsed?: boolean }) {
   return (
@@ -42,7 +19,7 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
       src={
         collapsed
           ? "/branding/auvrion-biosphere-mark.png"
-          : "/branding/auvrion-biosphere-wordmark-inverted.png"
+          : "/branding/auvrion-biosphere-sidebar-logo.png"
       }
       alt="Auvrion Biosphere"
       width={collapsed ? 44 : 196}
@@ -118,7 +95,7 @@ function SignOutAction({
         onClick={signOut}
         title={collapsed ? "Logout" : undefined}
         aria-label="Logout"
-        className={`mt-2.5 flex h-9 w-full items-center gap-2 rounded-md px-3 text-[13px] text-white/70 hover:bg-white/8 hover:text-white disabled:opacity-50 ${
+        className={`mt-2.5 flex h-9 w-full items-center gap-2 rounded-md px-3 text-[13px] text-[#64766a] hover:bg-[#eef5ef] hover:text-[#145f48] disabled:opacity-50 ${
           collapsed ? "lg:justify-center lg:px-0" : ""
         }`}
       >
@@ -130,86 +107,11 @@ function SignOutAction({
       </button>
 
       {error && (
-        <p role="alert" className="mt-1 text-xs text-[#ffc9c9]">
+        <p role="alert" className="mt-1 text-xs text-danger">
           Logout gagal.
         </p>
       )}
     </>
-  );
-}
-
-function Navigation({
-  collapsed,
-  onNavigate,
-}: {
-  collapsed: boolean;
-  onNavigate?: () => void;
-}) {
-  const pathname = usePathname();
-
-  return (
-    <nav
-      aria-label="Navigasi administrasi"
-      className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3"
-    >
-      {NAV_ITEMS.map((item) => {
-        const Icon = item.icon;
-
-        const active = "href" in item && item.href === pathname;
-
-        const itemClass = `flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-[13px] [&_svg]:size-4.5 [&_svg]:shrink-0 ${
-          collapsed ? "lg:justify-center lg:px-0" : ""
-        }`;
-
-        const contents = (
-          <>
-            <Icon />
-
-            <span className={collapsed ? "lg:sr-only" : ""}>{item.label}</span>
-
-            {"soon" in item && item.soon && (
-              <span
-                className={`ml-auto rounded bg-white/10 px-1.5 py-px text-[10px] text-white/60 ${
-                  collapsed ? "lg:hidden" : ""
-                }`}
-              >
-                Segera
-              </span>
-            )}
-          </>
-        );
-
-        if ("href" in item && item.href) {
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={onNavigate}
-              title={collapsed ? item.label : undefined}
-              aria-current={active ? "page" : undefined}
-              className={`${itemClass} ${
-                active
-                  ? "bg-white/12 font-medium text-white"
-                  : "text-white/70 hover:bg-white/8 hover:text-white"
-              }`}
-            >
-              {contents}
-            </Link>
-          );
-        }
-
-        return (
-          <span
-            key={item.label}
-            aria-disabled="true"
-            title={collapsed ? `${item.label} (segera)` : undefined}
-            className={`${itemClass} cursor-not-allowed text-white/40`}
-          >
-            {contents}
-          </span>
-        );
-      })}
-    </nav>
   );
 }
 
@@ -223,30 +125,25 @@ function ProfileBlock({
   adminEmail: string;
 }) {
   return (
-    <div className="border-t border-white/10 p-3">
-      <div
-        className={`flex items-center gap-2.5 ${
-          collapsed ? "lg:justify-center" : ""
-        }`}
-      >
-        <span
-          aria-hidden="true"
-          className="grid size-8 shrink-0 place-items-center rounded-full bg-white/12 text-xs font-semibold text-white"
+    <div className="border-t border-[#e3ebe5] p-3">
+      <div className="rounded-xl border border-[#e5ece6] bg-[#f6f9f7] px-3 py-3">
+        <p className="text-[10px] font-medium text-[#819186]">
+          Organisasi saat ini
+        </p>
+        <p
+          className="mt-0.5 truncate text-xs font-semibold text-[#263c2e]"
+          title={organizationName}
         >
-          AC
-        </span>
-
-        <div className={`min-w-0 ${collapsed ? "lg:hidden" : ""}`}>
-          <p className="truncate text-[13px] font-medium text-white">
-            Administrator
-          </p>
-
-          <p className="truncate text-xs text-white/60" title={adminEmail}>
-            {organizationName}
-          </p>
-        </div>
+          {organizationName}
+        </p>
       </div>
-
+      <Link
+        href="/account/security"
+        className="mt-2 flex min-h-9 items-center rounded-lg px-3 text-[13px] text-[#64766a] hover:bg-[#eef5ef] hover:text-[#145f48]"
+      >
+        Profil & Keamanan
+      </Link>
+      <span className="sr-only">Administrator: {adminEmail}</span>
       <SignOutAction collapsed={collapsed} />
     </div>
   );
@@ -268,10 +165,18 @@ export function AdminShell({
   adminEmail: string;
 }) {
   const pathname = usePathname();
-  const currentPageLabel =
+  const originalAdminPageLabel =
     pathname === "/admin/access-users"
       ? "Pengguna & Hak Akses"
-      : "Permohonan Akses";
+      : pathname === "/admin/map"
+        ? "Peta Lokasi"
+        : "Permohonan Akses";
+  const currentPageLabel =
+    pathname === "/admin/devices"
+      ? "Perangkat IoT"
+      : pathname === "/admin/map"
+        ? "Peta lingkungan"
+        : originalAdminPageLabel;
 
   const [collapsed, setCollapsed] = useState(false);
   // AB-UI-SIDEBAR-SLIDE-20261022: desktop sidebar translates as a whole.
@@ -305,15 +210,15 @@ export function AdminShell({
     <div className="min-h-dvh bg-bg font-sans text-fg antialiased">
       {/* Desktop sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-ink transition-transform duration-300 ease-in-out motion-reduce:transition-none lg:flex ${
+        className={`fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[#e4ece5] bg-white transition-transform duration-300 ease-in-out motion-reduce:transition-none lg:flex ${
           collapsed ? "-translate-x-full" : "translate-x-0"
         }`}
       >
-        <div className="flex h-14 items-center border-b border-white/10 px-4">
+        <div className="flex h-14 items-center border-b border-[#e5ece6] px-4">
           <Brand />
         </div>
 
-        <Navigation collapsed={false} />
+        <AdminSidebarNavigation />
 
         <ProfileBlock
           collapsed={false}
@@ -343,9 +248,9 @@ export function AdminShell({
 
         <aside
           {...mobileSwipe}
-          className={`absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-ink transition-transform duration-300 ease-in-out motion-reduce:transition-none ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+          className={`absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white transition-transform duration-300 ease-in-out motion-reduce:transition-none ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
-          <div className="relative flex h-14 items-center justify-between border-b border-white/10 px-4 pr-14">
+          <div className="relative flex h-14 items-center justify-between border-b border-[#e5ece6] px-4 pr-14">
             <Brand />
 
             <button
@@ -353,16 +258,13 @@ export function AdminShell({
               aria-label="Tutup navigasi"
               onClick={() => setMobileOpen(false)}
               data-wc014-dialog-close
-              className="absolute top-2 right-3 z-10 grid size-9 place-items-center rounded-md border border-white/10 bg-ink text-white/80 transition-colors hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-white"
+              className="absolute top-2 right-3 z-10 grid size-9 place-items-center rounded-md border border-[#dde8e0] bg-white text-[#64766a] transition-colors hover:bg-[#eef5ef] focus-visible:outline-2 focus-visible:outline-white"
             >
               <CloseIcon className="size-5" />
             </button>
           </div>
 
-          <Navigation
-            collapsed={false}
-            onNavigate={() => setMobileOpen(false)}
-          />
+          <AdminSidebarNavigation onNavigate={() => setMobileOpen(false)} />
 
           <ProfileBlock
             collapsed={false}
@@ -409,7 +311,7 @@ export function AdminShell({
               aria-label="Breadcrumb"
               className="min-w-0 flex-1 truncate text-[13px] text-muted"
             >
-              Administration <span aria-hidden="true">/</span>{" "}
+              Admin <span aria-hidden="true">/</span>{" "}
               <span aria-current="page" className="font-medium text-fg">
                 {currentPageLabel}
               </span>
@@ -421,15 +323,8 @@ export function AdminShell({
               {organizationName}
             </span>
 
-            {/* Notification icon */}
-            <span
-              title="Notifikasi"
-              className="grid size-9 shrink-0 place-items-center text-muted"
-            >
-              <BellIcon className="size-4.5" />
-
-              <span className="sr-only">Tidak ada notifikasi baru</span>
-            </span>
+            {/* Admin notifications: accessible and backed by the existing endpoint. */}
+            <AdminNotificationBell />
 
             {/* Profile menu */}
             <div className="relative">
@@ -486,16 +381,8 @@ export function AdminShell({
           </div>
         </header>
 
-        {/* Development environment notice */}
-        <div className="border-b border-warn/30 bg-warn-50">
-          <p className="px-4 py-2 text-xs leading-5 text-warn min-[360px]:px-5 sm:px-6">
-            Lingkungan development · PostgreSQL lokal. Aksi admin memerlukan
-            izin dan MFA.
-          </p>
-        </div>
-
         {/* Page content */}
-        <main className="mx-auto max-w-6xl px-4 pt-6 pb-24 min-[360px]:px-5 sm:px-6 sm:pt-8">
+        <main className="mx-auto max-w-[1480px] px-4 pt-6 pb-24 min-[360px]:px-5 sm:px-6 sm:pt-8">
           {children}
         </main>
       </div>

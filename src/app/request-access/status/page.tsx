@@ -88,6 +88,16 @@ export default async function ApplicantStatusPage() {
     return (
       <AuthLayout>
         <AccessStatusRecoveryForm />
+        {applicationId && (
+          <form action={forgetStatusSession} className="mt-4 text-center">
+            <button
+              type="submit"
+              className="text-sm font-medium text-brand hover:underline"
+            >
+              Akhiri sesi status lama dan ajukan akses baru
+            </button>
+          </form>
+        )}
       </AuthLayout>
     );
 

@@ -27,7 +27,7 @@ export default async function OperatorHandoffs() {
     >
       <PageHeading
         title="Pelacakan Handoff"
-        desc="Status Case setelah direview Operator dan dikirim ke Supervisor. Halaman ini tidak memberi Operator hak untuk mengambil keputusan Supervisor."
+        desc="Status Case setelah direview Operator dan dikirim ke Supervisor."
       />
       <Panel title={`Riwayat handoff · ${cases.length}`}>
         {!cases.length ? (
