@@ -328,20 +328,10 @@ export function BioacousticResultView({
               </div>
             </dl>
           </div>
-          <p className="rounded-md border border-line bg-bg px-3 py-3 text-xs leading-5 text-muted">
-            Jika kamu mengetahui label rujukan rekaman dan kandidat teratas
-            berbeda, catat sebagai ketidaksesuaian model. Jangan mengubah hasil
-            AI menjadi nama satwa yang diharapkan tanpa evaluasi berlabel yang
-            sah.
-          </p>
           {biological.length > 0 && (
             <div className="overflow-hidden rounded-md border border-line">
               <div className="border-b border-line px-3 py-3">
                 <h4 className="font-semibold text-ink">Kandidat biologis</h4>
-                <p className="mt-1 text-xs text-muted">
-                  Batang hanya membandingkan skor kandidat sesi ini; bukan
-                  peluang spesies atau persentase keyakinan.
-                </p>
               </div>
               <SpeciesCandidateCards
                 candidates={biological}

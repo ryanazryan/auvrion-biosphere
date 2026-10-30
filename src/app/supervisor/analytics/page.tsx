@@ -29,8 +29,7 @@ export default async function SupervisorAnalytics({
             Analitik sinyal & verifikasi
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Indikasi lingkungan, sinyal bioakustik, dan review manusia — bukan
-            daftar otomatis kebakaran atau pelanggaran.
+            Indikasi lingkungan, sinyal bioakustik, dan review manusia
           </p>
         </div>
         <form method="GET" className="flex flex-wrap items-center gap-2">

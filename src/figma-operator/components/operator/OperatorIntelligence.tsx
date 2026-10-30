@@ -188,7 +188,7 @@ export function OperatorIntelligence() {
                   <b className="text-fg">{data.domains.biodiversity ?? 0}</b>
                 </span>
                 <span>
-                  Risiko:{" "}
+                  Risiko Lingkungan:{" "}
                   <b className="text-fg">
                     {data.domains.environmental_risk ?? 0}
                   </b>
@@ -199,9 +199,6 @@ export function OperatorIntelligence() {
               <p className="text-xs font-semibold">Perlu peninjauan</p>
               <p className="mt-1 text-2xl font-semibold text-ink">
                 {data.unreviewedAllTime}
-              </p>
-              <p className="text-xs text-muted">
-                Observasi belum ditinjau, seluruh waktu
               </p>
             </div>
             <div>

@@ -203,50 +203,18 @@ export function OperationalCharts({ data, preview, organizationId }: Props) {
           .filter((s) => s.to > s.from)
           .map((s) => `${SIGNAL_COLORS[s.kind]} ${s.from}deg ${s.to}deg`)
           .join(",")})`;
-  const kpis: [string, number, string][] = [
-    [
-      "Indikasi risiko kebakaran",
-      d.signalsByClass.fire_indicator,
-      "Sinyal belum tentu kebakaran",
-    ],
-    [
-      "Suara menyerupai chainsaw",
-      d.signalsByClass.chainsaw_like,
-      "Bukan bukti illegal logging",
-    ],
-    [
-      "Suara menyerupai tembakan",
-      d.signalsByClass.gunshot_like,
-      "Bukan konfirmasi poaching",
-    ],
-    [
-      "Observasi biodiversitas",
-      d.biodiversityObservations,
-      "Observasi masuk, bukan spesies terkonfirmasi",
-    ],
-    [
-      "Menunggu review sinyal",
-      d.reviews.unreviewed,
-      "Perlu pemeriksaan manusia",
-    ],
-    [
-      "Indikasi didukung review",
-      d.reviews.corroborated,
-      "Bukan putusan insiden atau tindak pidana",
-    ],
+  const kpis: [string, number][] = [
+    ["Indikasi risiko kebakaran", d.signalsByClass.fire_indicator],
+    ["Suara menyerupai chainsaw", d.signalsByClass.chainsaw_like],
+    ["Suara menyerupai tembakan", d.signalsByClass.gunshot_like],
+    ["Observasi biodiversitas", d.biodiversityObservations],
+    ["Menunggu review sinyal", d.reviews.unreviewed],
+    ["Indikasi didukung review", d.reviews.corroborated],
   ];
   return (
     <div className="space-y-5">
-      <div
-        className={`rounded-lg border px-4 py-3 text-sm ${preview ? "border-amber-300 bg-amber-50 text-amber-950" : "border-line bg-bg text-muted"}`}
-        role="status"
-      >
-        {preview
-          ? "MODE SIMULASI — semua angka di bawah adalah contoh visual, tidak masuk ke database dan tidak berasal dari IoT."
-          : "MODE OPERASIONAL — angka berasal dari PostgreSQL, tanpa data observasi berlabel simulation. Sinyal tanpa rekaman klasifikasi tersimpan ditampilkan sebagai nol."}
-      </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {kpis.map(([title, value, subtitle]) => (
+        {kpis.map(([title, value]) => (
           <div
             key={title}
             className="dash-enter rounded-xl border border-line bg-white p-4 shadow-sm"
@@ -255,7 +223,6 @@ export function OperationalCharts({ data, preview, organizationId }: Props) {
             <p className="mt-2 text-3xl font-semibold tabular-nums text-ink">
               {fmt(value)}
             </p>
-            <p className="mt-2 text-[11px] leading-4 text-muted">{subtitle}</p>
           </div>
         ))}
       </div>

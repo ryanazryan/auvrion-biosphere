@@ -428,12 +428,12 @@ export function DeviceFleetPanel() {
           Perangkat IoT
         </h1>
         <div className="flex flex-wrap gap-2 xl:col-start-2 xl:row-start-1">
-          <Link
+          {/* <Link
             href="/admin/devices/new"
             className="inline-flex min-h-10 items-center rounded-md border border-line-strong bg-white px-4 text-xs font-semibold text-[#243a30] hover:bg-bg sm:text-sm"
           >
             Buka wizard provisioning
-          </Link>
+          </Link> */}
           <button
             type="button"
             disabled={loading}

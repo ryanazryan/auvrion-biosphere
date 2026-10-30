@@ -355,12 +355,12 @@ export function DeviceDetailPanel({ deviceId }: { deviceId: string }) {
                     Lanjutkan provisioning untuk menghubungkan ESP32 dengan
                     kredensial perangkat baru.
                   </p>
-                  <Link
+                  {/* <Link
                     href="/admin/devices/new"
                     className="mt-3 inline-block rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white"
                   >
                     Buka wizard provisioning
-                  </Link>
+                  </Link> */}
                 </div>
               )}
               {device.kind === "prevent_device" && (

@@ -388,8 +388,7 @@ export function GisMapCanvas({
               const caution = document.createElement("p");
               caution.className =
                 "border-t border-[#dbe4df] pt-1 text-[#64766c]";
-              caution.textContent =
-                "Status lapangan: belum diverifikasi. Kecerahan I4 bukan suhu udara.";
+              caution.textContent = "Status lapangan: belum diverifikasi.";
               content.append(caution);
               new lib.Popup({ maxWidth: "320px", closeButton: true })
                 .setLngLat([longitude, latitude])
