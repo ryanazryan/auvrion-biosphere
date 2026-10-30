@@ -92,13 +92,13 @@ export async function readAuthorizedRangerTaskWav(input: {
     if (!validated.ok) throw new Error("INVALID_WAV");
     return bytes;
   } catch (error) {
-  if (process.env.NODE_ENV === "development") {
-    console.error("[RANGER_AUDIO_INTEGRITY]", {
-      name: error instanceof Error ? error.name : "UnknownError",
-      message: error instanceof Error ? error.message : String(error),
-    });
-  }
+    if (process.env.NODE_ENV === "development") {
+      console.error("[RANGER_AUDIO_INTEGRITY]", {
+        name: error instanceof Error ? error.name : "UnknownError",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
 
-  throw new RangerAudioError(503, "AUDIO_INTEGRITY_UNAVAILABLE");
-}
+    throw new RangerAudioError(503, "AUDIO_INTEGRITY_UNAVAILABLE");
+  }
 }

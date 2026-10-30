@@ -862,10 +862,7 @@ export function ObservationNew() {
           </Section>
 
           {f.domain === "environmental_risk" ? (
-            <Section
-              n={4}
-              title="Pengukuran lingkungan"
-            >
+            <Section n={4} title="Pengukuran lingkungan">
               {f.measurements.length === 0 && (
                 <p className="text-[13px] text-muted">Belum ada pengukuran.</p>
               )}
