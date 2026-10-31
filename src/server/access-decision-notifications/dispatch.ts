@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, eq, lte, or, sql } from "drizzle-orm";
+import { onboardingEnabled } from "@/server/account-activation/onboarding-environment";
 
 import { getDb } from "@/server/db";
 import { accessDecisionNotifications } from "@/server/db/access-decision-notification-schema";
@@ -18,10 +19,7 @@ const PROCESSING_LEASE_MS = 5 * 60_000;
 export async function dispatchDecisionNotification(
   notificationId?: string,
 ): Promise<DispatchResult> {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  ) {
+  if (!onboardingEnabled(process.env)) {
     throw new Error("LOCAL_DECISION_DISPATCH_DISABLED");
   }
 

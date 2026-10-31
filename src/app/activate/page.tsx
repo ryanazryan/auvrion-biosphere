@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ActivationForm } from "@/components/auth/activation-form";
 import { AuthLayout } from "@/components/auth/auth-layout";
+import { onboardingEnabled } from "@/server/account-activation/onboarding-environment";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Aktivasi Akun | Auvrion Biosphere",
@@ -9,11 +10,7 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 export default function ActivationPage() {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  )
-    notFound();
+  if (!onboardingEnabled(process.env)) notFound();
   return (
     <AuthLayout>
       <ActivationForm />

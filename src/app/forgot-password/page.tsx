@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
-import { localPasswordRecoveryEnabled } from "@/server/auth/password-reset-policy";
+import { passwordRecoveryEnabled } from "@/server/auth/password-reset-policy";
 
 export const metadata: Metadata = {
   title: "Pulihkan Kata Sandi | Auvrion Biosphere",
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default function ForgotPasswordPage() {
-  if (!localPasswordRecoveryEnabled(process.env)) notFound();
+  if (!passwordRecoveryEnabled(process.env)) notFound();
   return (
     <AuthLayout>
       <ForgotPasswordForm />

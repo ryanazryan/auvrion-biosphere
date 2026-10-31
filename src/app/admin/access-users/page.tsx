@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { AccessUsersWorkspace } from "@/components/admin/access-users-workspace";
+import { onboardingEnabled } from "@/server/account-activation/onboarding-environment";
 import { getCurrentSession } from "@/server/auth/session";
 import { checkAdminAccess } from "@/server/authorization/admin-access";
 import { getDb } from "@/server/db";
@@ -20,11 +21,7 @@ export const metadata = {
 };
 
 export default async function AdminAccessUsersPage() {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  )
-    notFound();
+  if (!onboardingEnabled(process.env)) notFound();
 
   const db = getDb();
   const [organization] = await db

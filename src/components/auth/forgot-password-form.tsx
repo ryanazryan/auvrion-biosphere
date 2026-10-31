@@ -39,7 +39,7 @@ export function ForgotPasswordForm() {
       setEmail(normalized);
       setStep("verify");
       setMessage(
-        "Jika akun terdaftar, kode telah dikirim. Periksa kotak masuk atau Mailpit lokal.",
+        "Jika akun terdaftar, kode telah dikirim. Periksa kotak masuk email Anda.",
       );
     } catch {
       setMessage(
