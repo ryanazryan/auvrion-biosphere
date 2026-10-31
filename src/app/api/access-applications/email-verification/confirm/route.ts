@@ -13,6 +13,7 @@ import {
   isAllowedOnboardingOrigin,
   onboardingEnabled,
 } from "@/server/account-activation/onboarding-environment";
+import { consumeOnboardingBudget } from "@/server/account-activation/public-rate-limit";
 import { getDb } from "@/server/db";
 import { accessApplications } from "@/server/db/access-schema";
 import { accessEmailVerificationTokens } from "@/server/db/access-verification-schema";
@@ -97,6 +98,14 @@ export async function POST(request: Request) {
 
   if (!isLocalRequestAllowed(request)) {
     return jsonResponse({ error: "INVALID_ORIGIN" }, 403);
+  }
+
+  try {
+    if (!(await consumeOnboardingBudget(request, "verification-confirm"))) {
+      return jsonResponse({ error: "RATE_LIMITED" }, 429);
+    }
+  } catch {
+    return jsonResponse({ error: "VERIFICATION_UNAVAILABLE" }, 503);
   }
 
   // ---------------------------------------------------

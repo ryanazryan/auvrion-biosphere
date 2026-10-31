@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { LoginForm } from "@/components/auth/login-form";
@@ -26,6 +27,12 @@ export default async function LoginPage({
         </p>
       )}
       <LoginForm />
+      <p className="mt-5 text-center text-sm text-muted">
+        Ingin melihat platform terlebih dahulu?{" "}
+        <Link href="/demo" className="font-semibold text-brand hover:underline">
+          Eksplorasi Demo
+        </Link>
+      </p>
       {process.env.ENABLE_PASSKEY_SIGNIN === "YES" && <PasskeyLoginButton />}
     </AuthLayout>
   );
