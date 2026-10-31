@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { DecisionNotificationRetry } from "@/components/admin/decision-notification-retry";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import type { OperationalRole } from "@/server/account-activation/policy";
 
@@ -96,6 +97,10 @@ export function ApplicationProvisioningActions({
         Permohonan telah lolos peninjauan. Pilih peran, lalu kirim undangan
         aktivasi. Akun baru aktif setelah pengguna menyelesaikan pengaturan.
       </p>
+      <DecisionNotificationRetry
+        applicationId={applicationId}
+        kind="approved"
+      />
       {accessStatus === null && (
         <div className="mt-4">
           <label htmlFor="provision-role" className="block text-sm font-medium">

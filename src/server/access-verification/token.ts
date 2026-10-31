@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-export const EMAIL_VERIFICATION_TTL_MINUTES = 30;
+export const EMAIL_VERIFICATION_TTL_MINUTES = 24 * 60;
 export const EMAIL_VERIFICATION_RESEND_SECONDS = 60;
 
 export function hashVerificationToken(token: string): string {

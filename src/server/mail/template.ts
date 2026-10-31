@@ -33,8 +33,11 @@ function escapeHtml(value: string): string {
 }
 
 const home = "https://auvrionbiosphere.com";
-const wordmark = "cid:auvrion-logo";
-const heroImage = "cid:auvrion-hero";
+const wordmark =
+  "https://auvrionbiosphere.com/branding/auvrion-biosphere-wordmark.png";
+
+const heroImage =
+  "https://auvrionbiosphere.com/branding/auvrion-email-hero.png";
 
 const font = "'Montserrat', 'Avenir Next', Arial, Helvetica, sans-serif";
 

@@ -12,7 +12,9 @@ describe("decision notification content", () => {
       statusUrl,
     });
     expect(result.subject).toContain("Disetujui");
-    expect(result.text).toContain("belum aktif");
+    expect(result.text).toContain("belum dapat masuk");
+    expect(result.text).toContain("menetapkan peran");
+    expect(result.text).toContain("pantau kotak masuk");
     expect(result.text).toContain(statusUrl);
     expect(result.text).not.toContain("password");
   });

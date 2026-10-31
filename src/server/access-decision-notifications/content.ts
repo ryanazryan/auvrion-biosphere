@@ -13,8 +13,9 @@ export function buildDecisionNotification(input: {
   const description = approved
     ? [
         "Permohonan akses Anda telah disetujui oleh administrator.",
-        "Akun Anda belum aktif. Tim kami masih menyiapkan akun dan hak akses Anda.",
-        "Anda akan menerima instruksi aktivasi terpisah setelah akun siap.",
+        "Permohonan sudah lolos peninjauan. Saat ini administrator sedang menetapkan peran dan menyiapkan hak akses akun Anda.",
+        "Mohon tetap bersiap dan pantau kotak masuk serta folder spam email Anda. Undangan aktivasi akan dikirim melalui email terpisah setelah akun siap.",
+        "Anda belum dapat masuk dan tidak perlu mengajukan permohonan ulang.",
       ]
     : [
         "Setelah peninjauan, permohonan akses Anda belum dapat disetujui.",

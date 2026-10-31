@@ -12,8 +12,16 @@ describe("Auvrion branded email", () => {
       },
       securityNote: "Tautan berlaku 30 menit.",
     });
-    expect(html).toContain("cid:auvrion-logo");
-    expect(html).toContain("cid:auvrion-hero");
+    expect(html).toContain(
+      "https://auvrionbiosphere.com/branding/auvrion-biosphere-wordmark.png",
+    );
+
+    expect(html).toContain(
+      "https://auvrionbiosphere.com/branding/auvrion-email-hero.png",
+    );
+
+    expect(html).not.toContain("cid:auvrion-logo");
+    expect(html).not.toContain("cid:auvrion-hero");
     expect(html).toContain("Montserrat");
     expect(html).not.toContain("TRANSACTIONAL EMAIL");
     expect(html).not.toContain("PRODUCTION MAIL TEST");

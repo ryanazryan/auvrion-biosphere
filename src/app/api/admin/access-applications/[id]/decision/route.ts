@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { dispatchDecisionNotification } from "@/server/access-decision-notifications/dispatch";
 import {
@@ -203,6 +203,9 @@ export async function POST(request: NextRequest, context: Context) {
 
       if (!notification) throw new Error("OUTBOX_INSERT_FAILED");
 
+      await tx.execute(
+        sql`SELECT pg_notify('ab_applicant_status_events', ${updated.id})`,
+      );
       return { kind: "ok" as const, notificationId: notification.id };
     });
 
