@@ -1,6 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
-
 import {
   createStatusSessionValue,
   hashStatusToken,
@@ -8,6 +7,10 @@ import {
   statusCookieOptions,
   validStatusLinkToken,
 } from "@/server/access-status/tokens";
+import {
+  isAllowedOnboardingOrigin,
+  onboardingEnabled,
+} from "@/server/account-activation/onboarding-environment";
 import { getDb } from "@/server/db";
 import { accessStatusRecovery } from "@/server/db/access-status-schema";
 
@@ -20,14 +23,8 @@ const error = (code: string, status: number) =>
   );
 
 export async function POST(request: Request) {
-  const url = new URL(request.url);
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES" ||
-    !["localhost", "127.0.0.1"].includes(url.hostname)
-  )
-    return error("NOT_AVAILABLE", 404);
-  if (request.headers.get("origin") !== url.origin)
+  if (!onboardingEnabled(process.env)) return error("NOT_AVAILABLE", 404);
+  if (!isAllowedOnboardingOrigin(request, process.env))
     return error("INVALID_ORIGIN", 403);
   if (
     request.headers.get("content-type")?.split(";")[0]?.trim() !==

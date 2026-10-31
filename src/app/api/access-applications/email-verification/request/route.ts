@@ -4,6 +4,11 @@ import {
   createVerificationToken,
   EMAIL_VERIFICATION_RESEND_SECONDS,
 } from "@/server/access-verification/token";
+import { isPermittedBetaEmail } from "@/server/account-activation/beta-allowlist";
+import {
+  isAllowedOnboardingOrigin,
+  onboardingEnabled,
+} from "@/server/account-activation/onboarding-environment";
 import { getDb } from "@/server/db";
 import { accessApplications } from "@/server/db/access-schema";
 import { accessEmailVerificationTokens } from "@/server/db/access-verification-schema";
@@ -34,14 +39,7 @@ function reject(error: string, status: number) {
 }
 
 function isLocalRequestAllowed(request: Request): boolean {
-  const url = new URL(request.url);
-
-  return (
-    process.env.NODE_ENV === "development" &&
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS === "YES" &&
-    ["localhost", "127.0.0.1"].includes(url.hostname) &&
-    request.headers.get("origin") === url.origin
-  );
+  return isAllowedOnboardingOrigin(request, process.env);
 }
 
 async function readEmail(request: Request): Promise<string | null> {
@@ -109,10 +107,7 @@ async function readEmail(request: Request): Promise<string | null> {
 }
 
 export async function POST(request: Request) {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  ) {
+  if (!onboardingEnabled(process.env)) {
     return reject("NOT_AVAILABLE", 404);
   }
 
@@ -135,6 +130,9 @@ export async function POST(request: Request) {
   if (!email) {
     return reject("INVALID_INPUT", 400);
   }
+
+  // Do not send verification links to arbitrary addresses in production.
+  if (!isPermittedBetaEmail(email, process.env)) return accepted();
 
   const db = getDb();
   const now = new Date();

@@ -1,6 +1,10 @@
 import { sql } from "drizzle-orm";
-
 import { validateAccessRequest } from "@/lib/access-request";
+import { isPermittedBetaEmail } from "@/server/account-activation/beta-allowlist";
+import {
+  isAllowedOnboardingOrigin,
+  onboardingEnabled,
+} from "@/server/account-activation/onboarding-environment";
 import { getDb } from "@/server/db";
 import { accessApplications } from "@/server/db/access-schema";
 import { user } from "@/server/db/auth-schema";
@@ -65,23 +69,15 @@ async function readBoundedJson(request: Request): Promise<unknown> {
 }
 
 export async function POST(request: Request) {
-  const url = new URL(request.url);
-
   // Temporary, explicit local-development-only gate. Production must have
   // independent abuse controls and verified email proof before opening this.
-  const localHost = ["localhost", "127.0.0.1"].includes(url.hostname);
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES" ||
-    !localHost
-  ) {
+  if (!onboardingEnabled(process.env)) {
     return errorResponse("REQUEST_ACCESS_NOT_AVAILABLE", 404);
   }
 
   // Require browser-style same-origin POST; this is not a substitute for
   // public endpoint throttling or server-side application authorization.
-  const origin = request.headers.get("origin");
-  if (origin !== url.origin) {
+  if (!isAllowedOnboardingOrigin(request, process.env)) {
     return errorResponse("INVALID_ORIGIN", 403);
   }
 
@@ -115,6 +111,10 @@ export async function POST(request: Request) {
   }
 
   const { name, email } = validation.value;
+
+  // Production pilot is strictly invitation/allowlist only. Return the
+  // same anonymous 202 response for unknown emails to prevent enumeration.
+  if (!isPermittedBetaEmail(email, process.env)) return accepted();
 
   try {
     await getDb().transaction(async (tx) => {

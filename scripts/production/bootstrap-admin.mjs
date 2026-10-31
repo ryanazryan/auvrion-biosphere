@@ -144,7 +144,11 @@ async function main() {
       [organizationId, ORGANIZATION_CODE, ORGANIZATION_NAME],
     );
 
-    for (const capability of ["review_applications", "manage_access"]) {
+    for (const capability of [
+      "review_applications",
+      "manage_access",
+      "manage_devices",
+    ]) {
       await client.query(
         `INSERT INTO admin_capability_grants
          (user_id, organization_id, capability, granted_by_id)
