@@ -1,27 +1,15 @@
 import "server-only";
+import { isAllowedOnboardingOrigin } from "./onboarding-environment";
+
 export const NO_STORE = { "Cache-Control": "no-store" };
 export function jsonError(error: string, status: number) {
   return Response.json({ error }, { status, headers: NO_STORE });
 }
+
 export function isLocalActivationRequest(request: Request): boolean {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  )
-    return false;
-  try {
-    const configured = new URL(process.env.BETTER_AUTH_URL ?? "");
-    const incoming = new URL(request.url);
-    return (
-      configured.protocol === "http:" &&
-      ["localhost", "127.0.0.1"].includes(configured.hostname) &&
-      incoming.origin === configured.origin &&
-      request.headers.get("origin") === configured.origin
-    );
-  } catch {
-    return false;
-  }
+  return isAllowedOnboardingOrigin(request, process.env);
 }
+
 export async function readSmallJson(
   request: Request,
   maxBytes = 2048,

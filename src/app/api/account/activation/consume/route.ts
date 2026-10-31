@@ -8,7 +8,9 @@ import {
   NO_STORE,
   readSmallJson,
 } from "@/server/account-activation/http";
+import { onboardingEnabled } from "@/server/account-activation/onboarding-environment";
 import { isActivationPassword } from "@/server/account-activation/policy";
+import { isProductionReviewerInvitation } from "@/server/account-activation/production-reviewer-policy";
 import {
   hashActivationToken,
   isActivationToken,
@@ -17,15 +19,15 @@ import { getDb } from "@/server/db";
 import { accessApplications, userAccess } from "@/server/db/access-schema";
 import { accountActivationInvites } from "@/server/db/account-activation-schema";
 import { account, user } from "@/server/db/auth-schema";
-import { organizations, roleGrants } from "@/server/db/grants-schema";
+import {
+  adminCapabilityGrants,
+  organizations,
+  roleGrants,
+} from "@/server/db/grants-schema";
 
 export const runtime = "nodejs";
 export async function POST(request: Request) {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  )
-    return jsonError("NOT_FOUND", 404);
+  if (!onboardingEnabled(process.env)) return jsonError("NOT_FOUND", 404);
   if (!isLocalActivationRequest(request))
     return jsonError("INVALID_ORIGIN", 403);
   let input: Record<string, unknown>;
@@ -76,6 +78,7 @@ export async function POST(request: Request) {
           userId: accountActivationInvites.userId,
           expiresAt: accountActivationInvites.expiresAt,
           usedAt: accountActivationInvites.usedAt,
+          issuedById: accountActivationInvites.issuedById,
         })
         .from(accountActivationInvites)
         .where(eq(accountActivationInvites.tokenHash, tokenHash))
@@ -96,6 +99,7 @@ export async function POST(request: Request) {
               verifiedAt: accessApplications.emailVerifiedAt,
               reviewedAt: accessApplications.reviewedAt,
               reviewerId: accessApplications.reviewedById,
+              decisionReason: accessApplications.decisionReason,
             })
             .from(accessApplications)
             .where(eq(accessApplications.id, invite.applicationId))
@@ -158,7 +162,38 @@ export async function POST(request: Request) {
           )
           .limit(1),
       ]);
-      if (!grant || credential) return false;
+      let authorizedReviewer = false;
+      if (!grant) {
+        const [[inviter], reviewerGrants] = await Promise.all([
+          tx
+            .select({ email: user.email })
+            .from(user)
+            .where(eq(user.id, invite.issuedById))
+            .limit(1),
+          tx
+            .select({ capability: adminCapabilityGrants.capability })
+            .from(adminCapabilityGrants)
+            .where(
+              and(
+                eq(adminCapabilityGrants.userId, invite.userId),
+                eq(adminCapabilityGrants.organizationId, organization.id),
+                isNull(adminCapabilityGrants.revokedAt),
+              ),
+            ),
+        ]);
+        const privileges = new Set(reviewerGrants.map((g) => g.capability));
+        authorizedReviewer = isProductionReviewerInvitation({
+          environment: process.env.NODE_ENV,
+          configuredOwnerEmail: process.env.PRODUCTION_ADMIN_EMAIL,
+          inviterEmail: inviter?.email,
+          issuerId: invite.issuedById,
+          reviewerId: application.reviewerId,
+          decisionReason: application.decisionReason,
+          hasReviewApplications: privileges.has("review_applications"),
+          hasManageAccess: privileges.has("manage_access"),
+        });
+      }
+      if ((!grant && !authorizedReviewer) || credential) return false;
       // Mirror scripts/dev/bootstrap-admin.mjs credential format for Better Auth.
       await tx.insert(account).values({
         id: randomUUID(),

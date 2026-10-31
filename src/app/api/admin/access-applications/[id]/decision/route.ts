@@ -2,8 +2,11 @@ import "server-only";
 
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
-
 import { dispatchDecisionNotification } from "@/server/access-decision-notifications/dispatch";
+import {
+  isAllowedOnboardingOrigin,
+  onboardingEnabled,
+} from "@/server/account-activation/onboarding-environment";
 import { checkAdminAccess } from "@/server/authorization/admin-access";
 import { getDb } from "@/server/db";
 import { accessDecisionAudit } from "@/server/db/access-decision-audit-schema";
@@ -31,15 +34,11 @@ function errorResponse(message: string, status: number) {
 
 export async function POST(request: NextRequest, context: Context) {
   // This workflow is intentionally scoped to local V1 development.
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES" ||
-    !["localhost", "127.0.0.1"].includes(request.nextUrl.hostname)
-  ) {
+  if (!onboardingEnabled(process.env)) {
     return errorResponse("NOT_FOUND", 404);
   }
 
-  if (request.headers.get("origin") !== request.nextUrl.origin) {
+  if (!isAllowedOnboardingOrigin(request, process.env)) {
     return errorResponse("INVALID_ORIGIN", 403);
   }
 

@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
-
 import { AccessApplicationsWorkspace } from "@/components/admin/access-applications-workspace";
+import { onboardingEnabled } from "@/server/account-activation/onboarding-environment";
 import { getCurrentSession } from "@/server/auth/session";
 import { checkAdminAccess } from "@/server/authorization/admin-access";
 import { getDb } from "@/server/db";
@@ -19,10 +19,7 @@ export const metadata = {
 export default async function AdminAccessApplicationsPage() {
   // access_applications has no organizationId. This queue must remain
   // local development-only until org-scoped application ownership exists.
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  ) {
+  if (!onboardingEnabled(process.env)) {
     notFound();
   }
 

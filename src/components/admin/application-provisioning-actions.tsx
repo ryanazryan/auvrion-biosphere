@@ -74,8 +74,8 @@ export function ApplicationProvisioningActions({
           : null;
       setMessage(
         delivery === "failed"
-          ? "Akun tercatat, tetapi SMTP gagal. Setelah Mailpit pulih dan cooldown lewat, kirim ulang undangan."
-          : "Undangan aktivasi sudah dikirim ke Mailpit.",
+          ? "Akun tercatat, tetapi SMTP gagal. Periksa layanan email dan kirim ulang setelah cooldown."
+          : "Undangan aktivasi telah diteruskan ke penyedia email.",
       );
       onClose();
       router.refresh();
