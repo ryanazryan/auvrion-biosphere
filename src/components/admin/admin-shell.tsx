@@ -119,10 +119,12 @@ function ProfileBlock({
   collapsed,
   organizationName,
   adminEmail,
+  demo = false,
 }: {
   collapsed: boolean;
   organizationName: string;
   adminEmail: string;
+  demo?: boolean;
 }) {
   return (
     <div className="border-t border-[#e3ebe5] p-3">
@@ -138,13 +140,22 @@ function ProfileBlock({
         </p>
       </div>
       <Link
-        href="/account/security"
+        href={demo ? "/demo/admin/security" : "/account/security"}
         className="mt-2 flex min-h-9 items-center rounded-lg px-3 text-[13px] text-[#64766a] hover:bg-[#eef5ef] hover:text-[#145f48]"
       >
         Profil & Keamanan
       </Link>
       <span className="sr-only">Administrator: {adminEmail}</span>
-      <SignOutAction collapsed={collapsed} />
+      {demo ? (
+        <Link
+          href="/"
+          className="mt-2.5 flex h-9 items-center px-3 text-[13px] text-[#145f48]"
+        >
+          Keluar dari Demo
+        </Link>
+      ) : (
+        <SignOutAction collapsed={collapsed} />
+      )}
     </div>
   );
 }
@@ -159,10 +170,12 @@ export function AdminShell({
   children,
   organizationName,
   adminEmail,
+  demo = false,
 }: {
   children: ReactNode;
   organizationName: string;
   adminEmail: string;
+  demo?: boolean;
 }) {
   const pathname = usePathname();
   const originalAdminPageLabel =
@@ -171,8 +184,17 @@ export function AdminShell({
       : pathname === "/admin/map"
         ? "Peta Lokasi"
         : "Permohonan Akses";
-  const currentPageLabel =
-    pathname === "/admin/devices"
+  const currentPageLabel = demo
+    ? pathname.endsWith("/access-users")
+      ? "Pengguna & Hak Akses"
+      : pathname.endsWith("/devices")
+        ? "Perangkat IoT"
+        : pathname.endsWith("/map")
+          ? "Peta lingkungan"
+          : pathname.endsWith("/security")
+            ? "Keamanan"
+            : "Permohonan Akses"
+    : pathname === "/admin/devices"
       ? "Perangkat IoT"
       : pathname === "/admin/map"
         ? "Peta lingkungan"
@@ -218,12 +240,13 @@ export function AdminShell({
           <Brand />
         </div>
 
-        <AdminSidebarNavigation />
+        <AdminSidebarNavigation demo={demo} />
 
         <ProfileBlock
           collapsed={false}
           organizationName={organizationName}
           adminEmail={adminEmail}
+          demo={demo}
         />
       </aside>
 
@@ -264,12 +287,16 @@ export function AdminShell({
             </button>
           </div>
 
-          <AdminSidebarNavigation onNavigate={() => setMobileOpen(false)} />
+          <AdminSidebarNavigation
+            demo={demo}
+            onNavigate={() => setMobileOpen(false)}
+          />
 
           <ProfileBlock
             collapsed={false}
             organizationName={organizationName}
             adminEmail={adminEmail}
+            demo={demo}
           />
         </aside>
       </div>
@@ -324,7 +351,7 @@ export function AdminShell({
             </span>
 
             {/* Admin notifications: accessible and backed by the existing endpoint. */}
-            <AdminNotificationBell />
+            <AdminNotificationBell demo={demo} />
 
             {/* Profile menu */}
             <div className="relative">
@@ -366,14 +393,24 @@ export function AdminShell({
 
                     <Link
                       role="menuitem"
-                      href="/account/security"
+                      href={demo ? "/demo/admin/security" : "/account/security"}
                       onClick={() => setProfileOpen(false)}
                       className="block rounded-md px-2.5 py-2 text-[13px] hover:bg-bg"
                     >
                       Keamanan akun
                     </Link>
 
-                    <SignOutAction insideMenu />
+                    {demo ? (
+                      <Link
+                        role="menuitem"
+                        href="/"
+                        className="block rounded-md px-2.5 py-2 text-[13px] hover:bg-bg"
+                      >
+                        Keluar Demo
+                      </Link>
+                    ) : (
+                      <SignOutAction insideMenu />
+                    )}
                   </div>
                 </>
               )}
@@ -383,6 +420,15 @@ export function AdminShell({
 
         {/* Page content */}
         <main className="mx-auto max-w-[1480px] px-4 pt-6 pb-24 min-[360px]:px-5 sm:px-6 sm:pt-8">
+          {demo && (
+            <div
+              role="status"
+              className="mb-5 rounded-lg border border-[#b6dfc5] bg-[#edf8f0] px-4 py-3 text-sm font-medium text-[#075b43]"
+            >
+              MODE SIMULASI ADMIN — data sintetis, tidak mengubah database,
+              akun, atau perangkat nyata.
+            </div>
+          )}
           {children}
         </main>
       </div>

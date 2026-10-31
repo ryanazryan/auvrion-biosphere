@@ -1,4 +1,4 @@
-export const ACTIVATION_TTL_MINUTES = 30;
+export const ACTIVATION_TTL_MINUTES = 24 * 60;
 export const INVITATION_RESEND_COOLDOWN_SECONDS = 60;
 export const OPERATIONAL_ROLES = ["operator", "supervisor", "ranger"] as const;
 export type OperationalRole = (typeof OPERATIONAL_ROLES)[number];

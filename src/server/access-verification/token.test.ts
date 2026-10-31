@@ -23,14 +23,14 @@ describe("Access email verification tokens", () => {
     expect(result.tokenHash).toHaveLength(64);
   });
 
-  it("generates tokens expiring in approximately 30 minutes", () => {
+  it("generates tokens expiring in approximately 24 hours", () => {
     const now = Date.now();
     const result = createVerificationToken();
 
     const remaining = result.expiresAt.getTime() - now;
 
-    expect(remaining).toBeGreaterThan(29 * 60_000);
-    expect(remaining).toBeLessThanOrEqual(30 * 60_000 + 1000);
+    expect(remaining).toBeGreaterThan(24 * 60 * 60_000 - 1000);
+    expect(remaining).toBeLessThanOrEqual(24 * 60 * 60_000 + 1000);
   });
 
   it("rejects malformed tokens", () => {

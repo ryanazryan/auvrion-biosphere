@@ -139,6 +139,9 @@ export async function POST(request: Request, context: Context) {
           })
           .returning({ id: accountActivationInvites.id });
         if (!created) throw new Error("INVITE_NOT_CREATED");
+        await tx.execute(
+          sql`SELECT pg_notify('ab_applicant_status_events', ${application.id})`,
+        );
         return {
           ok: true,
           email,

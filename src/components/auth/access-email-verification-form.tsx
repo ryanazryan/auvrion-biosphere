@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-
+import { AccessVerificationRequestForm } from "./access-verification-request-form";
 import { AuthHeader } from "./auth-layout";
 
 type VerificationState = "idle" | "loading" | "success" | "invalid" | "error";
@@ -150,13 +150,9 @@ export function AccessEmailVerificationForm({ token }: Props) {
         >
           Cek status permohonan
         </Link>
-        <Link
-          href="/request-access/resend"
-          referrerPolicy="no-referrer"
-          className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-md border border-line-strong px-4 text-sm font-medium text-brand hover:bg-bg"
-        >
-          Kirim ulang verifikasi (hanya jika belum terverifikasi)
-        </Link>
+        <div className="mt-4 rounded-lg border border-line bg-surface p-4">
+          <AccessVerificationRequestForm compact />
+        </div>
       </>
     );
   }

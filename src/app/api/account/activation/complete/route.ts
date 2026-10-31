@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import {
   isVerifiedLocalBootstrapAdmin,
   isVerifiedProductionBootstrapAdmin,
@@ -292,6 +292,10 @@ export async function POST(request: Request) {
       if (!updated) {
         return "DENIED" as const;
       }
+
+      await tx.execute(
+        sql`SELECT pg_notify('ab_applicant_status_events', ${access.applicationId})`,
+      );
 
       // Revoke all existing sessions after activation.
       // A new password + TOTP login is required.

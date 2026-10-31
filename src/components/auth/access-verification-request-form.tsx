@@ -8,7 +8,11 @@ import { AuthHeader } from "./auth-layout";
 const inputClass =
   "h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-sm text-fg placeholder:text-muted/70 focus:border-brand focus:outline-none focus:ring-3 focus:ring-brand/15 disabled:opacity-60";
 
-export function AccessVerificationRequestForm() {
+export function AccessVerificationRequestForm({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -68,10 +72,17 @@ export function AccessVerificationRequestForm() {
 
   return (
     <>
-      <AuthHeader title="Verifikasi email">
-        Masukkan alamat email yang digunakan saat mengajukan akses ke Auvrion
-        Biosphere.
-      </AuthHeader>
+      {!compact ? (
+        <AuthHeader title="Verifikasi email">
+          Masukkan alamat email yang digunakan saat mengajukan akses ke Auvrion
+          Biosphere.
+        </AuthHeader>
+      ) : (
+        <p className="mb-3 text-[13px] leading-6 text-muted">
+          Belum menerima email verifikasi? Masukkan email yang sama untuk
+          meminta tautan baru tanpa mengajukan akses ulang.
+        </p>
+      )}
 
       {submitted ? (
         <div
@@ -88,7 +99,19 @@ export function AccessVerificationRequestForm() {
           </p>
 
           <p className="mt-2 text-[13px] leading-6 text-muted">
-            Periksa inbox email Anda. Tautan verifikasi berlaku selama 30 menit.
+            Periksa inbox dan folder spam. Tautan verifikasi berlaku selama 24
+            jam.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setSubmitted(false)}
+            className="mt-3 inline-flex min-h-10 items-center justify-center rounded-md border border-line-strong px-4 text-[13px] font-medium text-brand hover:bg-bg"
+          >
+            Tidak masuk? Kirim ulang lagi
+          </button>
+          <p className="mt-2 text-xs text-muted">
+            Tunggu minimal 60 detik sebelum mencoba lagi.
           </p>
         </div>
       ) : (
@@ -131,25 +154,32 @@ export function AccessVerificationRequestForm() {
             aria-busy={busy || undefined}
             className="inline-flex h-10 w-full items-center justify-center rounded-md bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-55"
           >
-            {busy ? "Memproses…" : "Kirim email verifikasi"}
+            {busy ? "Memproses…" : "Kirim ulang verifikasi"}
           </button>
         </form>
       )}
 
-      <div className="mt-6 rounded-lg border border-line bg-surface p-3.5 text-[13px] leading-6 text-muted">
-        <p>Pengiriman email tidak berarti permohonan Anda telah disetujui.</p>
-
-        <p className="mt-2">
-          Setelah email diverifikasi, administrator masih perlu meninjau
-          permohonan Anda.
-        </p>
-      </div>
-
-      <p className="mt-5 text-center text-[13px] text-muted">
-        <Link href="/login" className="font-medium text-brand hover:underline">
-          Kembali ke halaman masuk
-        </Link>
-      </p>
+      {!compact ? (
+        <>
+          <div className="mt-6 rounded-lg border border-line bg-surface p-3.5 text-[13px] leading-6 text-muted">
+            <p>
+              Pengiriman email tidak berarti permohonan Anda telah disetujui.
+            </p>
+            <p className="mt-2">
+              Setelah email diverifikasi, administrator masih perlu meninjau
+              permohonan Anda.
+            </p>
+          </div>
+          <p className="mt-5 text-center text-[13px] text-muted">
+            <Link
+              href="/login"
+              className="font-medium text-brand hover:underline"
+            >
+              Kembali ke halaman masuk
+            </Link>
+          </p>
+        </>
+      ) : null}
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { DecisionNotificationRetry } from "@/components/admin/decision-notification-retry";
 
 type ApplicationStatus =
   | "submitted"
@@ -49,6 +50,8 @@ export function ApplicationDecisionActions({
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedPendingDecision, setSavedPendingDecision] =
+    useState<Decision | null>(null);
 
   const reviewable = status === "email_verified";
 
@@ -124,6 +127,17 @@ export function ApplicationDecisionActions({
         return;
       }
 
+      const notification =
+        payload && typeof payload === "object" && "notification" in payload
+          ? payload.notification
+          : null;
+      if (notification !== "sent") {
+        // Decision has COMMITTED; never let the Admin click approve twice.
+        setSavedPendingDecision(decision);
+        setDecision(null);
+        router.refresh();
+        return;
+      }
       setDecision(null);
       onClose();
       router.refresh();
@@ -134,6 +148,31 @@ export function ApplicationDecisionActions({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (savedPendingDecision) {
+    return (
+      <section className="mt-6 rounded-lg border border-warn/25 bg-warn-50 p-4">
+        <p role="alert" className="text-sm font-semibold text-ink">
+          Keputusan tersimpan, tetapi email pemberitahuan belum terkirim.
+        </p>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          Permohonan sudah diproses. Jangan menyetujui ulang atau membuat
+          permohonan baru. Periksa SMTP/Mailpit dan kirim ulang notifikasi.
+        </p>
+        <DecisionNotificationRetry
+          applicationId={applicationId}
+          kind={savedPendingDecision}
+        />
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 w-full rounded-md border border-line-strong px-4 py-2.5 text-sm font-medium"
+        >
+          Tutup
+        </button>
+      </section>
+    );
   }
 
   if (!reviewable) {
