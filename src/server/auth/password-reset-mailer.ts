@@ -1,9 +1,9 @@
 import "server-only";
 
-import nodemailer from "nodemailer";
-import { localPasswordRecoveryEnabled } from "./password-reset-policy";
+import { renderAuvrionEmail } from "@/server/mail/template";
+import { sendApplicationEmail } from "@/server/mail/transport";
+import { passwordRecoveryEnabled } from "./password-reset-policy";
 
-/** Local Mailpit only. Production requires an approved mail delivery/security policy. */
 export async function sendLocalPasswordResetOtp({
   email,
   otp,
@@ -11,45 +11,26 @@ export async function sendLocalPasswordResetOtp({
   email: string;
   otp: string;
 }): Promise<void> {
-  if (!localPasswordRecoveryEnabled(process.env))
-    throw new Error("LOCAL_RECOVERY_DISABLED");
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT);
-  if (!["127.0.0.1", "localhost"].includes(host ?? "") || port !== 1025) {
-    throw new Error("INVALID_LOCAL_SMTP");
+  if (!passwordRecoveryEnabled(process.env)) {
+    throw new Error("PASSWORD_RECOVERY_DISABLED");
   }
-  const base = new URL(process.env.BETTER_AUTH_URL ?? "");
-  if (
-    base.protocol !== "http:" ||
-    !["localhost", "127.0.0.1"].includes(base.hostname)
-  ) {
-    throw new Error("INVALID_LOCAL_BASE_URL");
-  }
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: false,
-    ignoreTLS: true,
-    connectionTimeout: 4000,
-    greetingTimeout: 4000,
-    socketTimeout: 5000,
+  const subject = "Kode reset kata sandi — Auvrion Biosphere";
+  const paragraphs = [
+    "Kami menerima permintaan untuk mengatur ulang kata sandi akun Auvrion Biosphere.",
+    "Masukkan kode berikut pada halaman reset kata sandi.",
+  ];
+  const securityNote =
+    "Kode berlaku 5 menit dan maksimal 3 percobaan. Jangan bagikan kode ini. Reset kata sandi tidak mengaktifkan akun, menambah hak akses, atau melewati MFA.";
+  await sendApplicationEmail({
+    to: email,
+    subject,
+    text: [...paragraphs, `Kode: ${otp}`, securityNote].join("\n\n"),
+    html: renderAuvrionEmail({
+      title: "Reset kata sandi",
+      greeting: "Halo,",
+      paragraphs,
+      code: otp,
+      securityNote,
+    }),
   });
-  try {
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM ?? "no-reply@auvrion.test",
-      to: email,
-      subject: "Kode reset kata sandi — Auvrion Biosphere",
-      text: [
-        "Kode pemulihan kata sandi Auvrion Biosphere:",
-        otp,
-        "",
-        "Berlaku 5 menit dan maksimal 3 percobaan verifikasi.",
-        "Jangan berikan kode ini kepada siapapun.",
-        "Reset kata sandi tidak mengaktifkan akun, menambah grant, atau melewati MFA.",
-        "Jika tidak meminta reset, abaikan email ini.",
-      ].join("\n"),
-    });
-  } finally {
-    transporter.close();
-  }
 }
