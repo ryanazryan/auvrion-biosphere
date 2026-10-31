@@ -195,7 +195,7 @@ function Metric({
   );
 }
 
-function Row({ device }: { device: Device }) {
+function Row({ device, demo = false }: { device: Device; demo?: boolean }) {
   const listen = device.kind === "listen_device";
   const routeId = encodeURIComponent(device.deviceId ?? device.sourceId);
   const detailLink = `/admin/devices/${routeId}`;
@@ -220,7 +220,7 @@ function Row({ device }: { device: Device }) {
         <DeviceIllustration kind={device.kind} />
         <div className="min-w-0">
           <Link
-            href={detailLink}
+            href={demo ? "/demo/admin/devices" : detailLink}
             title={device.label}
             className="block break-words text-[13px] font-semibold leading-5 text-[#21352d] hover:text-[#127456] hover:underline"
           >
@@ -257,7 +257,7 @@ function Row({ device }: { device: Device }) {
         </p>
         {locationLink ? (
           <Link
-            href={locationLink}
+            href={demo ? "/demo/admin/map" : locationLink}
             className="ml-[22px] mt-0.5 inline-block text-[11px] font-medium text-[#18765a] hover:underline"
           >
             Atur lokasi
@@ -283,14 +283,14 @@ function Row({ device }: { device: Device }) {
 
       <div className="flex min-w-0 flex-col gap-1.5">
         <Link
-          href={detailLink}
+          href={demo ? "/demo/admin/devices" : detailLink}
           className="inline-flex min-h-9 items-center justify-center rounded-md bg-[#147a5b] px-2 py-1.5 text-center text-[11px] font-semibold text-white hover:bg-[#0f6349]"
         >
           Detail & edit perangkat
         </Link>
         {locationLink ? (
           <Link
-            href={locationLink}
+            href={demo ? "/demo/admin/map" : locationLink}
             className="inline-flex min-h-9 items-center justify-center rounded-md border border-[#c4ddcf] bg-[#eef7f1] px-2 py-1.5 text-center text-[11px] font-semibold text-[#176d50] hover:bg-[#e1f1e7]"
           >
             Atur lokasi pemasangan
@@ -311,48 +311,95 @@ function Row({ device }: { device: Device }) {
   );
 }
 
-export function DeviceFleetPanel() {
-  const [inventory, setInventory] = useState<Inventory | null>(null);
+const DEMO_INVENTORY: Inventory = {
+  organizationId: "demo-only-not-a-real-organization",
+  organizationName: "Auvrion • Simulasi",
+  devices: [
+    {
+      sourceId: "demo-listen-01",
+      kind: "listen_device",
+      code: "listen-esp32-demo-01",
+      label: "LISTEN ESP32 (Simulasi)",
+      sourceActive: true,
+      deviceId: "demo-device-01",
+      deviceStatus: "active",
+      credentialVersion: 1,
+      locationLabel: "Kalimantan (koordinat ilustratif)",
+      locationDisclosureApproved: false,
+      recordingCount: 6,
+      lastRecordingAt: "2026-10-30T02:30:00.000Z",
+    },
+    {
+      sourceId: "demo-prevent-01",
+      kind: "prevent_device",
+      code: "prevent-demo-01",
+      label: "PREVENT (Konsep)",
+      sourceActive: true,
+      deviceId: null,
+      deviceStatus: null,
+      credentialVersion: null,
+      locationLabel: "Belum tersedia",
+      locationDisclosureApproved: false,
+      recordingCount: null,
+      lastRecordingAt: null,
+    },
+  ],
+};
+
+export function DeviceFleetPanel({ demo = false }: { demo?: boolean } = {}) {
+  const [inventory, setInventory] = useState<Inventory | null>(
+    demo ? DEMO_INVENTORY : null,
+  );
   const [category, setCategory] = useState<Category>("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!demo);
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
 
-  const refresh = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const response = await fetch("/api/admin/device-fleet", {
-        cache: "no-store",
-        credentials: "same-origin",
-        signal,
-      });
-      const data = (await response.json()) as Inventory & { error?: string };
-      if (!response.ok)
-        throw new Error(data.error ?? `HTTP ${response.status}`);
-      if (signal?.aborted) return;
-      setInventory(data);
-      setError("");
-    } catch (reason) {
-      if (signal?.aborted) return;
-      setError(
-        reason instanceof Error
-          ? reason.message
-          : "Daftar perangkat tidak tersedia.",
-      );
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, []);
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
+      if (demo) {
+        setLoading(false);
+        setError("");
+        setMessage("Data demo tetap berada di browser ini.");
+        return;
+      }
+      try {
+        const response = await fetch("/api/admin/device-fleet", {
+          cache: "no-store",
+          credentials: "same-origin",
+          signal,
+        });
+        const data = (await response.json()) as Inventory & { error?: string };
+        if (!response.ok)
+          throw new Error(data.error ?? `HTTP ${response.status}`);
+        if (signal?.aborted) return;
+        setInventory(data);
+        setError("");
+      } catch (reason) {
+        if (signal?.aborted) return;
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Daftar perangkat tidak tersedia.",
+        );
+      } finally {
+        if (!signal?.aborted) setLoading(false);
+      }
+    },
+    [demo],
+  );
   useEffect(() => {
+    if (demo) return;
     const controller = new AbortController();
     void refresh(controller.signal);
     return () => controller.abort();
-  }, [refresh]);
+  }, [demo, refresh]);
 
   const all = inventory?.devices ?? [];
   const stats = {
@@ -385,6 +432,39 @@ export function DeviceFleetPanel() {
   async function createSource(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!inventory || creating) return;
+    if (demo) {
+      setInventory(
+        (prev) =>
+          prev && {
+            ...prev,
+            devices: [
+              ...prev.devices,
+              {
+                sourceId: `demo-${prev.devices.length + 1}`,
+                kind: "listen_device",
+                code: code.trim().toLowerCase(),
+                label: label.trim(),
+                sourceActive: true,
+                deviceId: null,
+                deviceStatus: null,
+                credentialVersion: null,
+                locationLabel: null,
+                locationDisclosureApproved: false,
+                recordingCount: 0,
+                lastRecordingAt: null,
+              },
+            ],
+          },
+      );
+      setMessage(
+        "Sumber LISTEN ditambahkan hanya untuk simulasi dalam browser. Tidak ada perangkat atau database yang berubah.",
+      );
+      setCode("");
+      setLabel("");
+      setCreateOpen(false);
+      selectCategory("listen_device");
+      return;
+    }
     setCreating(true);
     setError("");
     setMessage("");
@@ -679,7 +759,7 @@ export function DeviceFleetPanel() {
         {!loading && !error && filtered.length > 0 && (
           <div className="mt-3 space-y-3">
             {visible.map((device) => (
-              <Row key={device.sourceId} device={device} />
+              <Row key={device.sourceId} device={device} demo={demo} />
             ))}
           </div>
         )}

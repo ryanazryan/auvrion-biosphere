@@ -113,6 +113,7 @@ function AdminNavigation({
   busy,
   onNavigate,
   onSignOut,
+  demo = false,
 }: {
   mobile: boolean;
   organization: string;
@@ -120,6 +121,7 @@ function AdminNavigation({
   busy: boolean;
   onNavigate: () => void;
   onSignOut: () => void;
+  demo?: boolean;
 }) {
   return (
     <div className="flex h-full flex-col bg-white">
@@ -157,14 +159,21 @@ function AdminNavigation({
             </p>
             <div className="space-y-1">
               {group.items.map((item) => {
+                const destination = demo
+                  ? item.href === "/account/security"
+                    ? "/demo/admin/security"
+                    : item.href.replace(/^\/admin\//, "/demo/admin/")
+                  : item.href;
                 const selected =
                   item.href === "/admin/devices"
-                    ? pathname.startsWith("/admin/devices")
-                    : pathname === item.href;
+                    ? pathname.startsWith(
+                        demo ? "/demo/admin/devices" : "/admin/devices",
+                      )
+                    : pathname === destination;
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={destination}
                     aria-current={selected ? "page" : undefined}
                     onClick={() => onNavigate()}
                     className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-[13px] font-medium transition-colors ${
@@ -190,7 +199,7 @@ function AdminNavigation({
           </strong>
         </div>
         <Link
-          href="/account/security"
+          href={demo ? "/demo/admin/security" : "/account/security"}
           onClick={() => onNavigate()}
           className="mt-2 flex h-10 items-center rounded-md px-3 text-[13px] text-muted hover:bg-bg"
         >
@@ -198,7 +207,7 @@ function AdminNavigation({
         </Link>
         <button
           type="button"
-          onClick={() => onSignOut()}
+          onClick={() => (demo ? window.location.assign("/") : onSignOut())}
           disabled={busy}
           className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-[13px] text-muted hover:bg-bg disabled:opacity-50"
         >
@@ -213,15 +222,19 @@ function AdminNavigation({
 export function DeviceAdminFrame({
   children,
   pageName = "Perangkat IoT",
+  demo = false,
 }: {
   children: ReactNode;
   pageName?: string;
+  demo?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [desktopExpanded, setDesktopExpanded] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [organization, setOrganization] = useState("Organisasi");
+  const [organization, setOrganization] = useState(
+    demo ? "Auvrion • Simulasi" : "Organisasi",
+  );
   const [busy, setBusy] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [pendingApplications, setPendingApplications] = useState<number | null>(
@@ -229,6 +242,7 @@ export function DeviceAdminFrame({
   );
 
   useEffect(() => {
+    if (demo) return;
     const controller = new AbortController();
     fetch("/api/admin/device-fleet", {
       credentials: "same-origin",
@@ -247,7 +261,7 @@ export function DeviceAdminFrame({
       })
       .catch(() => {});
     return () => controller.abort();
-  }, []);
+  }, [demo]);
 
   useEffect(() => {
     if (!mobileOpen && !notificationsOpen) return;
@@ -265,6 +279,10 @@ export function DeviceAdminFrame({
     const nextOpen = !notificationsOpen;
     setNotificationsOpen(nextOpen);
     if (!nextOpen) return;
+    if (demo) {
+      setPendingApplications(2);
+      return;
+    }
     try {
       const response = await fetch("/api/admin/device-notifications", {
         credentials: "same-origin",
@@ -284,6 +302,10 @@ export function DeviceAdminFrame({
   }
 
   async function signOut() {
+    if (demo) {
+      router.replace("/");
+      return;
+    }
     if (busy) return;
     setBusy(true);
     try {
@@ -314,6 +336,7 @@ export function DeviceAdminFrame({
           busy={busy}
           onNavigate={() => setMobileOpen(false)}
           onSignOut={() => void signOut()}
+          demo={demo}
         />
       </aside>
       {mobileOpen && (
@@ -337,6 +360,7 @@ export function DeviceAdminFrame({
               busy={busy}
               onNavigate={() => setMobileOpen(false)}
               onSignOut={() => void signOut()}
+              demo={demo}
             />
           </aside>
         </div>
@@ -424,7 +448,11 @@ export function DeviceAdminFrame({
                   </p>
                 )}
                 <Link
-                  href="/admin/access-applications"
+                  href={
+                    demo
+                      ? "/demo/admin/access-applications"
+                      : "/admin/access-applications"
+                  }
                   onClick={() => setNotificationsOpen(false)}
                   className="mt-4 block rounded-md border border-line px-3 py-2 text-center text-xs font-semibold text-brand hover:bg-bg"
                 >
@@ -434,7 +462,7 @@ export function DeviceAdminFrame({
             )}
           </div>
           <Link
-            href="/account/security"
+            href={demo ? "/demo/admin/security" : "/account/security"}
             aria-label="Profil dan keamanan Admin"
             className="grid size-9 shrink-0 place-items-center rounded-full bg-[#e8f5ee] text-xs font-semibold text-[#157253]"
           >
@@ -442,6 +470,15 @@ export function DeviceAdminFrame({
           </Link>
         </header>
         <main className="mx-auto w-full max-w-[1540px] px-4 py-7 sm:px-6 lg:px-7">
+          {demo && (
+            <div
+              role="status"
+              className="mb-5 rounded-lg border border-[#b6dfc5] bg-[#edf8f0] px-4 py-3 text-sm font-medium text-[#075b43]"
+            >
+              MODE SIMULASI ADMIN — seluruh data sintetis dan semua perubahan
+              hanya terjadi di browser.
+            </div>
+          )}
           {children}
         </main>
       </div>

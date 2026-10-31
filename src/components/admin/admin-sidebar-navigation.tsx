@@ -109,8 +109,10 @@ function SidebarIcon({
 
 export function AdminSidebarNavigation({
   onNavigate,
+  demo = false,
 }: {
   onNavigate?: () => void;
+  demo?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -130,11 +132,16 @@ export function AdminSidebarNavigation({
           </h2>
           <div className="space-y-0.5">
             {section.items.map((item) => {
-              const active = item.href === pathname;
+              const destination = demo
+                ? item.href === "/account/security"
+                  ? "/demo/admin/security"
+                  : item.href.replace(/^\/admin\//, "/demo/admin/")
+                : item.href;
+              const active = destination === pathname;
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={destination}
                   onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
                   className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#20785f] ${active ? "bg-[#e9f4ef] font-semibold text-[#126c52]" : "text-[#51645b] hover:bg-[#f0f5f1] hover:text-[#142d25]"}`}

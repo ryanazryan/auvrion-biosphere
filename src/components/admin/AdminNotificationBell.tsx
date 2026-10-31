@@ -7,7 +7,11 @@ import { BellIcon, CloseIcon } from "@/components/admin/admin-icons";
 type NotificationResponse = { pending?: number; error?: string };
 
 /** Same org-scoped, MFA-gated summary endpoint as DeviceAdminFrame. */
-export function AdminNotificationBell() {
+export function AdminNotificationBell({
+  demo = false,
+}: {
+  demo?: boolean;
+} = {}) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,6 +36,12 @@ export function AdminNotificationBell() {
 
   useEffect(() => {
     if (!open) return;
+    if (demo) {
+      setPending(2);
+      setError("");
+      setLoading(false);
+      return;
+    }
     const controller = new AbortController();
     async function load() {
       setLoading(true);
@@ -58,7 +68,7 @@ export function AdminNotificationBell() {
     }
     void load();
     return () => controller.abort();
-  }, [open]);
+  }, [open, demo]);
 
   return (
     <div ref={wrapper} className="relative shrink-0">
@@ -99,7 +109,11 @@ export function AdminNotificationBell() {
                   : `${pending} permohonan akses memerlukan tinjauan.`}
           </p>
           <Link
-            href="/admin/access-applications"
+            href={
+              demo
+                ? "/demo/admin/access-applications"
+                : "/admin/access-applications"
+            }
             onClick={() => setOpen(false)}
             className="mt-4 block rounded-md border border-line px-3 py-2 text-center text-xs font-semibold text-brand hover:bg-bg"
           >
