@@ -1,6 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { cookies } from "next/headers";
-
 import {
   createStatusSessionValue,
   STATUS_COOKIE_NAME,
@@ -10,6 +9,10 @@ import {
   hashVerificationToken,
   isVerificationTokenFormatValid,
 } from "@/server/access-verification/token";
+import {
+  isAllowedOnboardingOrigin,
+  onboardingEnabled,
+} from "@/server/account-activation/onboarding-environment";
 import { getDb } from "@/server/db";
 import { accessApplications } from "@/server/db/access-schema";
 import { accessEmailVerificationTokens } from "@/server/db/access-verification-schema";
@@ -30,34 +33,7 @@ function jsonResponse(body: Record<string, string>, status: number) {
 }
 
 function isLocalRequestAllowed(request: Request): boolean {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  ) {
-    return false;
-  }
-
-  const configuredUrl = process.env.BETTER_AUTH_URL;
-
-  if (!configuredUrl) {
-    return false;
-  }
-
-  let expectedOrigin: string;
-
-  try {
-    expectedOrigin = new URL(configuredUrl).origin;
-  } catch {
-    return false;
-  }
-
-  const requestUrl = new URL(request.url);
-
-  return (
-    ["localhost", "127.0.0.1"].includes(requestUrl.hostname) &&
-    requestUrl.origin === expectedOrigin &&
-    request.headers.get("origin") === expectedOrigin
-  );
+  return isAllowedOnboardingOrigin(request, process.env);
 }
 
 async function readBoundedJson(request: Request): Promise<unknown> {
@@ -111,10 +87,7 @@ export async function POST(request: Request) {
   // 1. Development-only endpoint gate
   // ---------------------------------------------------
 
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  ) {
+  if (!onboardingEnabled(process.env)) {
     return jsonResponse({ error: "NOT_AVAILABLE" }, 404);
   }
 

@@ -1,10 +1,14 @@
 import { eq, lte } from "drizzle-orm";
-
 import { sendApplicantStatusLink } from "@/server/access-status/mailer";
 import {
   createStatusLinkToken,
   STATUS_LINK_COOLDOWN_SECONDS,
 } from "@/server/access-status/tokens";
+import { isPermittedBetaEmail } from "@/server/account-activation/beta-allowlist";
+import {
+  isAllowedOnboardingOrigin,
+  onboardingEnabled,
+} from "@/server/account-activation/onboarding-environment";
 import { getDb } from "@/server/db";
 import { accessApplications } from "@/server/db/access-schema";
 import { accessStatusRecovery } from "@/server/db/access-status-schema";
@@ -22,14 +26,9 @@ const accepted = () =>
   );
 
 export async function POST(request: Request) {
-  const origin = new URL(request.url).origin;
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES" ||
-    !["localhost", "127.0.0.1"].includes(new URL(request.url).hostname)
-  )
+  if (!onboardingEnabled(process.env))
     return Response.json({ error: "NOT_AVAILABLE" }, { status: 404, headers });
-  if (request.headers.get("origin") !== origin) {
+  if (!isAllowedOnboardingOrigin(request, process.env)) {
     return Response.json({ error: "INVALID_ORIGIN" }, { status: 403, headers });
   }
   if (
@@ -92,6 +91,9 @@ export async function POST(request: Request) {
   if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
     return Response.json({ error: "INVALID_INPUT" }, { status: 400, headers });
   }
+
+  // No public unsolicited status emails outside the closed pilot.
+  if (!isPermittedBetaEmail(email, process.env)) return accepted();
 
   const now = new Date();
   const threshold = new Date(

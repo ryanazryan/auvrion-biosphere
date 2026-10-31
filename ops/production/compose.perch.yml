@@ -1,0 +1,28 @@
+# OPTIONAL overlay for /opt/auvrion/infra; do not start until memory and model load verified.
+# network_mode joins app's network namespace so Next.js localhost:8765 reaches worker.
+services:
+  perch-worker:
+    build:
+      context: ../app
+      dockerfile: ops/production/perch2.Dockerfile
+    network_mode: "service:app"
+    depends_on:
+      app:
+        condition: service_started
+    env_file:
+      - ./app.env
+    environment:
+      HOME: /tmp/perch-home
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        : "$${AUVRION_PERCH_WORKER_TOKEN:?missing token}"
+        export PERCH_WORKER_TOKEN="$${AUVRION_PERCH_WORKER_TOKEN}"
+        export PERCH_WORKER_PORT="$${AUVRION_PERCH_WORKER_PORT:-8765}"
+        exec python /worker/server.py
+    volumes:
+      - perch-model-cache:/tmp/perch-home/.cache
+    restart: unless-stopped
+volumes:
+  perch-model-cache:
