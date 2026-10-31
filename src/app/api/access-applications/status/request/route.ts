@@ -4,11 +4,11 @@ import {
   createStatusLinkToken,
   STATUS_LINK_COOLDOWN_SECONDS,
 } from "@/server/access-status/tokens";
-import { isPermittedBetaEmail } from "@/server/account-activation/beta-allowlist";
 import {
   isAllowedOnboardingOrigin,
   onboardingEnabled,
 } from "@/server/account-activation/onboarding-environment";
+import { consumeOnboardingBudget } from "@/server/account-activation/public-rate-limit";
 import { getDb } from "@/server/db";
 import { accessApplications } from "@/server/db/access-schema";
 import { accessStatusRecovery } from "@/server/db/access-status-schema";
@@ -92,8 +92,17 @@ export async function POST(request: Request) {
     return Response.json({ error: "INVALID_INPUT" }, { status: 400, headers });
   }
 
-  // No public unsolicited status emails outside the closed pilot.
-  if (!isPermittedBetaEmail(email, process.env)) return accepted();
+  // Share the budget across app instances. Unknown emails remain indistinguishable.
+  try {
+    if (!(await consumeOnboardingBudget(request, "status-email", email))) {
+      return accepted();
+    }
+  } catch {
+    return Response.json(
+      { error: "SERVICE_UNAVAILABLE" },
+      { status: 503, headers },
+    );
+  }
 
   const now = new Date();
   const threshold = new Date(

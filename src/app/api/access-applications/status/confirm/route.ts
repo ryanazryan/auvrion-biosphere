@@ -11,6 +11,7 @@ import {
   isAllowedOnboardingOrigin,
   onboardingEnabled,
 } from "@/server/account-activation/onboarding-environment";
+import { consumeOnboardingBudget } from "@/server/account-activation/public-rate-limit";
 import { getDb } from "@/server/db";
 import { accessStatusRecovery } from "@/server/db/access-status-schema";
 
@@ -26,6 +27,13 @@ export async function POST(request: Request) {
   if (!onboardingEnabled(process.env)) return error("NOT_AVAILABLE", 404);
   if (!isAllowedOnboardingOrigin(request, process.env))
     return error("INVALID_ORIGIN", 403);
+  try {
+    if (!(await consumeOnboardingBudget(request, "status-confirm"))) {
+      return error("RATE_LIMITED", 429);
+    }
+  } catch {
+    return error("STATUS_RECOVERY_UNAVAILABLE", 503);
+  }
   if (
     request.headers.get("content-type")?.split(";")[0]?.trim() !==
     "application/json"

@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { LandingPage } from "@/components/landing/landing-page";
 import { onboardingEnabled } from "@/server/account-activation/onboarding-environment";
 import { getMfaAssuranceState } from "@/server/auth/mfa-assurance-store";
 import { getCurrentSession } from "@/server/auth/session";
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const currentSession = await getCurrentSession();
-  if (!currentSession) redirect("/login");
+  if (!currentSession) return <LandingPage />;
 
   const db = getDb();
   const [devOrganization] = await db

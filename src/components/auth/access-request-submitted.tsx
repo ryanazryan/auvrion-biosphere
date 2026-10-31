@@ -23,8 +23,9 @@ export function AccessRequestSubmitted() {
       </h1>
 
       <p className="mt-2 text-sm leading-6 text-muted">
-        Jika data memenuhi persyaratan, permohonan Anda akan diproses lebih
-        lanjut.
+        Jika memenuhi persyaratan, permohonan Anda telah dicatat. Periksa email
+        untuk tautan verifikasi; jika belum diterima, gunakan tombol pengiriman
+        ulang.
       </p>
 
       <AccessApplicationProgress status="submitted" />
@@ -37,6 +38,12 @@ export function AccessRequestSubmitted() {
           Kirim email verifikasi
         </Link>
 
+        <Link
+          href="/demo"
+          className="text-center text-sm font-medium text-brand hover:underline"
+        >
+          Eksplorasi Demo tanpa login
+        </Link>
         <Link
           href="/login"
           className="inline-flex min-h-10 w-full items-center justify-center rounded-md px-4 py-2 text-center text-[13px] font-medium text-muted transition-colors hover:bg-brand-50 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"

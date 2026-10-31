@@ -1,10 +1,11 @@
 import { sql } from "drizzle-orm";
 import { validateAccessRequest } from "@/lib/access-request";
-import { isPermittedBetaEmail } from "@/server/account-activation/beta-allowlist";
+import { issueVerificationEmail } from "@/server/access-verification/issue";
 import {
   isAllowedOnboardingOrigin,
   onboardingEnabled,
 } from "@/server/account-activation/onboarding-environment";
+import { consumeOnboardingBudget } from "@/server/account-activation/public-rate-limit";
 import { getDb } from "@/server/db";
 import { accessApplications } from "@/server/db/access-schema";
 import { user } from "@/server/db/auth-schema";
@@ -69,8 +70,7 @@ async function readBoundedJson(request: Request): Promise<unknown> {
 }
 
 export async function POST(request: Request) {
-  // Temporary, explicit local-development-only gate. Production must have
-  // independent abuse controls and verified email proof before opening this.
+  // Onboarding is explicitly enabled only for configured local or production environments.
   if (!onboardingEnabled(process.env)) {
     return errorResponse("REQUEST_ACCESS_NOT_AVAILABLE", 404);
   }
@@ -112,9 +112,15 @@ export async function POST(request: Request) {
 
   const { name, email } = validation.value;
 
-  // Production pilot is strictly invitation/allowlist only. Return the
-  // same anonymous 202 response for unknown emails to prevent enumeration.
-  if (!isPermittedBetaEmail(email, process.env)) return accepted();
+  // Shared PostgreSQL per-IP/per-email/global abuse controls (fail closed).
+  try {
+    if (!(await consumeOnboardingBudget(request, "submit", email))) {
+      return errorResponse("RATE_LIMITED", 429);
+    }
+  } catch {
+    return errorResponse("SERVICE_UNAVAILABLE", 503);
+  }
+  let newlyCreated = false;
 
   try {
     await getDb().transaction(async (tx) => {
@@ -142,11 +148,25 @@ export async function POST(request: Request) {
           email,
           status: "submitted",
         });
+        newlyCreated = true;
       }
     });
-    return accepted();
   } catch {
     // Avoid exposing DB errors or PII to anonymous clients.
     return errorResponse("SERVICE_UNAVAILABLE", 503);
   }
+
+  // New applicants receive a verification link automatically. If delivery fails,
+  // their application remains saved; /request-access/resend supports recovery.
+  if (newlyCreated) {
+    try {
+      if (await consumeOnboardingBudget(request, "verification-email", email)) {
+        await issueVerificationEmail(email);
+      }
+    } catch {
+      // Avoid logging applicant emails or tokens. Resend is explicitly available.
+      console.error("Applicant verification mail could not be dispatched");
+    }
+  }
+  return accepted();
 }
