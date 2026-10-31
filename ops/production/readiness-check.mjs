@@ -4,7 +4,8 @@ import pg from "pg";
 const env = process.env;
 const variables = [
   "ENABLE_PRODUCTION_ONBOARDING",
-  "AUVRION_BETA_ALLOWED_EMAILS",
+  "AUVRION_ONBOARDING_TRUST_X_REAL_IP",
+  "BETTER_AUTH_SECRET",
   "BETTER_AUTH_URL",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
@@ -25,9 +26,11 @@ for (const name of variables) {
 let failures = 0;
 if (
   env.ENABLE_PRODUCTION_ONBOARDING !== "YES" ||
-  !env.AUVRION_BETA_ALLOWED_EMAILS
+  env.AUVRION_ONBOARDING_TRUST_X_REAL_IP !== "YES"
 ) {
-  console.log("CLOSED_BETA: NOT READY â€” explicit tester allowlist required");
+  console.log(
+    "PUBLIC_ONBOARDING: NOT READY - opt-in and trusted proxy required",
+  );
   failures++;
 }
 try {
@@ -45,9 +48,14 @@ try {
         to_regclass('public.listen_device_installations') IS NOT NULL AS installation_table,
         to_regclass('public.access_email_verification_tokens') IS NOT NULL AS verification_table,
         to_regclass('public.access_status_recovery') IS NOT NULL AS status_recovery_table,
+        to_regclass('public.onboarding_rate_limit_buckets') IS NOT NULL AS onboarding_budget_table,
         (SELECT count(*)::int FROM organizations WHERE code='AUVRION-LOCAL') AS local_organizations
     `);
     console.log("DATABASE INVENTORY:", JSON.stringify(counts.rows[0]));
+    if (!counts.rows[0]?.onboarding_budget_table) {
+      console.log("PUBLIC_ONBOARDING: budget migration required");
+      failures++;
+    }
   } finally {
     await db.end();
   }

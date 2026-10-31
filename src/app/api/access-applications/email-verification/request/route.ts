@@ -1,17 +1,9 @@
-import { and, eq, isNull, lte } from "drizzle-orm";
-import { sendAccessVerificationEmail } from "@/server/access-verification/mailer";
-import {
-  createVerificationToken,
-  EMAIL_VERIFICATION_RESEND_SECONDS,
-} from "@/server/access-verification/token";
-import { isPermittedBetaEmail } from "@/server/account-activation/beta-allowlist";
+import { issueVerificationEmail } from "@/server/access-verification/issue";
 import {
   isAllowedOnboardingOrigin,
   onboardingEnabled,
 } from "@/server/account-activation/onboarding-environment";
-import { getDb } from "@/server/db";
-import { accessApplications } from "@/server/db/access-schema";
-import { accessEmailVerificationTokens } from "@/server/db/access-verification-schema";
+import { consumeOnboardingBudget } from "@/server/account-activation/public-rate-limit";
 
 export const runtime = "nodejs";
 
@@ -131,97 +123,13 @@ export async function POST(request: Request) {
     return reject("INVALID_INPUT", 400);
   }
 
-  // Do not send verification links to arbitrary addresses in production.
-  if (!isPermittedBetaEmail(email, process.env)) return accepted();
-
-  const db = getDb();
-  const now = new Date();
-
-  const cooldownThreshold = new Date(
-    now.getTime() - EMAIL_VERIFICATION_RESEND_SECONDS * 1000,
-  );
-
-  const verification = createVerificationToken();
-
-  let recipient: string | null = null;
-
+  // Unknown emails and rate-limited requests receive identical 202s.
   try {
-    // Lock the application while deciding whether a token
-    // can be issued. This avoids simultaneous resend races.
-    await db.transaction(async (tx) => {
-      const [application] = await tx
-        .select({
-          id: accessApplications.id,
-          email: accessApplications.email,
-          status: accessApplications.status,
-          emailVerifiedAt: accessApplications.emailVerifiedAt,
-        })
-        .from(accessApplications)
-        .where(eq(accessApplications.email, email))
-        .orderBy(accessApplications.createdAt)
-        .limit(1)
-        .for("update");
-
-      if (!application) {
-        return;
-      }
-
-      if (
-        application.status !== "submitted" ||
-        application.emailVerifiedAt !== null
-      ) {
-        return;
-      }
-
-      // One token record per application.
-      // A resend replaces the previous token only
-      // when the server-side cooldown has elapsed.
-      const [issued] = await tx
-        .insert(accessEmailVerificationTokens)
-        .values({
-          applicationId: application.id,
-          tokenHash: verification.tokenHash,
-          expiresAt: verification.expiresAt,
-          lastSentAt: now,
-          usedAt: null,
-          updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: accessEmailVerificationTokens.applicationId,
-          set: {
-            tokenHash: verification.tokenHash,
-            expiresAt: verification.expiresAt,
-            lastSentAt: now,
-            usedAt: null,
-            updatedAt: now,
-          },
-          setWhere: and(
-            lte(accessEmailVerificationTokens.lastSentAt, cooldownThreshold),
-            isNull(accessEmailVerificationTokens.usedAt),
-          ),
-        })
-        .returning({
-          id: accessEmailVerificationTokens.id,
-        });
-
-      if (issued) {
-        recipient = application.email;
-      }
-    });
-
-    if (recipient !== null) {
-      await sendAccessVerificationEmail({
-        to: recipient,
-        token: verification.token,
-      });
+    if (await consumeOnboardingBudget(request, "verification-email", email)) {
+      await issueVerificationEmail(email);
     }
   } catch {
-    console.error(
-      "Local applicant email dispatch failed; delivery not confirmed",
-    );
-    // Do not disclose whether a particular address
-    // exists or whether a token was issued.
-    // Operational telemetry is required before production.
+    console.error("Applicant email dispatch unavailable");
   }
 
   return accepted();
