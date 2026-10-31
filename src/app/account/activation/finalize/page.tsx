@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ActivationFinalization } from "@/components/auth/activation-finalization";
 import { AuthLayout } from "@/components/auth/auth-layout";
+import { onboardingEnabled } from "@/server/account-activation/onboarding-environment";
 import { getCurrentSession } from "@/server/auth/session";
 import { getDb } from "@/server/db";
 import { userAccess } from "@/server/db/access-schema";
@@ -12,11 +13,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 export default async function FinalizeActivationPage() {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  )
+  if (!onboardingEnabled(process.env)) {
     notFound();
+  }
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   const [access] = await getDb()

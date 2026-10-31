@@ -8,6 +8,7 @@ import {
   readSmallJson,
 } from "@/server/account-activation/http";
 import { sendActivationInvitation } from "@/server/account-activation/mailer";
+import { onboardingEnabled } from "@/server/account-activation/onboarding-environment";
 import {
   INVITATION_RESEND_COOLDOWN_SECONDS,
   isOperationalRole,
@@ -33,11 +34,7 @@ const denied = (code: string, status = 409): Result => ({
 });
 
 export async function POST(request: Request, context: Context) {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  )
-    return jsonError("NOT_FOUND", 404);
+  if (!onboardingEnabled(process.env)) return jsonError("NOT_FOUND", 404);
   if (!isLocalActivationRequest(request))
     return jsonError("INVALID_ORIGIN", 403);
   const { id } = await context.params;

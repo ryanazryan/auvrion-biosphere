@@ -1,11 +1,17 @@
 import "server-only";
+
 import { and, eq, isNull } from "drizzle-orm";
-import { isVerifiedLocalBootstrapAdmin } from "@/server/account-activation/bootstrap-admin-policy";
+import {
+  isVerifiedLocalBootstrapAdmin,
+  isVerifiedProductionBootstrapAdmin,
+} from "@/server/account-activation/bootstrap-admin-policy";
 import {
   isLocalActivationRequest,
   jsonError,
   NO_STORE,
 } from "@/server/account-activation/http";
+import { onboardingEnabled } from "@/server/account-activation/onboarding-environment";
+import { isProductionReviewerInvitation } from "@/server/account-activation/production-reviewer-policy";
 import { getCurrentSession } from "@/server/auth/session";
 import { getDb } from "@/server/db";
 import { accessApplications, userAccess } from "@/server/db/access-schema";
@@ -23,19 +29,33 @@ import {
 } from "@/server/db/grants-schema";
 
 export const runtime = "nodejs";
+
 export async function POST(request: Request) {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  )
+  // Explicitly enable onboarding for the current environment.
+  // Production remains disabled unless explicitly configured.
+  if (!onboardingEnabled(process.env)) {
     return jsonError("NOT_FOUND", 404);
-  if (!isLocalActivationRequest(request))
+  }
+
+  // Verify that the request originates from the configured application.
+  if (!isLocalActivationRequest(request)) {
     return jsonError("INVALID_ORIGIN", 403);
+  }
+
+  // Require a valid Better Auth session.
   const current = await getCurrentSession();
-  if (!current) return jsonError("UNAUTHENTICATED", 401);
-  if (!current.user.emailVerified) return jsonError("EMAIL_NOT_VERIFIED", 403);
+
+  if (!current) {
+    return jsonError("UNAUTHENTICATED", 401);
+  }
+
+  if (!current.user.emailVerified) {
+    return jsonError("EMAIL_NOT_VERIFIED", 403);
+  }
+
   try {
     const outcome = await getDb().transaction(async (tx) => {
+      // Lock account access to prevent concurrent activation.
       const [access] = await tx
         .select({
           userId: userAccess.userId,
@@ -46,9 +66,21 @@ export async function POST(request: Request) {
         .where(eq(userAccess.userId, current.user.id))
         .limit(1)
         .for("update");
-      if (!access) return "DENIED" as const;
-      if (access.status === "active") return "ALREADY_ACTIVE" as const;
-      if (access.status !== "pending_activation") return "DENIED" as const;
+
+      if (!access) {
+        return "DENIED" as const;
+      }
+
+      if (access.status === "active") {
+        return "ALREADY_ACTIVE" as const;
+      }
+
+      if (access.status !== "pending_activation") {
+        return "DENIED" as const;
+      }
+
+      // Load the identity, application, MFA, credential,
+      // invitation, and organization requirements.
       const [[app], [identity], [invite], [factor], [credential], [org]] =
         await Promise.all([
           tx
@@ -63,6 +95,7 @@ export async function POST(request: Request) {
             .from(accessApplications)
             .where(eq(accessApplications.id, access.applicationId))
             .limit(1),
+
           tx
             .select({
               email: user.email,
@@ -72,16 +105,19 @@ export async function POST(request: Request) {
             .from(user)
             .where(eq(user.id, current.user.id))
             .limit(1),
+
           tx
             .select({
               userId: accountActivationInvites.userId,
               usedAt: accountActivationInvites.usedAt,
+              issuedById: accountActivationInvites.issuedById,
             })
             .from(accountActivationInvites)
             .where(
               eq(accountActivationInvites.applicationId, access.applicationId),
             )
             .limit(1),
+
           tx
             .select({ id: twoFactor.id })
             .from(twoFactor)
@@ -92,6 +128,7 @@ export async function POST(request: Request) {
               ),
             )
             .limit(1),
+
           tx
             .select({ id: account.id })
             .from(account)
@@ -102,12 +139,15 @@ export async function POST(request: Request) {
               ),
             )
             .limit(1),
+
           tx
             .select({ id: organizations.id })
             .from(organizations)
             .where(eq(organizations.code, "AUVRION-LOCAL"))
             .limit(1),
         ]);
+
+      // All baseline activation requirements must be satisfied.
       if (
         app?.status !== "approved" ||
         !app.verifiedAt ||
@@ -123,9 +163,12 @@ export async function POST(request: Request) {
         !factor ||
         !credential ||
         !org
-      )
+      ) {
         return "DENIED" as const;
-      // Ordinary users must consume a valid invite and hold an operational role.
+      }
+
+      // Ordinary users must have a consumed invitation
+      // and an active organization-scoped operational role.
       const [grant] = await tx
         .select({ id: roleGrants.id })
         .from(roleGrants)
@@ -137,18 +180,58 @@ export async function POST(request: Request) {
           ),
         )
         .limit(1);
+
+      let invitedReviewer = false;
+      if (
+        invite &&
+        invite.userId === current.user.id &&
+        invite.usedAt &&
+        !grant
+      ) {
+        const [[inviter], adminGrants] = await Promise.all([
+          tx
+            .select({ email: user.email })
+            .from(user)
+            .where(eq(user.id, invite.issuedById))
+            .limit(1),
+          tx
+            .select({ capability: adminCapabilityGrants.capability })
+            .from(adminCapabilityGrants)
+            .where(
+              and(
+                eq(adminCapabilityGrants.userId, current.user.id),
+                eq(adminCapabilityGrants.organizationId, org.id),
+                isNull(adminCapabilityGrants.revokedAt),
+              ),
+            ),
+        ]);
+        const privileges = new Set(adminGrants.map((g) => g.capability));
+        invitedReviewer = isProductionReviewerInvitation({
+          environment: process.env.NODE_ENV,
+          configuredOwnerEmail: process.env.PRODUCTION_ADMIN_EMAIL,
+          inviterEmail: inviter?.email,
+          issuerId: invite.issuedById,
+          reviewerId: app.reviewerId,
+          decisionReason: app.decisionReason,
+          hasReviewApplications: privileges.has("review_applications"),
+          hasManageAccess: privileges.has("manage_access"),
+        });
+      }
       const ordinaryActivation =
         !!invite &&
         invite.userId === current.user.id &&
         !!invite.usedAt &&
-        !!grant;
+        (!!grant || invitedReviewer);
 
-      // A first-admin bootstrap creates a credential and admin capability grants,
-      // not an invitation or operational role. Verify its exact provenance.
+      // Existing local-development bootstrap exception.
+      // This is NOT yet a production bootstrap authorization.
       let bootstrapActivation = false;
+
       if (!ordinaryActivation && !invite) {
         const grants = await tx
-          .select({ capability: adminCapabilityGrants.capability })
+          .select({
+            capability: adminCapabilityGrants.capability,
+          })
           .from(adminCapabilityGrants)
           .where(
             and(
@@ -157,8 +240,10 @@ export async function POST(request: Request) {
               isNull(adminCapabilityGrants.revokedAt),
             ),
           );
+
         const capabilities = new Set(grants.map((grant) => grant.capability));
-        bootstrapActivation = isVerifiedLocalBootstrapAdmin({
+
+        const bootstrapIdentity = {
           userId: current.user.id,
           email: identity.email,
           applicationEmail: app.email,
@@ -166,15 +251,33 @@ export async function POST(request: Request) {
           decisionReason: app.decisionReason,
           hasReviewApplications: capabilities.has("review_applications"),
           hasManageAccess: capabilities.has("manage_access"),
-        });
+        };
+
+        bootstrapActivation =
+          (process.env.NODE_ENV === "development" &&
+            isVerifiedLocalBootstrapAdmin(bootstrapIdentity)) ||
+          isVerifiedProductionBootstrapAdmin({
+            ...bootstrapIdentity,
+            environment: process.env.NODE_ENV,
+            configuredOwnerEmail: process.env.PRODUCTION_ADMIN_EMAIL,
+          });
       }
-      if (!ordinaryActivation && !bootstrapActivation) return "DENIED" as const;
+
+      // Never activate an account without its expected
+      // onboarding provenance.
+      if (!ordinaryActivation && !bootstrapActivation) {
+        return "DENIED" as const;
+      }
+
+      const now = new Date();
+
+      // Activate only an account that is still pending.
       const [updated] = await tx
         .update(userAccess)
         .set({
           status: "active",
-          activatedAt: new Date(),
-          updatedAt: new Date(),
+          activatedAt: now,
+          updatedAt: now,
         })
         .where(
           and(
@@ -182,20 +285,31 @@ export async function POST(request: Request) {
             eq(userAccess.status, "pending_activation"),
           ),
         )
-        .returning({ userId: userAccess.userId });
-      if (!updated) return "DENIED" as const;
-      // Delete all pre-enrollment sessions before permitting operational access.
-      // Fresh password + TOTP sign-in must mint a new assured session.
+        .returning({
+          userId: userAccess.userId,
+        });
+
+      if (!updated) {
+        return "DENIED" as const;
+      }
+
+      // Revoke all existing sessions after activation.
+      // A new password + TOTP login is required.
       await tx
         .delete(authSessions)
         .where(eq(authSessions.userId, current.user.id));
+
       return "ACTIVATED" as const;
     });
-    if (outcome === "DENIED")
+
+    if (outcome === "DENIED") {
       return jsonError("ACTIVATION_REQUIREMENTS_NOT_MET", 403);
+    }
+
     return Response.json({ outcome }, { headers: NO_STORE });
   } catch {
     console.error("Activation completion failed");
+
     return jsonError("ACTIVATION_UNAVAILABLE", 503);
   }
 }

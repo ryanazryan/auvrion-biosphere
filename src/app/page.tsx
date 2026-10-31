@@ -1,7 +1,7 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
-
 import { LogoutButton } from "@/components/auth/logout-button";
+import { onboardingEnabled } from "@/server/account-activation/onboarding-environment";
 import { getMfaAssuranceState } from "@/server/auth/mfa-assurance-store";
 import { getCurrentSession } from "@/server/auth/session";
 import { checkAccountAccess } from "@/server/authorization/account-access";
@@ -26,11 +26,7 @@ export default async function HomePage() {
     .limit(1);
 
   // Admin pages currently exist only for local development and enabled access requests.
-  if (
-    devOrganization &&
-    process.env.NODE_ENV === "development" &&
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS === "YES"
-  ) {
+  if (devOrganization && onboardingEnabled(process.env)) {
     const reviewAccess = await checkAdminAccess(
       devOrganization.id,
       "review_applications",
