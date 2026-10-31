@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AccessApplicationProgress } from "@/components/auth/access-application-progress";
+import { AccessStatusLiveRefresh } from "@/components/auth/access-status-live-refresh";
 import { AccessStatusRecoveryForm } from "@/components/auth/access-status-recovery-form";
 import { AuthLayout } from "@/components/auth/auth-layout";
 import {
@@ -11,6 +12,7 @@ import {
   statusCookieOptions,
   verifyStatusSessionValue,
 } from "@/server/access-status/tokens";
+import { onboardingEnabled } from "@/server/account-activation/onboarding-environment";
 import { getDb } from "@/server/db";
 import { accessApplications, userAccess } from "@/server/db/access-schema";
 
@@ -52,11 +54,7 @@ async function forgetStatusSession() {
 }
 
 export default async function ApplicantStatusPage() {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.ENABLE_LOCAL_ACCESS_REQUESTS !== "YES"
-  )
-    notFound();
+  if (!onboardingEnabled(process.env)) notFound();
 
   const cookieStore = await cookies();
   const applicationId = verifyStatusSessionValue(
@@ -155,11 +153,23 @@ export default async function ApplicantStatusPage() {
           Kirim ulang verifikasi email
         </Link>
       )}
-      <p className="mt-5 text-xs leading-5 text-muted">
-        Informasi status akan diperbarui setiap kali Anda membuka atau memuat
-        ulang halaman ini. Anda tidak perlu mengajukan permohonan baru untuk
-        memeriksa perkembangannya.
-      </p>
+      <AccessStatusLiveRefresh
+        monitoring={
+          record.status === "submitted" ||
+          record.status === "email_verified" ||
+          (record.status === "approved" &&
+            accountState?.status !== "active" &&
+            accountState?.status !== "disabled")
+        }
+      />
+      {record.status === "approved" && accountState?.status === "active" && (
+        <Link
+          href="/login"
+          className="mt-4 block rounded-md bg-brand px-4 py-3 text-center text-sm font-medium text-white"
+        >
+          Masuk ke Auvrion Biosphere
+        </Link>
+      )}
       <form action={forgetStatusSession} className="mt-5">
         <button
           type="submit"

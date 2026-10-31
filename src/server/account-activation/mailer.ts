@@ -19,7 +19,7 @@ export async function sendActivationInvitation(input: {
     "Gunakan tautan di bawah untuk membuat kata sandi, kemudian masuk dan selesaikan verifikasi dua faktor (TOTP).",
   ];
   const securityNote =
-    "Tautan berlaku 30 menit dan hanya dapat digunakan sekali. Undangan yang lebih baru membatalkan undangan lama. Akun tidak aktif sampai persyaratan keamanan selesai.";
+    "Untuk memudahkan pengujian UINIC 8.0, tautan aktivasi berlaku 24 jam dan hanya dapat digunakan sekali. Undangan yang lebih baru membatalkan undangan lama. Akun tidak aktif sampai persyaratan keamanan selesai.";
   await sendApplicationEmail({
     to: input.email,
     subject,

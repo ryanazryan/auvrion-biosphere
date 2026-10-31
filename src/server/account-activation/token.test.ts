@@ -14,7 +14,7 @@ describe("account activation proof", () => {
     expect(a.token).not.toBe(b.token);
     expect(a.tokenHash).toBe(hashActivationToken(a.token));
     expect(a.tokenHash).toHaveLength(64);
-    expect(a.expiresAt.toISOString()).toBe("2026-10-18T00:30:00.000Z");
+    expect(a.expiresAt.toISOString()).toBe("2026-10-19T00:00:00.000Z");
   });
   it("only permits explicit roles and long passwords", () => {
     expect(isOperationalRole("operator")).toBe(true);

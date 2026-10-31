@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AccessApplicationProgress } from "./access-application-progress";
+import { AccessVerificationRequestForm } from "./access-verification-request-form";
 
 export function AccessRequestSubmitted() {
   return (
@@ -31,12 +32,7 @@ export function AccessRequestSubmitted() {
       <AccessApplicationProgress status="submitted" />
 
       <div className="mt-7 flex flex-col gap-4">
-        <Link
-          href="/request-access/resend"
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-brand px-4 py-2.5 text-center text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        >
-          Kirim email verifikasi
-        </Link>
+        <AccessVerificationRequestForm compact />
 
         <Link
           href="/demo"

@@ -20,7 +20,7 @@ export async function sendAccessVerificationEmail({
     "Verifikasi alamat email Anda untuk melanjutkan proses permohonan. Verifikasi tidak otomatis memberikan akses aplikasi.",
   ];
   const securityNote =
-    "Tautan berlaku 30 menit, hanya dapat digunakan sekali. Jika bukan Anda yang mengajukan, abaikan email ini.";
+    "Untuk memudahkan pengujian UINIC 8.0, tautan berlaku 24 jam dan hanya dapat digunakan sekali. Jika kedaluwarsa, gunakan tombol Kirim Ulang Verifikasi pada halaman permohonan akses. Jika bukan Anda yang mengajukan, abaikan email ini.";
   await sendApplicationEmail({
     to,
     subject,

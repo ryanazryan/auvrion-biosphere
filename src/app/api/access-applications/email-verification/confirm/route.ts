@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import {
   createStatusSessionValue,
@@ -247,6 +247,10 @@ export async function POST(request: Request) {
         // Roll back the application status update.
         throw new Error("TOKEN_CONSUMPTION_CONFLICT");
       }
+
+      await tx.execute(
+        sql`SELECT pg_notify('ab_applicant_status_events', ${record.applicationId})`,
+      );
 
       // Return the verified application ID.
       // Never trust an application ID supplied
