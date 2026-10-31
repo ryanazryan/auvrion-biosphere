@@ -16,10 +16,10 @@ import { sendLocalPasswordResetOtp } from "@/server/auth/password-reset-mailer";
 import {
   isAllowedPasswordRecoveryEndpoint,
   isEmailOtpPluginEndpoint,
-  localPasswordRecoveryEnabled,
   PASSWORD_RESET_OTP_ATTEMPTS,
   PASSWORD_RESET_OTP_LENGTH,
   PASSWORD_RESET_OTP_TTL_SECONDS,
+  passwordRecoveryEnabled,
   passwordResetEligibleInput,
   passwordResetStrongPassword,
 } from "@/server/auth/password-reset-policy";
@@ -271,7 +271,7 @@ export const auth = betterAuth({
       // Avoid adding OTP-based sign-in / sign-up as a bypass of mandatory TOTP.
       if (isEmailOtpPluginEndpoint(ctx.path)) {
         if (
-          !localPasswordRecoveryEnabled(process.env) ||
+          !passwordRecoveryEnabled(process.env) ||
           !isAllowedPasswordRecoveryEndpoint(ctx.path)
         ) {
           throw new APIError("FORBIDDEN", { message: "EMAIL_OTP_NOT_ALLOWED" });
