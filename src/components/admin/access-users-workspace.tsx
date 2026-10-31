@@ -31,7 +31,13 @@ const LABELS: Record<OperationalRole, string> = {
   ranger: "Ranger",
 };
 
-function UserActions({ user }: { user: ManagedUser }) {
+function UserActions({
+  user,
+  demoMode = false,
+}: {
+  user: ManagedUser;
+  demoMode?: boolean;
+}) {
   const router = useRouter();
   const [role, setRole] = useState<OperationalRole>(
     user.activeRoles[0] ?? "ranger",
@@ -42,6 +48,15 @@ function UserActions({ user }: { user: ManagedUser }) {
   const [error, setError] = useState("");
   const lock = useRef(false);
   const locked = user.accessStatus === "disabled" || user.protectedAdmin;
+
+  if (demoMode) {
+    return (
+      <section className="mt-3 rounded-lg border border-[#b9dcc7] bg-[#f0f8f3] p-4 text-sm text-[#075b43]">
+        Data pengguna sintetis. Perubahan role, pencabutan akses, dan deaktivasi
+        akun sengaja tidak dapat dilakukan dalam demo publik.
+      </section>
+    );
+  }
 
   async function act(action: "set_role" | "revoke_role" | "disable_account") {
     if (
@@ -206,11 +221,13 @@ export function AccessUsersWorkspace({
   organizationName,
   users,
   audit,
+  demoMode = false,
 }: {
   adminEmail: string;
   organizationName: string;
   users: ManagedUser[];
   audit: AuditEvent[];
+  demoMode?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
@@ -246,11 +263,16 @@ export function AccessUsersWorkspace({
     <UserActions
       key={`${user.userId}-${user.accessStatus}-${user.activeRoles.join("-")}-${user.lastLifecycleAuditId ?? "initial"}`}
       user={user}
+      demoMode={demoMode}
     />
   );
 
   return (
-    <AdminShell adminEmail={adminEmail} organizationName={organizationName}>
+    <AdminShell
+      demo={demoMode}
+      adminEmail={adminEmail}
+      organizationName={organizationName}
+    >
       <div className="mb-5">
         <h1 className="text-[25px] font-semibold tracking-tight text-ink">
           Pengguna

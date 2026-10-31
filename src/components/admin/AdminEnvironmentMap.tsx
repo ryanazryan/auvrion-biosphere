@@ -167,7 +167,7 @@ function ToolButton({
 }
 
 /** Admin-only installation coordinates. Never infer animal observation coordinates. */
-export function AdminEnvironmentMap() {
+export function AdminEnvironmentMap({ demo = false }: { demo?: boolean } = {}) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("maplibre-gl").Map | null>(null);
   const libRef = useRef<MapLib | null>(null);
@@ -188,47 +188,79 @@ export function AdminEnvironmentMap() {
     null,
   );
 
-  const fetchLocations = useCallback(async (signal: AbortSignal) => {
-    setLoading(true);
-    setDataError("");
-    try {
-      const inventory = await fetch("/api/admin/device-fleet", {
-        credentials: "same-origin",
-        cache: "no-store",
-        signal,
-      });
-      const fleet = (await inventory.json()) as FleetResponse;
-      if (!inventory.ok || !fleet.organizationId) {
-        throw new Error(fleet.error ?? `HTTP ${inventory.status}`);
+  const fetchLocations = useCallback(
+    async (signal: AbortSignal) => {
+      setLoading(true);
+      setDataError("");
+      if (demo) {
+        setOrganizationId(""); // Do not mount privileged MapLocationControls.
+        setDevices([
+          {
+            id: "demo-pin-1",
+            code: "listen-esp32-demo-01",
+            label: "LISTEN ESP32 (Simulasi)",
+            locationLabel: "Kalimantan — titik ilustratif",
+            latitude: -3.5,
+            longitude: 114.5,
+            verifiedAt: null,
+            verificationMethod: "simulated",
+            disclosureApproved: true,
+          },
+          {
+            id: "demo-pin-2",
+            code: "listen-esp32-demo-02",
+            label: "LISTEN Cadangan (Simulasi)",
+            locationLabel: "Kalimantan — titik ilustratif",
+            latitude: -2.6,
+            longitude: 115.1,
+            verifiedAt: null,
+            verificationMethod: "simulated",
+            disclosureApproved: true,
+          },
+        ]);
+        setLoading(false);
+        return;
       }
-      const params = new URLSearchParams({
-        organizationId: fleet.organizationId,
-      });
-      const response = await fetch(`/api/admin/listen-locations?${params}`, {
-        credentials: "same-origin",
-        cache: "no-store",
-        signal,
-      });
-      const result = (await response.json()) as LocationsResponse;
-      if (!response.ok || !Array.isArray(result.devices)) {
-        throw new Error(result.error ?? `HTTP ${response.status}`);
+      try {
+        const inventory = await fetch("/api/admin/device-fleet", {
+          credentials: "same-origin",
+          cache: "no-store",
+          signal,
+        });
+        const fleet = (await inventory.json()) as FleetResponse;
+        if (!inventory.ok || !fleet.organizationId) {
+          throw new Error(fleet.error ?? `HTTP ${inventory.status}`);
+        }
+        const params = new URLSearchParams({
+          organizationId: fleet.organizationId,
+        });
+        const response = await fetch(`/api/admin/listen-locations?${params}`, {
+          credentials: "same-origin",
+          cache: "no-store",
+          signal,
+        });
+        const result = (await response.json()) as LocationsResponse;
+        if (!response.ok || !Array.isArray(result.devices)) {
+          throw new Error(result.error ?? `HTTP ${response.status}`);
+        }
+        if (!signal.aborted) {
+          setOrganizationId(fleet.organizationId);
+          setDevices(result.devices);
+        }
+      } catch (error) {
+        if (!signal.aborted) {
+          setDataError(
+            error instanceof Error
+              ? error.message
+              : "Gagal memuat lokasi perangkat.",
+          );
+        }
+      } finally {
+        if (!signal.aborted) setLoading(false);
       }
-      if (!signal.aborted) {
-        setOrganizationId(fleet.organizationId);
-        setDevices(result.devices);
-      }
-    } catch (error) {
-      if (!signal.aborted) {
-        setDataError(
-          error instanceof Error
-            ? error.message
-            : "Gagal memuat lokasi perangkat.",
-        );
-      }
-    } finally {
-      if (!signal.aborted) setLoading(false);
-    }
-  }, []);
+    },
+    [demo],
+  );
 
   useEffect(() => {
     void refreshIndex; // Deliberate manual refresh trigger, as used in Operator GIS.
@@ -615,7 +647,11 @@ export function AdminEnvironmentMap() {
                                 : "Metode verifikasi belum tercatat"}
                           </p>
                           <Link
-                            href={`/admin/listen-locations?deviceId=${encodeURIComponent(device.id)}`}
+                            href={
+                              demo
+                                ? "/demo/admin/map"
+                                : `/admin/listen-locations?deviceId=${encodeURIComponent(device.id)}`
+                            }
                             className="mt-2 inline-block font-semibold text-brand hover:underline"
                           >
                             {placed

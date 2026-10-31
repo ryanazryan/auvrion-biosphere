@@ -127,11 +127,15 @@ export function AccessApplicationsWorkspace({
   records,
   organizationName,
   adminEmail,
+  demoMode = false,
 }: {
   records: Application[];
   organizationName: string;
   adminEmail: string;
+  demoMode?: boolean;
 }) {
+  const [demoRecords, setDemoRecords] = useState(records);
+  const currentRecords = demoMode ? demoRecords : records;
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<DisplayStatus | "all">("all");
   const [sort, setSort] = useState<"new" | "old">("new");
@@ -157,7 +161,7 @@ export function AccessApplicationsWorkspace({
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
 
-    return records
+    return currentRecords
       .filter(
         (record) =>
           (status === "all" || getDisplayStatus(record) === status) &&
@@ -170,7 +174,7 @@ export function AccessApplicationsWorkspace({
           (sort === "new" ? -1 : 1) *
           (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
       );
-  }, [records, query, status, sort]);
+  }, [currentRecords, query, status, sort]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pages);
@@ -181,7 +185,7 @@ export function AccessApplicationsWorkspace({
   );
 
   const countDisplayStatus = (kind: DisplayStatus) =>
-    records.filter((record) => getDisplayStatus(record) === kind).length;
+    currentRecords.filter((record) => getDisplayStatus(record) === kind).length;
 
   const stats = [
     ["Menunggu peninjauan", countDisplayStatus("email_verified")],
@@ -192,11 +196,15 @@ export function AccessApplicationsWorkspace({
         countDisplayStatus("awaiting_mfa"),
     ],
     ["Akun aktif", countDisplayStatus("account_active")],
-    ["Total permohonan", records.length],
+    ["Total permohonan", currentRecords.length],
   ] as const;
 
   return (
-    <AdminShell organizationName={organizationName} adminEmail={adminEmail}>
+    <AdminShell
+      demo={demoMode}
+      organizationName={organizationName}
+      adminEmail={adminEmail}
+    >
       {/* Page heading */}
       <div className="mb-6">
         <h1 className="text-xl font-semibold tracking-[-0.015em] text-ink sm:text-2xl">
@@ -528,8 +536,93 @@ export function AccessApplicationsWorkspace({
                 </p>
               )}
 
-            {/* Real PostgreSQL approval/rejection actions */}
-            {selected.status === "approved" ? (
+            {/* Demo actions are strictly local; original API controls never mount in demo. */}
+            {demoMode ? (
+              <div className="mt-6 rounded-lg border border-[#b9dcc7] bg-[#f0f8f3] p-4">
+                <p className="mb-3 text-sm font-medium text-[#075b43]">
+                  Tindakan simulasi
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {selected.status === "email_verified" && (
+                    <>
+                      <button
+                        type="button"
+                        className="rounded-md bg-[#075b43] px-4 py-2 text-sm font-semibold text-white"
+                        onClick={() => {
+                          const next: Application = {
+                            ...selected,
+                            status: "approved",
+                            reviewedAt: new Date().toISOString(),
+                            decisionReason: "Disetujui dalam simulasi",
+                          };
+                          setDemoRecords((rows) =>
+                            rows.map((row) =>
+                              row.id === next.id ? next : row,
+                            ),
+                          );
+                          setSelected(next);
+                        }}
+                      >
+                        Setujui (simulasi)
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-md border border-[#dca3a3] bg-white px-4 py-2 text-sm font-semibold text-[#a33a3a]"
+                        onClick={() => {
+                          const next: Application = {
+                            ...selected,
+                            status: "rejected",
+                            reviewedAt: new Date().toISOString(),
+                            decisionReason: "Ditolak dalam simulasi",
+                          };
+                          setDemoRecords((rows) =>
+                            rows.map((row) =>
+                              row.id === next.id ? next : row,
+                            ),
+                          );
+                          setSelected(next);
+                        }}
+                      >
+                        Tolak (simulasi)
+                      </button>
+                    </>
+                  )}
+                  {selected.status === "approved" &&
+                    selected.accessStatus === null && (
+                      <button
+                        type="button"
+                        className="rounded-md bg-[#075b43] px-4 py-2 text-sm font-semibold text-white"
+                        onClick={() => {
+                          const next: Application = {
+                            ...selected,
+                            accessStatus: "pending_activation",
+                            invitationUsedAt: null,
+                          };
+                          setDemoRecords((rows) =>
+                            rows.map((row) =>
+                              row.id === next.id ? next : row,
+                            ),
+                          );
+                          setSelected(next);
+                        }}
+                      >
+                        Simulasikan undangan aktivasi
+                      </button>
+                    )}
+                  {selected.status === "submitted" && (
+                    <p className="text-xs text-muted">
+                      Verifikasi email diperlukan sebelum keputusan Admin.
+                    </p>
+                  )}
+                  {selected.accessStatus !== null && (
+                    <p className="text-xs text-muted">
+                      Status akun hanya ditampilkan. Tidak ada kredensial yang
+                      dibuat.
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : selected.status === "approved" ? (
               <ApplicationProvisioningActions
                 key={`provision-${selected.id}`}
                 applicationId={selected.id}
