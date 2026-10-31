@@ -310,8 +310,12 @@ export function LandingPage() {
                 </div>
                 <div className="ab-role-action">
                   <Link
-                    href="/login"
-                    aria-label={`Masuk ke platform sebagai pengguna berizin: ${role.title}`}
+                    href={role.icon === "admin" ? "/demo/admin" : "/login"}
+                    aria-label={
+                      role.icon === "admin"
+                        ? "Buka simulasi Admin tanpa login"
+                        : `Masuk ke platform sebagai pengguna berizin: ${role.title}`
+                    }
                     className="ab-role-link"
                   >
                     <Arrow />
