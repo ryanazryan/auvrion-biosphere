@@ -42,8 +42,20 @@ export function LandingHeader() {
           <Link href="/login" className="ab-nav-login">
             Masuk
           </Link>
-          <a className="ab-nav-primary" href="#webgis">
-            Eksplorasi Demo <span aria-hidden="true">→</span>
+          <a className="ab-nav-primary" href="#solusi">
+            Eksplorasi Demo{" "}
+            <svg
+              className="ab-nav-cta-arrow"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14m-6-6 6 6-6 6" />
+            </svg>
           </a>
           <button
             type="button"
@@ -74,6 +86,9 @@ export function LandingHeader() {
               {item.label}
             </a>
           ))}
+          <Link href="#solusi" onClick={() => setOpen(false)}>
+            Demo Peran
+          </Link>
           <Link href="/request-access" onClick={() => setOpen(false)}>
             Ajukan akses
           </Link>

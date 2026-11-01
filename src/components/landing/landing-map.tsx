@@ -31,6 +31,7 @@ export function LandingWebGis() {
   const [visible, setVisible] = useState(false);
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(true);
 
   useEffect(() => {
     const element = targetRef.current;
@@ -123,30 +124,59 @@ export function LandingWebGis() {
           Peta dasar belum dapat dimuat. Periksa koneksi ke penyedia peta.
         </div>
       )}
-      <section className="ab-map-sidebar" aria-label="Navigasi WebGIS publik">
-        <p className="ab-map-sidebar-heading">Peta Observasi</p>
-        <label className="ab-map-sidebar-label" htmlFor="public-region-trigger">
-          Seluruh Wilayah
-        </label>
-        <SelectMenu
-          id="public-region-trigger"
-          label="Pilih wilayah WebGIS publik"
-          value={region}
-          onChange={navigate}
-          options={(Object.keys(REGIONS) as Region[]).map((value) => ({
-            value,
-            label: value,
-          }))}
-          className="ab-map-select"
-        />
-        <div className="ab-map-sidebar-separator" />
-        <div className="ab-map-layer-label">
-          <span className="ab-map-layer-dot" /> Peta dasar Indonesia
-        </div>
-        <div className="ab-map-layer-desc">
-          Geser peta untuk melihat detail wilayah. Gunakan zoom atau dropdown.
-        </div>
-      </section>
+      {!panelOpen && (
+        <button
+          type="button"
+          className="ab-map-sidebar-reopen"
+          aria-label="Buka panel navigasi peta"
+          onClick={() => setPanelOpen(true)}
+        >
+          Wilayah
+        </button>
+      )}
+      {panelOpen && (
+        <section
+          id="ab-public-map-navigation"
+          className="ab-map-sidebar"
+          aria-label="Navigasi WebGIS publik"
+        >
+          <div className="ab-map-sidebar-header">
+            <p className="ab-map-sidebar-heading">Peta Observasi</p>
+            <button
+              type="button"
+              className="ab-map-sidebar-close"
+              aria-label="Tutup panel navigasi peta"
+              onClick={() => setPanelOpen(false)}
+            >
+              ×
+            </button>
+          </div>
+          <label
+            className="ab-map-sidebar-label"
+            htmlFor="public-region-trigger"
+          >
+            Seluruh Wilayah
+          </label>
+          <SelectMenu
+            id="public-region-trigger"
+            label="Pilih wilayah WebGIS publik"
+            value={region}
+            onChange={navigate}
+            options={(Object.keys(REGIONS) as Region[]).map((value) => ({
+              value,
+              label: value,
+            }))}
+            className="ab-map-select"
+          />
+          <div className="ab-map-sidebar-separator" />
+          <div className="ab-map-layer-label">
+            <span className="ab-map-layer-dot" /> Peta dasar Indonesia
+          </div>
+          <div className="ab-map-layer-desc">
+            Geser peta untuk melihat detail wilayah. Gunakan zoom atau dropdown.
+          </div>
+        </section>
+      )}
       {loaded && (
         <fieldset
           className="ab-map-zoom absolute right-3 bottom-11 z-10 flex flex-col gap-1.5 rounded-xl border border-white/80 bg-white/95 p-1.5 shadow-lg sm:right-4"

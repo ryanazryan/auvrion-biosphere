@@ -1692,3 +1692,430 @@ html::-webkit-scrollbar-thumb:hover {
 html::-webkit-scrollbar-corner {
   background: #ffffff;
 }
+
+/* AB-LANDING-MOBILE-HOTFIX-20261101: responsive nav, cropped wordmark and collaboration legibility. */
+/* The PNG source is nearly square with large transparent padding. `contain`
+   makes the actual logo tiny inside a wide wordmark box; `cover` crops the
+   transparent upper/lower margins, without changing the asset. */
+.ab-landing .ab-wordmark {
+  width: 220px;
+  height: 64px;
+  max-width: 100%;
+  object-fit: cover;
+  object-position: center 53%;
+  transform: none;
+}
+
+.ab-landing .ab-footer-brand {
+  width: 250px;
+  height: 76px;
+  max-width: 100%;
+  object-fit: cover;
+  object-position: center 53%;
+  transform: none;
+}
+
+@media (max-width: 980px) {
+  .ab-landing .ab-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .ab-landing .ab-nav-actions {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Two columns keep the action buttons inside the rounded navbar. */
+  .ab-landing .ab-header {
+    width: calc(100% - 16px);
+    max-width: calc(100% - 16px);
+  }
+
+  .ab-landing .ab-nav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 8px;
+    min-height: 62px;
+    padding: 6px 8px 6px 11px;
+  }
+
+  .ab-landing .ab-brand {
+    display: block;
+    height: 50px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .ab-landing .ab-wordmark {
+    width: 176px;
+    height: 50px;
+    max-width: 100%;
+    object-fit: cover;
+    object-position: center 53%;
+  }
+
+  .ab-landing .ab-nav-actions {
+    display: flex;
+    flex-shrink: 0;
+    justify-self: end;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ab-landing .ab-nav-primary {
+    height: 36px;
+    padding-inline: 11px;
+    font-size: 10px;
+  }
+
+  .ab-landing .ab-menu-button {
+    display: inline-flex;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+  }
+
+  /* The previous light-to-transparent overlay made the description vanish
+     against the forest on narrow screens. Preserve the photo but add contrast. */
+  .ab-landing .ab-collaboration-gradient {
+    background: linear-gradient(
+      90deg,
+      rgba(248, 252, 248, 0.95) 0%,
+      rgba(246, 252, 247, 0.9) 62%,
+      rgba(241, 250, 244, 0.79) 100%
+    );
+  }
+
+  .ab-landing .ab-collaboration-body {
+    position: relative;
+    z-index: 1;
+  }
+
+  .ab-landing .ab-collaboration h2 {
+    color: #103b2d;
+  }
+
+  .ab-landing .ab-collaboration p:not(.ab-eyebrow) {
+    max-width: 380px;
+    color: #1b4034;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.7;
+  }
+
+  .ab-landing .ab-footer-brand {
+    width: 238px;
+    height: 75px;
+  }
+}
+
+@media (max-width: 375px) {
+  .ab-landing .ab-nav-primary {
+    padding-inline: 8px;
+    font-size: 9px;
+    gap: 5px;
+  }
+
+  .ab-landing .ab-nav-primary span {
+    font-size: 15px;
+  }
+
+  .ab-landing .ab-menu-button {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .ab-landing .ab-brand,
+  .ab-landing .ab-wordmark {
+    height: 47px;
+  }
+
+  .ab-landing .ab-wordmark {
+    width: 150px;
+  }
+}
+
+/* AB-LANDING-MOBILE-WEBGIS-V2: size-balanced logo + mobile phone preview */
+@media (max-width: 640px) {
+  .ab-landing .ab-brand {
+    display: flex;
+    flex: 0 1 112px;
+    width: 112px;
+    min-width: 0;
+    max-width: 112px;
+    height: 45px;
+    overflow: hidden;
+    align-items: center;
+  }
+  .ab-landing .ab-wordmark {
+    display: block;
+    flex: none;
+    width: 134px;
+    max-width: none;
+    height: 45px;
+    object-fit: cover;
+    object-position: center;
+    transform: none;
+  }
+  .ab-landing .ab-nav {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px;
+  }
+  .ab-landing .ab-nav-actions {
+    min-width: 0;
+    gap: 5px;
+  }
+  .ab-landing .ab-nav-primary {
+    padding-inline: 9px;
+  }
+  .ab-landing .ab-footer-brand {
+    width: 200px;
+    height: 65px;
+    max-width: 100%;
+    object-fit: cover;
+    object-position: center;
+    transform: none;
+  }
+  .ab-landing .ab-laptop {
+    width: min(100%, 340px);
+    max-width: 340px;
+    padding: 0;
+    margin-inline: auto;
+  }
+  .ab-landing .ab-laptop-lid {
+    border: 7px solid #142821;
+    border-top-width: 15px;
+    border-bottom-width: 16px;
+    border-radius: 29px;
+    background: #142821;
+    box-shadow: 0 20px 38px rgba(5, 55, 39, 0.19);
+  }
+  .ab-landing .ab-laptop-content {
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .ab-landing .ab-laptop-base {
+    display: none;
+  }
+  .ab-landing .ab-map-topbar {
+    height: 38px;
+    padding-inline: 11px;
+  }
+  .ab-landing .ab-map-viewport > div:first-child {
+    height: 460px;
+  }
+  .ab-landing .ab-map-sidebar {
+    width: min(196px, calc(100% - 58px));
+  }
+  .ab-landing .ab-map-sidebar-toggle {
+    top: 9px;
+    right: 9px;
+  }
+}
+@media (max-width: 375px) {
+  .ab-landing .ab-brand {
+    flex-basis: 90px;
+    width: 90px;
+    max-width: 90px;
+  }
+  .ab-landing .ab-wordmark {
+    width: 112px;
+  }
+  .ab-landing .ab-nav-primary {
+    font-size: 9px;
+    padding-inline: 7px;
+  }
+  .ab-landing .ab-menu-button {
+    flex-basis: 34px;
+    width: 34px;
+  }
+}
+.ab-map-sidebar-toggle {
+  position: absolute;
+  right: 11px;
+  top: 11px;
+  z-index: 18;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px 9px;
+  color: #0d5139;
+  border: 1px solid #dce9e0;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 4px 14px rgba(5, 55, 39, 0.13);
+  font-size: 11px;
+  font-weight: 700;
+}
+.ab-map-sidebar-toggle:hover {
+  background: #eaf7ef;
+}
+
+/* AB-LANDING-STAGE1-POLISH-20261101 */
+/* The source logo includes transparent margins. Move only its visual box,
+   leaving the footer text aligned with the grid columns. */
+.ab-landing .ab-footer-brand {
+  margin-left: -36px;
+}
+
+/* A compact arrow in the navbar, without squeezing the hamburger. */
+.ab-landing .ab-nav-primary {
+  gap: 7px;
+}
+.ab-landing .ab-nav-primary .ab-nav-cta-arrow {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* Close belongs to the map panel header; when hidden, only a small reopening
+   control remains at the map's upper left. */
+.ab-landing .ab-map-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.ab-landing .ab-map-sidebar-header .ab-map-sidebar-heading {
+  margin-bottom: 0;
+}
+.ab-landing .ab-map-sidebar-close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 27px;
+  width: 27px;
+  height: 27px;
+  padding: 0;
+  border: 1px solid #d8e7dc;
+  border-radius: 8px;
+  background: #f6faf7;
+  color: #144934;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ab-landing .ab-map-sidebar-close:hover {
+  background: #e8f4eb;
+}
+.ab-landing .ab-map-sidebar-reopen {
+  position: absolute;
+  z-index: 18;
+  top: 11px;
+  left: 11px;
+  min-height: 35px;
+  padding: 7px 12px;
+  border: 1px solid #d4e4da;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.97);
+  color: #0d5139;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(5, 55, 39, 0.13);
+  cursor: pointer;
+}
+.ab-landing .ab-map-sidebar-reopen:hover {
+  background: #eaf7ef;
+}
+
+@media (max-width: 640px) {
+  .ab-landing .ab-footer-brand {
+    margin-left: -29px;
+  }
+  .ab-landing .ab-nav-primary {
+    padding-inline: 8px;
+    gap: 5px;
+  }
+  .ab-landing .ab-nav-primary .ab-nav-cta-arrow {
+    width: 14px;
+    height: 14px;
+  }
+  .ab-landing .ab-map-sidebar-reopen {
+    top: 9px;
+    left: 9px;
+  }
+}
+
+/* AB-LANDING-MOBILE-ANALYTICS-COMPACT-20261101 */
+/* Only the landing's two static WebGIS preview cards on narrow screens. */
+@media (max-width: 640px) {
+  .ab-landing .ab-analytics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 9px;
+  }
+  .ab-landing .ab-analytics-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: 10px 9px;
+  }
+  .ab-landing .ab-analytics-head {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 6px;
+    min-height: 52px;
+  }
+  .ab-landing .ab-analytics-head h3 {
+    font-size: 11px;
+    line-height: 1.26;
+  }
+  .ab-landing .ab-analytics-head span {
+    font-size: 8px;
+    padding: 3px 7px;
+  }
+  .ab-landing .ab-bars {
+    height: 76px;
+    gap: 4px;
+    margin-top: 9px;
+  }
+  .ab-landing .ab-analytics-years {
+    font-size: 7px;
+    letter-spacing: -0.025em;
+    margin-top: 5px;
+  }
+  .ab-landing .ab-donut-layout {
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 5px;
+  }
+  .ab-landing .ab-donut {
+    width: 56px;
+    height: 56px;
+  }
+  .ab-landing .ab-donut::after {
+    inset: 11px;
+  }
+  .ab-landing .ab-donut span {
+    font-size: 9px;
+  }
+  .ab-landing .ab-legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 5px 4px;
+  }
+  .ab-landing .ab-legend span {
+    min-width: 0;
+    align-items: flex-start;
+    gap: 4px;
+    font-size: 8px;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+  .ab-landing .ab-legend i {
+    width: 7px;
+    height: 7px;
+    margin-top: 2px;
+  }
+}

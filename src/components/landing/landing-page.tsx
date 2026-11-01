@@ -224,7 +224,6 @@ export function LandingPage() {
         />
         <div className="ab-hero-mist" aria-hidden="true" />
         <div className="ab-hero-copy" data-reveal>
-          <p className="ab-hero-label">TEKNOLOGI UNTUK KONSERVASI</p>
           <h1 id="ab-hero-heading">
             Memantau,
             <br />
@@ -238,7 +237,7 @@ export function LandingPage() {
             lapangan untuk mendukung pengelolaan lingkungan yang lebih efektif.
           </p>
           <div className="ab-hero-actions">
-            <a href="#webgis" className="ab-button ab-button-solid">
+            <a href="#solusi" className="ab-button ab-button-solid">
               Jelajahi Demo <Arrow />
             </a>
             <a href="#teknologi" className="ab-button ab-button-frost">
