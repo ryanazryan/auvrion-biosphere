@@ -299,7 +299,12 @@ export function LandingPage() {
           </div>
           <div className="ab-roles-grid">
             {roles.map((role) => (
-              <article key={role.title} className="ab-role-card">
+              <Link
+                key={role.title}
+                href={`/demo/${role.icon}`}
+                aria-label={`Buka workspace ${role.title}`}
+                className="ab-role-card"
+              >
                 <div className="ab-role-icon" aria-hidden="true">
                   <RoleIcon name={role.icon} />
                 </div>
@@ -308,19 +313,11 @@ export function LandingPage() {
                   <p>{role.description}</p>
                 </div>
                 <div className="ab-role-action">
-                  <Link
-                    href={role.icon === "admin" ? "/demo/admin" : "/login"}
-                    aria-label={
-                      role.icon === "admin"
-                        ? "Buka simulasi Admin tanpa login"
-                        : `Masuk ke platform sebagai pengguna berizin: ${role.title}`
-                    }
-                    className="ab-role-link"
-                  >
+                  <span className="ab-role-link" aria-hidden="true">
                     <Arrow />
-                  </Link>
+                  </span>
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         </section>

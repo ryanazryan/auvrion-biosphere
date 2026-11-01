@@ -1,0 +1,12 @@
+/* Accessible guided walkthrough: visually anchors the current explanation. */
+[data-tour-highlight="true"] {
+  outline: 3px solid #2caa7b;
+  outline-offset: 5px;
+  border-radius: 8px;
+  scroll-margin-block: 110px;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-tour-highlight="true"] {
+    scroll-behavior: auto;
+  }
+}

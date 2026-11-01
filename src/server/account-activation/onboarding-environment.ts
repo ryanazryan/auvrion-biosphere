@@ -38,10 +38,17 @@ export function isAllowedOnboardingOrigin(
       return false;
     }
 
-    return (
-      incoming.origin === configured.origin &&
-      request.headers.get("origin") === configured.origin
-    );
+    // Next.js may receive an internal request URL behind an HTTPS reverse proxy.
+    // Only permit that path when the public Host and Caddy-forwarded scheme/host
+    // all match the configured HTTPS domain. Never trust Origin by itself.
+    const publicRequest =
+      incoming.origin === configured.origin ||
+      (env.NODE_ENV === "production" &&
+        request.headers.get("host") === configured.host &&
+        request.headers.get("x-forwarded-host") === configured.host &&
+        request.headers.get("x-forwarded-proto") === "https");
+
+    return publicRequest && request.headers.get("origin") === configured.origin;
   } catch {
     return false;
   }
