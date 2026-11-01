@@ -10,6 +10,7 @@ import {
   readAuthorizedObservationAudio,
 } from "@/server/evidence/playback-service";
 import { isUuid } from "@/server/observations/observation-input";
+import { trustedBrowserOrigin } from "@/server/security/trusted-browser-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,27 +27,6 @@ function json(body: unknown, status: number): Response {
     status,
     headers: HEADERS,
   });
-}
-
-function validOrigin(req: Request): boolean {
-  const origin = req.headers.get("origin");
-  const site = req.headers.get("sec-fetch-site");
-
-  if (!origin || (site && site !== "same-origin" && site !== "none")) {
-    return false;
-  }
-
-  try {
-    const configured = process.env.BETTER_AUTH_URL;
-
-    return (
-      !!configured &&
-      origin === new URL(configured).origin &&
-      new URL(req.url).origin === new URL(configured).origin
-    );
-  } catch {
-    return false;
-  }
 }
 
 async function readSmallJson(req: Request): Promise<unknown> {
@@ -117,7 +97,7 @@ export async function POST(
     return json({ error: "INVALID_BIOACOUSTIC_TARGET" }, 400);
   }
 
-  if (!validOrigin(req)) {
+  if (!trustedBrowserOrigin(req, process.env)) {
     return json({ error: "ORIGIN_NOT_ALLOWED" }, 403);
   }
 
