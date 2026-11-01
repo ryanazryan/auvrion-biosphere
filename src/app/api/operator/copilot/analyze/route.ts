@@ -27,6 +27,7 @@ import {
   speciesVisual,
 } from "@/server/copilot/visual";
 import { getObservationEnvironmentalContext } from "@/server/environment/observation-context";
+import { trustedBrowserOrigin } from "@/server/security/trusted-browser-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
   ) {
     return reply({ error: "INVALID_REQUEST" }, 400);
   }
-  if (request.headers.get("origin") !== url.origin)
+  if (!trustedBrowserOrigin(request, process.env))
     return reply({ error: "CROSS_ORIGIN_DENIED" }, 403);
   const auth = await checkOperationalAccess(organizationId, "operator");
   if (!auth.allowed) return reply({ error: auth.reason }, auth.status);

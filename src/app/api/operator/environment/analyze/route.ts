@@ -5,6 +5,7 @@ import {
   RegionConfigError,
 } from "@/server/environment/context";
 import { analyzeWithLuna, LunaError } from "@/server/environment/luna";
+import { trustedBrowserOrigin } from "@/server/security/trusted-browser-origin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const UUID =
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
     q.getAll("organizationId").length !== 1
   )
     return respond({ error: "INVALID_REQUEST" }, 400);
-  if (request.headers.get("origin") !== url.origin)
+  if (!trustedBrowserOrigin(request, process.env))
     return respond({ error: "CROSS_ORIGIN_DENIED" }, 403);
   const auth = await checkOperationalAccess(org, "operator");
   if (!auth.allowed) return respond({ error: auth.reason }, auth.status);

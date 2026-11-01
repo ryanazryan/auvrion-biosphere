@@ -1,6 +1,7 @@
 import "server-only";
 import { Pool } from "pg";
 import { findRangerWorkspaceAccess } from "@/server/ranger/ranger-workspace";
+import { trustedBrowserOrigin } from "@/server/security/trusted-browser-origin";
 import { findWorkspaceAccess } from "@/server/workflow/workspace-queries";
 
 export const runtime = "nodejs";
@@ -139,11 +140,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const role = parseRole(request);
   if (!role) return reply({ error: "INVALID_REQUEST" }, 400);
-  const origin = request.headers.get("origin");
-  const target = new URL(request.url);
   if (
-    !origin ||
-    origin !== target.origin ||
+    !trustedBrowserOrigin(request, process.env) ||
     !request.headers.get("content-type")?.startsWith("application/json")
   ) {
     return reply({ error: "ORIGIN_NOT_ALLOWED" }, 403);

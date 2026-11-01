@@ -10,6 +10,7 @@ import {
   isWebgisDays,
   isWebgisRegion,
 } from "@/server/gis/nasa-hotspots";
+import { trustedBrowserOrigin } from "@/server/security/trusted-browser-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     query.getAll("organizationId").length !== 1
   )
     return json({ error: "INVALID_ORGANIZATION" }, 400);
-  if (request.headers.get("origin") !== url.origin)
+  if (!trustedBrowserOrigin(request, process.env))
     return json({ error: "CROSS_ORIGIN_DENIED" }, 403);
   const access = await checkOperationalAccess(org, "operator");
   if (!access.allowed) return json({ error: access.reason }, access.status);

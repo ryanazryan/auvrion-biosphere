@@ -90,3 +90,6 @@ __pycache__/
 # Local backup artifacts
 *.mfa-before
 *.wc024-identity-backup
+
+# Production ESP32 LISTEN credentials: local-only
+/firmware/listen-esp32/include/listen_device_config.h
