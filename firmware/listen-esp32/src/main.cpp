@@ -13,6 +13,7 @@
 // Create include/listen_secrets.h locally from listen_secrets.example.h.
 // Never commit the real Wi-Fi password.
 #include "listen_secrets.h"
+#include "listen_device_config.h"
 #include "device_sync.h"
 #include "listen_remote.h"
 #include <esp_system.h>
@@ -641,9 +642,30 @@ void showStatus() {
 } // namespace
 
 void setup() {
+  Serial.begin(115200);
+  delay(1500);
+  Serial.println("AUVRION BIOSPHERE | LISTEN device sync");
+
   Preferences settings;
-  if (settings.begin("listen-rec", true)) {
-    autoMonitoring = settings.getBool("auto", true);
+  if (settings.begin("listen-rec", false)) {
+    // A remote revision belongs to exactly one provisioned device.
+    // A previous localhost device can have rev=33 while the production
+    // device starts at rev=1. Bind NVS to the device ID, never to the token.
+    // Write the device ID last: a reset/power loss before this point makes
+    // migration retry on the next boot, avoiding a stale revision ACK.
+    if (settings.getString("deviceId", "") != String(LISTEN_DEVICE_ID)) {
+      const bool cleared =
+          settings.putBool("auto", false) > 0 &&
+          settings.putUInt("every", 300) > 0 &&
+          settings.putUInt("remoteRev", 0) > 0;
+      if (cleared && settings.putString("deviceId", LISTEN_DEVICE_ID) > 0) {
+        Serial.println("Remote: device binding updated; stale revision reset to 0");
+      } else {
+        Serial.println("ERROR: remote NVS device binding could not be saved");
+      }
+    }
+    // Safe fallback OFF even if a new NVS namespace has no setting.
+    autoMonitoring = settings.getBool("auto", false);
     remoteRevision = settings.getUInt("remoteRev", 0);
     const uint32_t interval = settings.getUInt("every", 300);
     if (interval == 60 || interval == 300 || interval == 900) {
@@ -651,11 +673,11 @@ void setup() {
       scheduledEveryMs = static_cast<unsigned long>(interval) * 1000UL;
     }
     settings.end();
+  } else {
+    Serial.println("ERROR: remote NVS unavailable; monitoring remains OFF");
+    autoMonitoring = false;
+    remoteRevision = 0;
   }
-
-  Serial.begin(115200);
-  delay(1500);
-  Serial.println("AUVRION BIOSPHERE | LISTEN device sync");
   Serial.println("Serial commands: r=record, u=upload, s=status, a=toggle auto");
   Wire.begin(RTC_SDA, RTC_SCL);
   Wire.setClock(100000);

@@ -5,8 +5,8 @@ import {
   readBoundedJson,
   remotePool,
   remoteReply,
-  trustedBrowserOrigin,
 } from "@/server/device-ingestion/listen-remote-store";
+import { trustedBrowserOrigin } from "@/server/security/trusted-browser-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,7 +80,7 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  if (!trustedBrowserOrigin(request))
+  if (!trustedBrowserOrigin(request, process.env))
     return remoteReply({ error: "INVALID_ORIGIN" }, 403);
   const body = await readBoundedJson(request);
   if (!body || typeof body !== "object" || Array.isArray(body))
