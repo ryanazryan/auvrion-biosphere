@@ -195,7 +195,17 @@ function Metric({
   );
 }
 
-function Row({ device, demo = false }: { device: Device; demo?: boolean }) {
+function Row({
+  device,
+  demo = false,
+  provisioning = false,
+  onProvision,
+}: {
+  device: Device;
+  demo?: boolean;
+  provisioning?: boolean;
+  onProvision?: () => void;
+}) {
   const listen = device.kind === "listen_device";
   const routeId = encodeURIComponent(device.deviceId ?? device.sourceId);
   const detailLink = `/admin/devices/${routeId}`;
@@ -282,6 +292,16 @@ function Row({ device, demo = false }: { device: Device; demo?: boolean }) {
       </div>
 
       <div className="flex min-w-0 flex-col gap-1.5">
+        {listen && !device.deviceId && device.sourceActive && onProvision && (
+          <button
+            type="button"
+            disabled={provisioning}
+            onClick={onProvision}
+            className="inline-flex min-h-9 items-center justify-center rounded-md bg-[#147a5b] px-2 py-1.5 text-center text-[11px] font-semibold text-white hover:bg-[#0f6349] disabled:opacity-50"
+          >
+            {provisioning ? "Mendaftarkan..." : "Provision perangkat LISTEN"}
+          </button>
+        )}
         <Link
           href={demo ? "/demo/admin/devices" : detailLink}
           className="inline-flex min-h-9 items-center justify-center rounded-md bg-[#147a5b] px-2 py-1.5 text-center text-[11px] font-semibold text-white hover:bg-[#0f6349]"
@@ -358,6 +378,13 @@ export function DeviceFleetPanel({ demo = false }: { demo?: boolean } = {}) {
   const [loading, setLoading] = useState(!demo);
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [provisioningId, setProvisioningId] = useState<string | null>(null);
+  const [issuedCredential, setIssuedCredential] = useState<{
+    deviceId: string;
+    credential: string;
+    version: number;
+  } | null>(null);
+  const [revealCredential, setRevealCredential] = useState(false);
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
 
@@ -498,6 +525,88 @@ export function DeviceFleetPanel({ demo = false }: { demo?: boolean } = {}) {
       );
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function provisionSource(device: Device) {
+    if (
+      !inventory ||
+      device.kind !== "listen_device" ||
+      !device.sourceActive ||
+      device.deviceId ||
+      provisioningId
+    )
+      return;
+    setError("");
+    setMessage("");
+    if (demo) {
+      setInventory((previous) =>
+        previous
+          ? {
+              ...previous,
+              devices: previous.devices.map((entry) =>
+                entry.sourceId === device.sourceId
+                  ? {
+                      ...entry,
+                      deviceId: `demo-device-${entry.sourceId}`,
+                      deviceStatus: "active" as const,
+                      credentialVersion: 1,
+                    }
+                  : entry,
+              ),
+            }
+          : previous,
+      );
+      setMessage(
+        "Provisioning simulasi selesai. Tidak ada kredensial sungguhan yang dibuat.",
+      );
+      return;
+    }
+    setProvisioningId(device.sourceId);
+    try {
+      const response = await fetch("/api/admin/devices", {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId: inventory.organizationId,
+          sourceId: device.sourceId,
+        }),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        deviceId?: string;
+        credential?: string;
+        version?: number;
+      };
+      if (
+        response.status !== 201 ||
+        !payload.deviceId ||
+        !payload.credential ||
+        typeof payload.version !== "number"
+      ) {
+        throw new Error(payload.error ?? `HTTP ${response.status}`);
+      }
+      // Transient component memory only. Never persist or print the secret.
+      setIssuedCredential({
+        deviceId: payload.deviceId,
+        credential: payload.credential,
+        version: payload.version,
+      });
+      setRevealCredential(false);
+      setMessage(
+        "Perangkat LISTEN terdaftar. Simpan kredensial satu kali sebelum meninggalkan halaman.",
+      );
+      await refresh();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Provisioning perangkat gagal.",
+      );
+    } finally {
+      setProvisioningId(null);
     }
   }
 
@@ -657,6 +766,55 @@ export function DeviceFleetPanel({ demo = false }: { demo?: boolean } = {}) {
         </section>
       )}
 
+      {issuedCredential && (
+        <section
+          aria-label="Kredensial LISTEN sekali tampil"
+          className="rounded-xl border border-amber-300 bg-amber-50 p-4"
+        >
+          <h2 className="text-base font-semibold text-amber-950">
+            Kredensial perangkat baru — sekali tampil
+          </h2>
+          <p className="mt-2 text-xs leading-5 text-amber-900">
+            Simpan ID dan token langsung di konfigurasi firmware lokal yang
+            tidak dilacak Git. Token tidak bisa dilihat kembali. Jangan kirim
+            token ke chat, screenshot, atau repository.
+          </p>
+          <label className="mt-3 block text-xs font-semibold text-amber-950">
+            Device ID
+            <input
+              readOnly
+              value={issuedCredential.deviceId}
+              className="mt-1 block w-full rounded-md border border-amber-300 bg-white px-3 py-2 font-mono text-xs"
+            />
+          </label>
+          <label className="mt-3 block text-xs font-semibold text-amber-950">
+            Token perangkat
+            <input
+              readOnly
+              type={revealCredential ? "text" : "password"}
+              value={issuedCredential.credential}
+              className="mt-1 block w-full rounded-md border border-amber-300 bg-white px-3 py-2 font-mono text-xs"
+            />
+          </label>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setRevealCredential((value) => !value)}
+              className="rounded-md border border-amber-300 bg-white px-3 py-2 text-xs font-semibold"
+            >
+              {revealCredential ? "Sembunyikan token" : "Lihat token"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIssuedCredential(null)}
+              className="rounded-md bg-amber-900 px-3 py-2 text-xs font-semibold text-white"
+            >
+              Saya sudah menyimpan, tutup
+            </button>
+          </div>
+        </section>
+      )}
+
       <div className="rounded-xl border border-line bg-white p-3 sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
           <div
@@ -759,7 +917,13 @@ export function DeviceFleetPanel({ demo = false }: { demo?: boolean } = {}) {
         {!loading && !error && filtered.length > 0 && (
           <div className="mt-3 space-y-3">
             {visible.map((device) => (
-              <Row key={device.sourceId} device={device} demo={demo} />
+              <Row
+                key={device.sourceId}
+                device={device}
+                demo={demo}
+                provisioning={provisioningId === device.sourceId}
+                onProvision={() => void provisionSource(device)}
+              />
             ))}
           </div>
         )}

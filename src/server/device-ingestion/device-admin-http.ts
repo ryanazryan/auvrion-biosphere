@@ -2,6 +2,7 @@ import "server-only";
 
 import { Pool } from "pg";
 import { checkAdminAccess } from "@/server/authorization/admin-access";
+import { trustedAdminOrigin } from "./device-admin-origin";
 import { DeviceLifecycleError } from "./device-lifecycle";
 import {
   createPostgresDeviceLifecycle,
@@ -31,21 +32,9 @@ export function reply(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: HEADERS });
 }
 
-/** Browser-only management endpoint. Forbid cross-origin and originless writes. */
+/** Browser-only management endpoint, including trusted production proxy path. */
 export function trustedOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-  try {
-    const source = new URL(origin);
-    const target = new URL(request.url);
-    return (
-      source.origin === target.origin &&
-      source.protocol === target.protocol &&
-      (request.headers.get("sec-fetch-site") ?? "same-origin") === "same-origin"
-    );
-  } catch {
-    return false;
-  }
+  return trustedAdminOrigin(request, process.env);
 }
 
 export async function readBounded(
