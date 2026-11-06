@@ -1,0 +1,27 @@
+# FreeCAD 1.1+ import helper for AUVRION LISTEN V2.
+# This macro uses the exported STEP solids. It does not recreate CadQuery feature history.
+# To edit the CAD dimensions procedurally, use generate_listen_v2.py with CadQuery.
+import os
+import FreeCAD as App
+import FreeCADGui as Gui
+import Part
+
+try:
+    this_dir = os.path.dirname(os.path.realpath(__file__))
+except NameError:
+    this_dir = ''
+source = os.path.abspath(os.path.join(this_dir, '..', 'STEP_CAD', '00_LISTEN_V2_FULL_ASSEMBLY.step'))
+if not os.path.exists(source):
+    from PySide import QtWidgets
+    source, _ = QtWidgets.QFileDialog.getOpenFileName(None, 'Pilih assembly STEP Auvrion LISTEN V2', '', 'STEP models (*.step *.stp)')
+if source and os.path.exists(source):
+    doc=App.newDocument('AUVRION_LISTEN_V2_COMPACT')
+    Part.insert(source, doc.Name)
+    doc.recompute()
+    Gui.activeDocument().activeView().viewAxonometric()
+    Gui.activeDocument().activeView().fitAll()
+    target = os.path.abspath(os.path.join(os.path.dirname(source),'..','FREECAD','AUVRION_LISTEN_V2_COMPACT.FCStd'))
+    doc.saveAs(target)
+    App.Console.PrintMessage('Auvrion LISTEN V2 opened. Saved FCStd to: '+target+'\n')
+else:
+    App.Console.PrintError('No STEP selected. No document was created.\n')

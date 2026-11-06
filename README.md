@@ -1,4 +1,3 @@
-
 # Auvrion Biosphere
 
 ### Environmental Intelligence Platform for Biodiversity Conservation and Forest Fire Risk Monitoring
@@ -7,6 +6,39 @@
 
 Developed by **Team Pais Patin** for the **UINIC 8.0 Web Development Competition 2026**.
 
+
+## Project Showcase — IoT & WebGIS
+
+<table>
+  <thead>
+    <tr>
+      <th align="center" width="50%">IoT Devices — LISTEN &amp; PREVENT</th>
+      <th align="center" width="50%">Environmental Intelligence WebGIS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center" valign="top">
+        <a href="docs/assets/screenshots/15-iot.png">
+          <img src="docs/assets/screenshots/15-iot.png" alt="Auvrion Biosphere: ilustrasi perangkat IoT LISTEN dan PREVENT" width="100%" />
+        </a>
+      </td>
+      <td align="center" valign="top">
+        <a href="docs/assets/screenshots/02-webgis-satellite-hotspots.png">
+          <img src="docs/assets/screenshots/02-webgis-satellite-hotspots.png" alt="Auvrion Biosphere: WebGIS dengan referensi anomali termal NASA FIRMS" width="100%" />
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td valign="top">LISTEN: prototipe ESP32 untuk perekaman audio dan ingestion terautentikasi. PREVENT: rancangan perangkat sensor yang belum divalidasi secara fisik.</td>
+      <td valign="top">WebGIS interaktif untuk eksplorasi spasial dan konteks NASA FIRMS. Anomali termal satelit bukan konfirmasi kebakaran.</td>
+    </tr>
+  </tbody>
+</table>
+
+**Jelajahi:** [Landing Page](https://auvrionbiosphere.com/landing) · [Detail IoT](#iot-hardware-prototype) · [Preview WebGIS](#2-environmental-intelligence-webgis) · [Demo Admin untuk Juri](https://auvrionbiosphere.com/demo/admin)
+
+---
 Auvrion Biosphere is a web-based environmental intelligence platform designed to connect biodiversity monitoring, environmental observations, geospatial information, and human-operated field verification into a unified operational workflow.
 
 The platform combines IoT-based acoustic observations, AI-assisted bioacoustic analysis, satellite environmental data, and role-based collaboration to support more transparent, traceable, and evidence-based environmental monitoring.
@@ -17,8 +49,17 @@ The platform combines IoT-based acoustic observations, AI-assisted bioacoustic a
 
 ---
 
+## Panduan Juri — Simulasi Admin
+
+**Coba [Demo Admin](https://auvrionbiosphere.com/demo/admin) tanpa akun:** gunakan UI administrasi asli dengan data sintetis. Juri dapat menjelajahi permohonan akses, daftar pengguna, inventaris perangkat, dan peta pemasangan simulasi. Seluruh tindakan dalam demo tidak mengubah database atau perangkat production; untuk uji operasional asli gunakan [Ajukan Akses](https://auvrionbiosphere.com/request-access) dan alur verifikasi/MFA.
+
+[Lihat panduan dan keterbatasan Demo Admin](docs/juri/ADMIN_DEMO.md).
+
+---
+
 ## Table of Contents
 
+- [Project Showcase — IoT & WebGIS](#project-showcase--iot--webgis)
 - [Overview](#overview)
 - [Key Features](#key-features)
 - [Application Preview](#application-preview)
@@ -146,7 +187,7 @@ Displayed reference attributes may include:
 
 **Important:** A satellite hotspot represents a detected thermal anomaly, not an independently confirmed forest fire.
 
-![NASA FIRMS Satellite Hotspot Monitoring](docs/assets/screenshots/02-webgis-satellite-hotspots.png)
+[Lihat screenshot WebGIS di Project Showcase (bagian atas README)](#project-showcase--iot--webgis)
 
 ### 2.2 Air Quality Monitoring — US AQI
 
@@ -332,7 +373,9 @@ Security capabilities include MFA-related controls and account session managemen
 
 LISTEN is the physical acoustic monitoring component of Auvrion Biosphere.
 
-The prototype is based on an ESP32 microcontroller and supporting components for acoustic capture and local recording.
+The LISTEN prototype uses an **ESP32 DevKit V1 (ESP-WROOM-32)** with an **INMP441 I²S microphone**, **microSD SPI storage**, and an **RTC DS3231** module. The associated firmware and web backend support authorized WAV recording ingestion and remote start/pause commands.
+
+**Implementation status (November 2026):** authenticated WAV ingestion, recording acknowledgments, and remote start/pause have been exercised with the registered ESP32 device. These operational tests are distinct from long-duration autonomous deployment, enclosure, battery, and environmental durability validation.
 
 ### Physical Prototype
 
@@ -362,6 +405,7 @@ The LISTEN firmware is developed using PlatformIO.
 The application provides an authenticated recording ingestion endpoint:
 
 ```http
+
 POST /api/device/recordings
 ```
 
@@ -383,7 +427,7 @@ Power reliability, environmental durability, network interruptions, storage reco
 
 ### PREVENT Hardware
 
-Physical PREVENT sensor ingestion is deferred from the current demonstrated hardware scope.
+**PREVENT is a design concept, not a completed physical device in the current demonstrated scope.** Its planned prototype includes an ESP32 controller, a **BME280** temperature/humidity/pressure sensor, a **PMS5003** particulate sensor, and supporting timekeeping/local logging components. Physical assembly, sensor calibration, and ingestion validation remain deferred.
 
 The PREVENT software domain currently relies on supported manual observations and external environmental reference data.
 
@@ -396,30 +440,41 @@ NASA FIRMS and US AQI values must not be represented as measurements originating
 Auvrion Biosphere follows a human-controlled environmental observation workflow.
 
 ```mermaid
+
 flowchart TD
+
     A["Observation Source"] --> B["Observation Intake"]
 
     A1["LISTEN Audio"] --> A
+
     A2["Satellite and Environmental References"] --> A
+
     A3["Manual Field Observation"] --> A
 
     B --> C["Operator Review"]
+
     C --> D{"Further Investigation Required?"}
 
     D -->|No| E["Document Review Outcome"]
+
     D -->|Yes| F["Supervisor Case Review"]
 
     F --> G{"Field Verification Required?"}
 
     G -->|No| H["Record Supervisor Decision"]
+
     G -->|Yes| I["Assign Ranger"]
 
     I --> J["Ranger Field Investigation"]
+
     J --> K["Submit Findings and Evidence"]
+
     K --> L["Supervisor Outcome Review"]
 
     L --> M["Document Decision and Audit History"]
+
     H --> M
+
     E --> M
 ```
 
@@ -440,50 +495,81 @@ Not every observation requires a field assignment. Operational actions depend on
 Auvrion Biosphere uses a web application architecture with database-backed identity, operational data, and geospatial functionality.
 
 ```mermaid
+
 flowchart TB
+
     subgraph Sources["Observation and Reference Sources"]
+
         ESP["ESP32 LISTEN"]
+
         MANUAL["Manual Observations"]
+
         FIRMS["NASA FIRMS"]
+
         AIR["Air Quality Provider"]
+
     end
 
     subgraph Application["Auvrion Web Application"]
+
         NEXT["Next.js Application"]
+
         AUTH["Better Auth and Access Control"]
+
         API["Server APIs and Business Logic"]
+
         GIS["MapLibre WebGIS"]
+
     end
 
     subgraph Processing["Data and Analysis"]
+
         DB[("PostgreSQL and PostGIS")]
+
         AUDIO["Private Audio Evidence Storage"]
+
         AI["Bioacoustic AI Worker"]
+
     end
 
     subgraph Users["Authorized Users"]
+
         OP["Operator"]
+
         SUP["Supervisor"]
+
         RANGER["Ranger"]
+
         ADMIN["Admin"]
+
     end
 
     ESP --> API
+
     MANUAL --> API
+
     FIRMS --> API
+
     AIR --> API
 
     NEXT --> AUTH
+
     NEXT --> API
+
     NEXT --> GIS
 
     API --> DB
+
     API --> AUDIO
+
     API --> AI
 
     OP --> NEXT
+
     SUP --> NEXT
+
     RANGER --> NEXT
+
     ADMIN --> NEXT
 ```
 
@@ -501,7 +587,7 @@ This diagram is a logical overview. Actual deployments must configure network bo
 | UI styling | Tailwind CSS 4 |
 | Authentication | Better Auth |
 | ORM | Drizzle ORM |
-| Database | PostgreSQL 16 |
+| Database | PostgreSQL 16 (development), PostgreSQL 17 (production) |
 | Geospatial database | PostGIS |
 | Interactive maps | MapLibre GL JS |
 | IoT firmware | ESP32 / PlatformIO |
@@ -533,13 +619,16 @@ PlatformIO is additionally required for ESP32 firmware development.
 ## 1. Clone the Repository
 
 ```bash
+
 git clone https://github.com/ryanazryan/auvrion-biosphere.git
+
 cd auvrion-biosphere
 ```
 
 ## 2. Install Dependencies
 
 ```bash
+
 npm ci
 ```
 
@@ -548,6 +637,7 @@ npm ci
 Create a local configuration file from the example.
 
 ```bash
+
 cp .env.example .env.local
 ```
 
@@ -568,12 +658,14 @@ Do not use destructive database reset or cleanup scripts against production data
 ## 5. Start the Development Server
 
 ```bash
+
 npm run dev
 ```
 
 Open:
 
 ```text
+
 http://localhost:3000
 ```
 
@@ -592,30 +684,35 @@ Auvrion Biosphere uses automated checks alongside manual workflow verification.
 ## Code Quality
 
 ```bash
+
 npm run lint
 ```
 
 ## TypeScript Validation
 
 ```bash
+
 npm run typecheck
 ```
 
 ## Automated Tests
 
 ```bash
+
 npm test
 ```
 
 ## Production Build
 
 ```bash
+
 npm run build
 ```
 
 ## Recommended Verification Command
 
 ```bash
+
 npm run lint && npm run typecheck && npm test && npm run build
 ```
 
@@ -669,24 +766,43 @@ Examples of important interpretation boundaries:
 # Project Structure
 
 ```text
+
 auvrion-biosphere/
+
 ├── docs/
+
 │   ├── assets/
+
 │   │   ├── screenshots/
+
 │   │   └── hardware/
+
 │   └── work-control/
+
 ├── drizzle/
+
 ├── firmware/
+
 │   └── listen-esp32/
+
 ├── public/
+
 ├── scripts/
+
 ├── src/
+
 │   ├── app/
+
 │   ├── components/
+
 │   ├── figma-operator/
+
 │   └── server/
+
 ├── .env.example
+
 ├── package.json
+
 └── README.md
 ```
 
@@ -703,6 +819,8 @@ Project documentation is maintained across GitHub and Notion.
 | [GitHub Repository](https://github.com/ryanazryan/auvrion-biosphere) | Application source code and development history |
 | [Notion Project Workspace](https://app.notion.com/p/3f873f8cd499803dad23c166fd42cb2c) | Product, requirements, engineering, and governance documentation |
 | [LISTEN Firmware Handoff](docs/work-control/AB-WC-015-IOT-LISTEN-FIRMWARE-HANDOFF.md) | Device ingestion protocol and integration guidance |
+| [LISTEN V1 Hardware Procurement](https://app.notion.com/p/40073f8cd49981bb8a73e03f0787627b) | Actual LISTEN prototype component list and engineering boundaries |
+| [PREVENT Hardware Work Control](https://app.notion.com/p/3fa73f8cd49981d1a27cc1738ea3897e) | Deferred physical PREVENT scope and validation requirements |
 
 Internal documentation may contain planning records that precede the latest implementation.
 
@@ -737,12 +855,14 @@ Developed for the **UINIC 8.0 Web Development Competition 2026**.
 
 ### Engineering
 
-**Naufal Faiq Azryan**  
+**Naufal Faiq Azryan**
+
 Tech Lead and Full Stack Developer
 
 GitHub: [@ryanazryan](https://github.com/ryanazryan)
 
-**Muhammad Satria Wiratama**  
+**Muhammad Satria Wiratama**
+
 Engineering Contributor
 
 GitHub: [@Renz100x](https://github.com/Renz100x)
