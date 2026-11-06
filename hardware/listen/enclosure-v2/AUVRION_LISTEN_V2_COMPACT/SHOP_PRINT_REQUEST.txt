@@ -1,0 +1,26 @@
+PESAN CETAK 3D — AUVRION BIOSPHERE LISTEN V2 COMPACT
+
+Mohon cetak dari folder PRINT_SERVICE, file STL dalam unit MILIMETER.
+
+WAJIB:
+1x PRINT_01_CASE_BASE.stl                      PETG PUTIH
+1x PRINT_02B_EMBOSSED_LID_ONE_COLOR.stl       PETG PUTIH — logo relief satu warna, akan dicat setelah print
+1x PRINT_03_ELECTRONICS_TRAY.stl              PETG PUTIH (atau HIJAU)
+
+AKSESORIS AGAR SESUAI MOCKUP:
+2x PRINT_04_COSMETIC_MAST_PRINT_2.stl         PETG HITAM — tiang KOSMETIK, BUKAN ANTENA
+2x PRINT_05_BOTTOM_FOOT_PRINT_2.stl          PETG HITAM — kaki KOSMETIK
+
+JANGAN CETAK plain lid bersamaan dengan embossed lid.
+
+Ukuran bodi ±126 x 124 x 53,5mm, tanpa mast. Saran FDM: nozzle 0,4mm,
+0,2mm layer (0,12–0,16 untuk emboss detail kalau tersedia),
+4 walls, 5 top/bottom, infill 20–25%; brim khusus mast.
+Tolong evaluasi kebutuhan support pada guide mikrofon dan bukaan USB.
+Mohon orientasikan semua file PRINT_ sesuai build plate masing-masing.
+
+PERINGATAN: Belum ada fit-test hardware; bukan enclosure waterproof/IP-rated.
+Mohon beri quote biaya dan material sebelum cetak semua bagian.
+
+Perlu 4 buah sekrup M3x10 self-tapping plastik (cover samping),
+4 buah sekrup M3x8 self-tapping plastik (tray), bukan bagian cetakan.
